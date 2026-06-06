@@ -83,12 +83,14 @@ export interface MetadataPreview {
   serialNumber: string | null;
   software: string | null;
   dateTime: string | null;
+  artist: string | null;
+  userComment: string | null;
 }
 
 export async function readMetadata(file: File): Promise<MetadataPreview> {
   const [exifRaw, gpsResult, pngText] = await Promise.all([
     exifr.parse(file, {
-      pick: ['Make', 'Model', 'SerialNumber', 'Software', 'DateTimeOriginal', 'DateTime'],
+      pick: ['Make', 'Model', 'SerialNumber', 'Software', 'DateTimeOriginal', 'DateTime', 'Artist', 'UserComment'],
     }).catch(() => null),
     exifr.gps(file).catch(() => null),
     file.type === 'image/png'
@@ -103,6 +105,13 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
   // For PNG: pull common text-chunk keys that map to our preview fields
   const textMap = Object.fromEntries(pngText?.entries.map(e => [e.key, e.value]) ?? []);
 
+  // exifr normalizes UserComment to camelCase; EXIF stores it with an 8-byte charset header
+  const rawComment = exifRaw?.userComment ?? exifRaw?.UserComment;
+  const userComment = typeof rawComment === 'string'
+    ? (/^(ASCII|UNICODE|JIS)/.test(rawComment) ? rawComment.slice(8) : rawComment)
+        .replace(/\0/g, '').trim() || null
+    : null;
+
   return {
     gps,
     make: exifRaw?.Make ?? null,
@@ -110,6 +119,8 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
     serialNumber: exifRaw?.SerialNumber ?? null,
     software: exifRaw?.Software ?? textMap['Software'] ?? textMap['Comment'] ?? null,
     dateTime: exifRaw?.DateTimeOriginal ?? exifRaw?.DateTime ?? textMap['Creation Time'] ?? null,
+    artist: exifRaw?.Artist ?? null,
+    userComment,
   };
 }
 

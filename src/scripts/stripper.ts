@@ -1,6 +1,9 @@
-import { readMetadata, readRichMetadata, defaultStripperManager, paranoidStripperManager } from '../lib/stripMeta.ts';
+import { readMetadata, defaultStripperManager, paranoidStripperManager } from '../lib/stripMeta.ts';
 import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stripMeta.ts';
 import { formatBytes, formatGps } from '../lib/format.ts';
+import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
+import { openMetadataModal } from './modal.ts';
+import { initSettingsPanel } from './settings-panel.ts';
 
 const dropZone = document.getElementById('drop-zone')!;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -9,11 +12,6 @@ const fileWarningBanner = document.getElementById('file-warning-banner')!;
 const actions = document.getElementById('actions')!;
 const btnStrip = document.getElementById('btn-strip') as HTMLButtonElement;
 const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
-const modal = document.getElementById('metadata-modal') as HTMLDialogElement;
-const modalTitle = modal.querySelector<HTMLElement>('.modal-title')!;
-const modalHandler = modal.querySelector<HTMLElement>('.modal-handler')!;
-const modalContent = modal.querySelector<HTMLElement>('.modal-content')!;
-
 const toggleParanoid = document.getElementById('toggle-paranoid') as HTMLInputElement;
 const toggleSkipClean = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
@@ -36,21 +34,8 @@ let levelOf = new Map<File, WarningLevel>();
 const metadataCache = new Map<File, MetadataPreview>();
 const rowOf = new Map<File, HTMLElement>();
 
-function getSkipReason(file: File): 'unsupported' | 'lossy' | 'no-metadata' | null {
-  if (settings.skipUnsupported) {
-    const level = levelOf.get(file);
-    if (level === 'unsupported') return 'unsupported';
-    // 'lossy' means no lossless handler — treat as unsupported unless paranoid mode is on
-    // (paranoid explicitly re-encodes via canvas, so the user accepts lossy output)
-    if (!settings.paranoid && level === 'lossy') return 'lossy';
-  }
-  if (settings.skipClean) {
-    const meta = metadataCache.get(file);
-    if (meta && !meta.gps && !meta.make && !meta.model && !meta.serialNumber && !meta.dateTime && !meta.software) {
-      return 'no-metadata';
-    }
-  }
-  return null;
+function getSkipReason(file: File) {
+  return _getSkipReason(file, settings, levelOf, metadataCache);
 }
 
 function applySkipStatus(file: File) {
@@ -88,56 +73,6 @@ function syncList() {
   }
 }
 
-// — Metadata modal —
-
-function openMetadataModal(file: File) {
-  modalTitle.textContent = file.name;
-  modalHandler.textContent = '';
-  modalHandler.classList.add('hidden');
-  modalContent.innerHTML = '<div class="flex justify-center py-10"><span class="loading loading-spinner loading-md"></span></div>';
-  modal.showModal();
-
-  activeManager().resolve(file).then(h => {
-    modalHandler.innerHTML = `<span class="font-semibold text-base-content/60">${h.name}</span><span class="mx-1.5 text-base-content/30">—</span>${h.description}`;
-    modalHandler.classList.remove('hidden');
-  }).catch(() => {});
-
-  readRichMetadata(file).then(sections => {
-    modalContent.innerHTML = '';
-    if (!sections.length) {
-      const msg = document.createElement('p');
-      msg.className = 'text-sm text-base-content/50 py-10 text-center';
-      msg.textContent = 'No metadata found in this file.';
-      modalContent.appendChild(msg);
-      return;
-    }
-    for (const [i, section] of sections.entries()) {
-      const heading = document.createElement('p');
-      heading.className = 'text-xs font-semibold uppercase tracking-widest text-base-content/45 mb-1.5' + (i > 0 ? ' mt-5' : '');
-      heading.textContent = section.name;
-
-      const table = document.createElement('table');
-      table.className = 'table table-xs w-full';
-      const tbody = document.createElement('tbody');
-      for (const { key, value } of section.entries) {
-        const tr = document.createElement('tr');
-        const tdKey = document.createElement('td');
-        tdKey.className = 'text-base-content/50 w-2/5 align-top font-medium py-1 pr-3';
-        tdKey.textContent = key;
-        const tdVal = document.createElement('td');
-        tdVal.className = 'break-all py-1 text-base-content/80';
-        tdVal.textContent = value;
-        tr.append(tdKey, tdVal);
-        tbody.appendChild(tr);
-      }
-      table.appendChild(tbody);
-      modalContent.append(heading, table);
-    }
-  }).catch(() => {
-    modalContent.innerHTML = '<p class="text-sm text-error py-10 text-center">Could not read metadata.</p>';
-  });
-}
-
 // — File row —
 
 function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-right'): HTMLElement {
@@ -155,7 +90,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   rowOf.set(file, row);
 
   const body = document.createElement('div');
-  body.className = 'card-body p-4 flex-row items-stretch gap-3';
+  body.className = 'card-body p-4 flex-row items-start gap-3';
 
   // Left: name + subline
   const left = document.createElement('div');
@@ -182,7 +117,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
 
   // Right: status + handler row (with inline lossy badge)
   const right = document.createElement('div');
-  right.className = 'flex flex-col items-end justify-between shrink-0';
+  right.className = 'flex flex-col items-end justify-between shrink-0 self-stretch';
 
   if (level === 'unsupported') {
     right.appendChild(badge('badge-error badge-sm', '✕ Unsupported', 'Cannot be decoded in this browser — stripping will fail', 'tooltip-left'));
@@ -226,7 +161,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
     detailsBtn.type = 'button';
     detailsBtn.className = 'text-xs text-base-content/40 hover:text-primary transition-colors shrink-0';
     detailsBtn.textContent = 'details…';
-    detailsBtn.addEventListener('click', () => openMetadataModal(file));
+    detailsBtn.addEventListener('click', () => openMetadataModal(file, activeManager()));
     subline.append(sep, detailsBtn);
 
     readMetadata(file).then(preview => {
@@ -247,8 +182,14 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
       if (preview.software) {
         badgesSlot.appendChild(badge('badge-ghost max-w-[8rem] truncate', preview.software, preview.software));
       }
+      if (preview.artist) {
+        badgesSlot.appendChild(badge('badge-error max-w-[9rem] truncate', '👤 ' + preview.artist, preview.artist));
+      }
+      if (preview.userComment) {
+        badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
+      }
       metadataCache.set(file, preview);
-      if (!preview.gps && !preview.make && !preview.model && !preview.serialNumber && !preview.dateTime && !preview.software) {
+      if (!preview.gps && !preview.make && !preview.model && !preview.serialNumber && !preview.dateTime && !preview.software && !preview.artist && !preview.userComment) {
         detailsBtn.textContent = 'no metadata';
       }
       syncList();
@@ -418,22 +359,4 @@ toggleParanoid.addEventListener('change', () => {
 toggleSkipClean.addEventListener('change', syncList);
 toggleSkipUnsupported.addEventListener('change', syncList);
 
-// Animate settings panel open and close.
-const settingsDetails = document.getElementById('settings-details') as HTMLDetailsElement;
-const settingsBody = settingsDetails.querySelector<HTMLElement>('.settings-body')!;
-
-settingsDetails.querySelector('summary')!.addEventListener('click', e => {
-  e.preventDefault();
-  if (settingsDetails.open) {
-    settingsBody.animate(
-      [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-6px)' }],
-      { duration: 150, easing: 'ease' },
-    ).onfinish = () => settingsDetails.removeAttribute('open');
-  } else {
-    settingsDetails.setAttribute('open', '');
-    settingsBody.animate(
-      [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'translateY(0)' }],
-      { duration: 200, easing: 'ease' },
-    );
-  }
-});
+initSettingsPanel();
