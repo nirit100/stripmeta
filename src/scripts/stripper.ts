@@ -5,6 +5,7 @@ import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
 import { openMetadataModal } from './modal.ts';
 import { initSettingsPanel } from './settings-panel.ts';
 
+const hero = document.getElementById('hero') as HTMLElement;
 const dropZone = document.getElementById('drop-zone')!;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
 const fileList = document.getElementById('file-list')!;
@@ -32,6 +33,37 @@ let files: File[] = [];
 let sortedFiles: File[] = [];
 let levelOf = new Map<File, WarningLevel>();
 const metadataCache = new Map<File, MetadataPreview>();
+let heroCollapsed = false;
+
+function collapseHero() {
+  if (heroCollapsed) return;
+  heroCollapsed = true;
+  for (const a of hero.getAnimations()) a.cancel();
+  const h = hero.scrollHeight;
+  hero.style.overflow = 'hidden';
+  const anim = hero.animate(
+    [{ height: h + 'px', opacity: 1, marginBottom: '0px' },
+     { height: '0px', opacity: 0, marginBottom: '-2.5rem' }],
+    { duration: 350, easing: 'ease', fill: 'forwards' },
+  );
+  anim.onfinish = () => { hero.hidden = true; anim.cancel(); hero.style.overflow = ''; };
+}
+
+function expandHero() {
+  if (!heroCollapsed) return;
+  heroCollapsed = false;
+  for (const a of hero.getAnimations()) a.cancel();
+  hero.hidden = false;
+  hero.style.overflow = 'hidden';
+  const h = hero.scrollHeight;
+  const anim = hero.animate(
+    [{ height: '0px', opacity: 0, marginBottom: '-2.5rem' },
+     { height: h + 'px', opacity: 1, marginBottom: '0px' }],
+    { duration: 350, easing: 'ease', fill: 'both' },
+  );
+  anim.onfinish = () => { anim.cancel(); hero.style.overflow = ''; };
+}
+
 const rowOf = new Map<File, HTMLElement>();
 const urlOf = new Map<File, string>();
 
@@ -51,6 +83,7 @@ function afterRemove() {
     fileList.classList.add('hidden');
     actions.classList.add('hidden');
     fileWarningBanner.hidden = true;
+    expandHero();
   } else {
     renderBanner(levelOf);
   }
@@ -334,8 +367,9 @@ async function render() {
   fileList.classList.toggle('hidden', !visible);
   actions.classList.toggle('hidden', !visible);
 
-  if (!visible) { fileWarningBanner.hidden = true; return; }
+  if (!visible) { fileWarningBanner.hidden = true; expandHero(); return; }
 
+  collapseHero();
   const levels = await Promise.all(files.map(f => activeManager().classify(f)));
   levelOf = new Map(files.map((f, i) => [f, levels[i]!]));
 
