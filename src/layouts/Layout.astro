@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import Brand from '../components/Brand.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
 
 interface Props {
   title: string;
@@ -21,6 +22,12 @@ const {
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <title>{title}</title>
+    <script is:inline>
+      (function () {
+        const t = localStorage.getItem('stripmeta-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
   </head>
   <body class="min-h-dvh flex flex-col bg-base-100 text-base-content">
     <header class="navbar border-b border-base-200 px-6">
@@ -32,6 +39,7 @@ const {
           >Remove photo metadata — privately.</span
         >
       </div>
+      <ThemeToggle />
     </header>
 
     <main
