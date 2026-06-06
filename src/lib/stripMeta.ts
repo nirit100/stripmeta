@@ -1,8 +1,21 @@
 import exifr from 'exifr';
-import { defaultStripperManager } from './strippers/manager.ts';
+import { StripperManager } from './strippers/manager.ts';
+import { jpegStripper } from './strippers/jpeg.ts';
+import { pngStripper } from './strippers/png.ts';
+import { webpStripper } from './strippers/webp.ts';
+import { canvasStripper } from './strippers/canvas.ts';
+import { browserCapabilities } from './platform.ts';
 
-export type { StripperHandler } from './strippers/types.ts';
-export { defaultStripperManager };
+export type { StripperHandler, WarningLevel } from './strippers/types.ts';
+export { StripperManager };
+
+// Handlers are tried in registration order; first match wins.
+// canvasStripper must be last — it defers to capabilities to decide support.
+export const defaultStripperManager = new StripperManager(browserCapabilities)
+  .register(jpegStripper)
+  .register(pngStripper)
+  .register(webpStripper)
+  .register(canvasStripper);
 
 export interface MetadataPreview {
   gps: { latitude: number; longitude: number } | null;

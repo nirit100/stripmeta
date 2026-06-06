@@ -22,8 +22,9 @@ function dataUrlToBlob(dataUrl: string): Blob {
 export const jpegStripper: StripperHandler = {
   name: 'JPEG (lossless)',
   description: 'Removes EXIF segments from the JPEG binary without touching the compressed image data.',
+  lossless: true,
 
-  canHandle: (file) => file.type === 'image/jpeg',
+  supports: async (file) => file.type === 'image/jpeg' || file.type === 'image/jpg',
 
   strip: async (file) => {
     const dataUrl = await fileToDataUrl(file);

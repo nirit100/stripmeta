@@ -34,8 +34,9 @@ function reEncode(file: File): Promise<Blob> {
 export const canvasStripper: StripperHandler = {
   name: 'Canvas re-encode',
   description: 'Decodes the image to raw pixels and re-encodes as JPEG, stripping all embedded metadata. Introduces a small quality loss.',
+  lossless: false,
 
-  canHandle: (_file) => true,
+  supports: async (file, capabilities) => capabilities.canDecodeImage(file.type),
 
   strip: reEncode,
 };

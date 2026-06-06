@@ -1,30 +1,32 @@
-import type { StripperHandler } from './types.ts';
-import { jpegStripper } from './jpeg.ts';
-import { pngStripper } from './png.ts';
-import { canvasStripper } from './canvas.ts';
+import type { StripperHandler, PlatformCapabilities, WarningLevel } from './types.ts';
 
 export class StripperManager {
   private handlers: StripperHandler[] = [];
+
+  constructor(private readonly capabilities: PlatformCapabilities) {}
 
   register(handler: StripperHandler): this {
     this.handlers.push(handler);
     return this;
   }
 
-  resolve(file: File): StripperHandler {
-    const handler = this.handlers.find(h => h.canHandle(file));
-    if (!handler) throw new Error(`No handler available for ${file.type || 'unknown type'}`);
-    return handler;
+  async resolve(file: File): Promise<StripperHandler> {
+    for (const handler of this.handlers) {
+      if (await handler.supports(file, this.capabilities)) return handler;
+    }
+    throw new Error(`No handler available for ${file.type || 'unknown type'}`);
+  }
+
+  async classify(file: File): Promise<WarningLevel> {
+    for (const handler of this.handlers) {
+      if (await handler.supports(file, this.capabilities)) {
+        return handler.lossless ? 'none' : 'lossy';
+      }
+    }
+    return 'unsupported';
   }
 
   strip(file: File): Promise<Blob> {
-    return this.resolve(file).strip(file);
+    return this.resolve(file).then(h => h.strip(file));
   }
 }
-
-// Default manager — handlers are tried in registration order; first match wins.
-// canvasStripper must be last since it accepts everything as a fallback.
-export const defaultStripperManager = new StripperManager()
-  .register(jpegStripper)
-  .register(pngStripper)
-  .register(canvasStripper);
