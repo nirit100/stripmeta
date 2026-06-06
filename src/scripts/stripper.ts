@@ -356,6 +356,15 @@ async function stripAndDownload() {
 
   btnStrip.disabled = false;
   btnStrip.textContent = 'Strip metadata & download';
+
+  // Notify others that the user successfully processed files at least once.
+  if (blobs.length > 0) {
+    try {
+      window.dispatchEvent(new CustomEvent('stripmeta:processed'));
+    } catch (e) {
+      // ignore
+    }
+  }
 }
 
 function download(url: string, filename: string) {

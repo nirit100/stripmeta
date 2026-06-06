@@ -1,5 +1,5 @@
 ---
-import '../styles/global.css';
+import "../styles/global.css";
 
 interface Props {
   title: string;
@@ -8,7 +8,7 @@ interface Props {
 
 const {
   title,
-  description = 'Remove EXIF metadata from your photos privately. Everything happens in your browser — nothing is ever uploaded.',
+  description = "Remove EXIF metadata from your photos privately. Everything happens in your browser — nothing is ever uploaded.",
 } = Astro.props;
 ---
 
@@ -22,21 +22,95 @@ const {
     <title>{title}</title>
   </head>
   <body class="min-h-dvh flex flex-col bg-base-100 text-base-content">
-
     <header class="navbar border-b border-base-200 px-6">
       <div class="flex-1">
-        <a href="/" class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 bg-clip-text text-transparent">StripMeta // UNDER CONSTRUCTION</a>
-        <span class="ml-3 text-sm text-base-content/50 hidden sm:inline">Remove photo metadata — privately.</span>
+        <a
+          href="/"
+          class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 bg-clip-text text-transparent"
+          >StripMeta // UNDER CONSTRUCTION</a
+        >
+        <span class="ml-3 text-sm text-base-content/50 hidden sm:inline"
+          >Remove photo metadata — privately.</span
+        >
       </div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center px-4 py-16 gap-10 max-w-3xl mx-auto w-full">
+    <main
+      class="flex-1 flex flex-col items-center px-4 py-16 gap-10 max-w-3xl mx-auto w-full"
+    >
       <slot />
     </main>
 
-    <footer class="footer footer-center py-6 text-xs text-base-content/30 border-t border-base-200">
-      <p>Everything runs in your browser. No images and no info about them ever leave your device.</p>
+    <footer
+      class="footer footer-center py-6 text-xs text-base-content/30 border-t border-base-200"
+    >
+      <div
+        class="w-full max-w-3xl mx-auto flex items-center justify-between gap-3 px-4"
+      >
+        <p class="m-0">
+          Everything runs in your browser. Nothing ever
+          leaves your device.
+        </p>
+        <div class="flex items-center gap-2">
+          <a
+            class="btn btn-xs btn-outline hover:bg-[#FF5E78] hover:text-white hover:border-[#FF5E78]"
+            href="https://ko-fi.com/USERNAME"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Buy me a coffee on Ko-fi">☕ Ko-fi</a
+          >
+          <a
+            class="btn btn-xs btn-outline hover:bg-[#0070ba] hover:text-white hover:border-[#0070ba]"
+            href="https://paypal.me/nrittinghaus"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Donate via PayPal">💸 PayPal</a
+          >
+          <button id="btn-about-footer" class="btn btn-xs btn-ghost"
+            >ℹ️ About</button
+          >
+        </div>
+      </div>
     </footer>
 
+    <dialog id="about-modal" class="modal">
+      <div class="modal-box max-w-xlg p-0 overflow-hidden">
+        <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300">
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold text-lg">About StripMeta</h3>
+          </div>
+          <form method="dialog">
+            <button class="btn btn-ghost btn-sm btn-circle text-base-content/40">✕</button>
+          </form>
+        </div>
+
+        <div class="space-y-4 px-5 py-5 text-sm text-base-content/70">
+          <p>
+            <strong class="font-semibold text-base-content">StripMeta</strong> removes EXIF and other metadata right in your browser, so your images never leave your device and neither does any private information.
+          </p>
+          <p>
+            I'm building this solo, for free, and without ads because privacy matters. If you find this useful, even a small donation helps keep it going.
+          </p>
+        </div>
+
+        <div class="flex flex-col items-center gap-3 border-t border-base-300 px-5 py-4 text-sm text-base-content/70 text-center">
+          <div class="flex flex-wrap items-center justify-center gap-2">
+            <div id="kofi-button-container"></div>
+            <script type="text/javascript" src="https://storage.ko-fi.com/cdn/widget/Widget_2.js"></script>
+            <script type="text/javascript">kofiwidget2.init("Buy me a Ko-fi", "#ff6b6b", "T2X820XGLH");kofiwidget2.draw();</script>
+            <span>or</span>
+            <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 h-9 mx-1 rounded-md" href="https://www.paypal.com/donate/?hosted_button_id=CGU9PUFDTHRT6" target="_blank" rel="noopener noreferrer">
+              <img class="w-4 h-4 shrink-0 object-contain" src="https://www.paypalobjects.com/paypal-ui/logos/svg/paypal-mark-monotone-transparent.svg" alt="PayPal logo" />
+              Donate via PayPal
+            </a>
+          </div>
+          <div class="flex items-center justify-center gap-3">
+            <p>This project is open-source:</p>
+            <a class="btn btn-sm btn-outline" href="https://github.com/nirit100/stripmeta" target="_blank" rel="noopener noreferrer">🐙 Source</a>
+          </div>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
   </body>
 </html>
