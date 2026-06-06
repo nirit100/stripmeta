@@ -98,7 +98,7 @@ function openMetadataModal(file: File) {
   modal.showModal();
 
   activeManager().resolve(file).then(h => {
-    modalHandler.innerHTML = `<span class="font-semibold text-base-content/50">${h.name}</span><span class="mx-1.5 text-base-content/20">—</span>${h.description}`;
+    modalHandler.innerHTML = `<span class="font-semibold text-base-content/60">${h.name}</span><span class="mx-1.5 text-base-content/30">—</span>${h.description}`;
     modalHandler.classList.remove('hidden');
   }).catch(() => {});
 
@@ -106,14 +106,14 @@ function openMetadataModal(file: File) {
     modalContent.innerHTML = '';
     if (!sections.length) {
       const msg = document.createElement('p');
-      msg.className = 'text-sm text-base-content/40 py-10 text-center';
+      msg.className = 'text-sm text-base-content/50 py-10 text-center';
       msg.textContent = 'No metadata found in this file.';
       modalContent.appendChild(msg);
       return;
     }
     for (const [i, section] of sections.entries()) {
       const heading = document.createElement('p');
-      heading.className = 'text-xs font-semibold uppercase tracking-widest text-base-content/35 mb-1.5' + (i > 0 ? ' mt-5' : '');
+      heading.className = 'text-xs font-semibold uppercase tracking-widest text-base-content/45 mb-1.5' + (i > 0 ? ' mt-5' : '');
       heading.textContent = section.name;
 
       const table = document.createElement('table');
@@ -169,7 +169,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   subline.className = 'flex flex-wrap items-center gap-1.5';
 
   const sizeSpan = document.createElement('span');
-  sizeSpan.className = 'text-xs text-base-content/35 shrink-0';
+  sizeSpan.className = 'text-xs text-base-content/45 shrink-0';
   sizeSpan.textContent = formatBytes(file.size);
 
   // Container where metadata badges will be inserted asynchronously
@@ -196,7 +196,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   const handlerRow = document.createElement('div');
   handlerRow.className = 'flex items-center gap-1.5';
   const handlerInfo = document.createElement('span');
-  handlerInfo.className = 'text-xs text-base-content/25';
+  handlerInfo.className = 'text-xs text-base-content/35';
   handlerRow.appendChild(handlerInfo);
   right.appendChild(handlerRow);
 
@@ -216,11 +216,11 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
 
   if (level !== 'unsupported') {
     const sep = document.createElement('span');
-    sep.className = 'text-base-content/20 text-xs select-none shrink-0';
+    sep.className = 'text-base-content/30 text-xs select-none shrink-0';
     sep.textContent = '·';
     const detailsBtn = document.createElement('button');
     detailsBtn.type = 'button';
-    detailsBtn.className = 'text-xs text-base-content/30 hover:text-primary transition-colors shrink-0';
+    detailsBtn.className = 'text-xs text-base-content/40 hover:text-primary transition-colors shrink-0';
     detailsBtn.textContent = 'details…';
     detailsBtn.addEventListener('click', () => openMetadataModal(file));
     subline.append(sep, detailsBtn);

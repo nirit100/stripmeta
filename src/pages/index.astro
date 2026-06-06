@@ -36,37 +36,37 @@ import Layout from '../layouts/Layout.astro';
     <p class="text-base-content/50 text-sm text-center">
       <strong class="text-base-content font-semibold">Drop photos here</strong> or click to select
     </p>
-    <p class="text-xs text-base-content/40">JPEG, PNG, TIFF, HEIC — up to 50 files</p>
+    <p class="text-xs text-base-content/50">JPEG, PNG, TIFF, HEIC — up to 50 files</p>
     <input id="file-input" type="file" accept="image/*" multiple class="hidden" />
   </div>
 
   <details id="settings-details" class="w-full group border border-base-300 rounded-xl overflow-hidden">
     <summary class="list-none flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-base-200/60 transition-colors">
-      <svg class="w-3 h-3 text-base-content/30 transition-transform group-open:rotate-90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+      <svg class="w-3 h-3 text-base-content/40 transition-transform group-open:rotate-90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
       </svg>
-      <span class="text-xs font-medium uppercase tracking-widest text-base-content/40">Settings</span>
+      <span class="text-xs font-medium uppercase tracking-widest text-base-content/50">Settings</span>
     </summary>
     <div class="settings-body border-t border-base-300 divide-y divide-base-300">
       <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
         <div>
           <p class="text-sm font-medium">Paranoid mode</p>
-          <p class="text-xs text-base-content/40">Always re-encode via canvas — strips everything, but output is <b>always JPEG</b>. Small quality loss.</p>
-          <p class="text-xs text-base-content/40">Only use when you're really paranoid.</p>
+          <p class="text-xs text-base-content/50">Always re-encode via canvas — strips everything, but output is <b>always JPEG</b>. Small quality loss.</p>
+          <p class="text-xs text-base-content/50">Only use when you're really paranoid.</p>
         </div>
         <input type="checkbox" id="toggle-paranoid" class="toggle toggle-sm toggle-warning shrink-0" />
       </label>
       <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
         <div>
           <p class="text-sm font-medium">Skip files with no found metadata</p>
-          <p class="text-xs text-base-content/40">If disabled they will be processed anyways.</p>
+          <p class="text-xs text-base-content/50">If disabled they will be processed anyways.</p>
         </div>
         <input type="checkbox" id="toggle-skip-clean" class="toggle toggle-sm shrink-0" checked />
       </label>
       <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
         <div>
           <p class="text-sm font-medium">Skip unsupported files</p>
-          <p class="text-xs text-base-content/40">This tool really supports the most common image formats (e.g. JPEG, PNG, WEBP). If disabled, images in other formats are re-encoded to JPEG via the canvas method.</p>
+          <p class="text-xs text-base-content/50">This tool really supports the most common image formats (e.g. JPEG, PNG, WEBP). If disabled, images in other formats are re-encoded to JPEG via the canvas method.</p>
         </div>
         <input type="checkbox" id="toggle-skip-unsupported" class="toggle toggle-sm shrink-0" checked />
       </label>
@@ -93,10 +93,10 @@ import Layout from '../layouts/Layout.astro';
     <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300 shrink-0">
       <div class="flex-1 min-w-0">
         <h3 class="font-semibold text-sm truncate modal-title text-base-content/80"></h3>
-        <p class="modal-handler text-xs text-base-content/35 mt-0.5 hidden leading-relaxed"></p>
+        <p class="modal-handler text-xs text-base-content/45 mt-0.5 hidden leading-relaxed"></p>
       </div>
       <form method="dialog">
-        <button class="btn btn-ghost btn-sm btn-circle text-base-content/40">✕</button>
+        <button class="btn btn-ghost btn-sm btn-circle text-base-content/50">✕</button>
       </form>
     </div>
     <div class="flex-1 overflow-y-auto px-5 py-4 modal-content"></div>
