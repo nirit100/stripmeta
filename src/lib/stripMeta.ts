@@ -81,18 +81,18 @@ export interface MetadataPreview {
 }
 
 export async function readMetadata(file: File): Promise<MetadataPreview> {
-  const [exifRaw, pngText] = await Promise.all([
+  const [exifRaw, gpsResult, pngText] = await Promise.all([
     exifr.parse(file, {
       pick: ['Make', 'Model', 'SerialNumber', 'Software', 'DateTimeOriginal', 'DateTime'],
-      gps: true,
     }).catch(() => null),
+    exifr.gps(file).catch(() => null),
     file.type === 'image/png'
       ? file.arrayBuffer().then(b => decodePngTextChunks(new Uint8Array(b))).catch(() => null)
       : Promise.resolve(null),
   ]);
 
-  const gps = (exifRaw?.latitude != null && exifRaw?.longitude != null)
-    ? { latitude: exifRaw.latitude as number, longitude: exifRaw.longitude as number }
+  const gps = (gpsResult?.latitude != null && gpsResult?.longitude != null)
+    ? { latitude: gpsResult.latitude, longitude: gpsResult.longitude }
     : null;
 
   // For PNG: pull common text-chunk keys that map to our preview fields

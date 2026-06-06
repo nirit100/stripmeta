@@ -53,6 +53,19 @@ import Layout from '../layouts/Layout.astro';
 
 </Layout>
 
+<dialog id="metadata-modal" class="modal">
+  <div class="modal-box w-full max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden">
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300 shrink-0">
+      <h3 class="font-semibold text-sm flex-1 truncate modal-title text-base-content/80"></h3>
+      <form method="dialog">
+        <button class="btn btn-ghost btn-sm btn-circle text-base-content/40">✕</button>
+      </form>
+    </div>
+    <div class="flex-1 overflow-y-auto px-5 py-4 modal-content"></div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
 <script>
   import '../scripts/stripper.ts';
 </script>
