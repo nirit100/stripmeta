@@ -39,6 +39,33 @@ import Layout from '../layouts/Layout.astro';
     <input id="file-input" type="file" accept="image/*" multiple class="hidden" />
   </div>
 
+  <details id="settings-details" class="w-full group border border-base-300 rounded-xl overflow-hidden">
+    <summary class="list-none flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-base-200/60 transition-colors">
+      <svg class="w-3 h-3 text-base-content/30 transition-transform group-open:rotate-90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+      </svg>
+      <span class="text-xs font-medium uppercase tracking-widest text-base-content/40">Settings</span>
+    </summary>
+    <div class="settings-body border-t border-base-300 divide-y divide-base-300">
+      <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+        <div>
+          <p class="text-sm font-medium">Paranoid mode</p>
+          <p class="text-xs text-base-content/40">Always re-encode via canvas — strips everything, output is JPEG</p>
+        </div>
+        <input type="checkbox" id="toggle-paranoid" class="toggle toggle-sm toggle-warning shrink-0" />
+      </label>
+      <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+        <p class="text-sm font-medium">Skip files without metadata</p>
+        <input type="checkbox" id="toggle-skip-clean" class="toggle toggle-sm shrink-0" checked />
+      </label>
+      <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+        <p class="text-sm font-medium">Skip unsupported files</p>
+        <input type="checkbox" id="toggle-skip-unsupported" class="toggle toggle-sm shrink-0" checked />
+      </label>
+    </div>
+  </details>
+
+
   <div id="file-warning-banner" class="w-full" hidden></div>
   <div id="file-list" class="w-full flex flex-col gap-2 hidden"></div>
 

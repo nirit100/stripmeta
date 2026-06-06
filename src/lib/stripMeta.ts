@@ -18,6 +18,11 @@ export const defaultStripperManager = new StripperManager(browserCapabilities)
   .register(webpStripper)
   .register(canvasStripper);
 
+// Paranoid mode: skip all native handlers and always re-encode through canvas.
+// Output is always JPEG at 0.95 quality, stripping every form of embedded metadata.
+export const paranoidStripperManager = new StripperManager(browserCapabilities)
+  .register(canvasStripper);
+
 // — PNG text chunk parsing —
 
 export interface MetadataSection {

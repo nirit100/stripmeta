@@ -102,55 +102,186 @@ describe('readMetadata', () => {
   });
 });
 
+describe('StripperManager.classify', () => {
+  function makeTypedFile(name: string, type: string): File {
+    return new File(['x'], name, { type });
+  }
+
+  it('returns none for JPEG', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.jpg', 'image/jpeg'))).toBe('none');
+  });
+
+  it('returns none for PNG', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.png', 'image/png'))).toBe('none');
+  });
+
+  it('returns none for WebP', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.webp', 'image/webp'))).toBe('none');
+  });
+
+  it('returns lossy for GIF', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.gif', 'image/gif'))).toBe('lossy');
+  });
+
+  it('returns lossy for BMP', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.bmp', 'image/bmp'))).toBe('lossy');
+  });
+
+  it('returns lossy for SVG', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.svg', 'image/svg+xml'))).toBe('lossy');
+  });
+
+  it('returns lossy for AVIF', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.avif', 'image/avif'))).toBe('lossy');
+  });
+
+  it('returns unsupported for HEIC', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.heic', 'image/heic'))).toBe('unsupported');
+  });
+
+  it('returns unsupported for HEIF', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.heif', 'image/heif'))).toBe('unsupported');
+  });
+
+  it('returns unsupported for unknown type', async () => {
+    const { defaultStripperManager } = await importFresh();
+    expect(await defaultStripperManager.classify(makeTypedFile('a.raw', 'image/x-raw'))).toBe('unsupported');
+  });
+
+  it('classifies a real GIF fixture as lossy', async () => {
+    vi.restoreAllMocks();
+    const { defaultStripperManager } = await importFresh();
+    const file = fixtureFile('test.gif', 'image/gif');
+    expect(await defaultStripperManager.classify(file)).toBe('lossy');
+  });
+});
+
 describe('stripMetadata', () => {
-  it('strips EXIF from a real JPEG and returns a smaller clean Blob', async () => {
-    vi.restoreAllMocks();
-    const { stripMetadata } = await importFresh();
+  describe('JPEG', () => {
+    it('removes EXIF and returns a smaller blob', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('with-exif.jpg', 'image/jpeg');
+      const result = await stripMetadata(file);
 
-    const file = fixtureFile('with-exif.jpg', 'image/jpeg');
-    const result = await stripMetadata(file);
+      expect(result.type).toBe('image/jpeg');
+      expect(result.size).toBeLessThan(file.size);
 
-    expect(result).toBeInstanceOf(Blob);
-    expect(result.type).toBe('image/jpeg');
-    expect(result.size).toBeLessThan(file.size);
+      const out = new Uint8Array(await result.arrayBuffer());
+      expect(out[0]).toBe(0xFF);
+      expect(out[1]).toBe(0xD8); // SOI marker
+      expect(out[out.length - 2]).toBe(0xFF);
+      expect(out[out.length - 1]).toBe(0xD9); // EOI marker
+      expect(out[2] === 0xFF && out[3] === 0xE1).toBe(false); // no APP1/EXIF
+    });
 
-    const buf = await result.arrayBuffer();
-    const marker = new Uint8Array(buf).slice(2, 4);
-    const hasExifMarker = marker[0] === 0xFF && marker[1] === 0xE1;
-    expect(hasExifMarker).toBe(false);
+    it('preserves all non-EXIF markers', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('with-exif.jpg', 'image/jpeg');
+      const result = await stripMetadata(file);
+
+      const out = new Uint8Array(await result.arrayBuffer());
+      // SOS marker (FF DA) must still be present — marks start of scan/image data
+      const hasImageData = out.some((b, i) => b === 0xFF && out[i + 1] === 0xDA);
+      expect(hasImageData).toBe(true);
+    });
+
+    it('is idempotent — stripping twice gives the same size', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('with-exif.jpg', 'image/jpeg');
+      const once = await stripMetadata(file);
+      const twice = await stripMetadata(new File([await once.arrayBuffer()], file.name, { type: file.type }));
+      expect(twice.size).toBe(once.size);
+    });
   });
 
-  it('strips iTXt metadata from a real PNG losslessly', async () => {
-    vi.restoreAllMocks();
-    const { stripMetadata } = await importFresh();
+  describe('PNG', () => {
+    it('removes iTXt chunks and returns a smaller blob', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('test.png', 'image/png');
+      const result = await stripMetadata(file);
 
-    const file = fixtureFile('test.png', 'image/png');
-    const result = await stripMetadata(file);
+      expect(result.type).toBe('image/png');
+      expect(result.size).toBeLessThan(file.size);
 
-    expect(result).toBeInstanceOf(Blob);
-    expect(result.type).toBe('image/png');
-    expect(result.size).toBeLessThan(file.size);
+      const out = new Uint8Array(await result.arrayBuffer());
+      const PNG_SIG = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+      expect(Array.from(out.slice(0, 8))).toEqual(PNG_SIG);
 
-    const outBytes = new Uint8Array(await result.arrayBuffer());
-    const outText = new TextDecoder('latin1').decode(outBytes);
-    expect(outText).not.toContain('iTXt');
+      const outText = new TextDecoder('latin1').decode(out);
+      expect(outText).not.toContain('iTXt');
+      expect(outText).not.toContain('tEXt');
+    });
+
+    it('preserves IHDR and IDAT chunks', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('test.png', 'image/png');
+      const result = await stripMetadata(file);
+
+      const outText = new TextDecoder('latin1').decode(new Uint8Array(await result.arrayBuffer()));
+      expect(outText).toContain('IHDR');
+      expect(outText).toContain('IDAT');
+      expect(outText).toContain('IEND');
+    });
+
+    it('is idempotent — stripping twice gives the same size', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('test.png', 'image/png');
+      const once = await stripMetadata(file);
+      const twice = await stripMetadata(new File([await once.arrayBuffer()], file.name, { type: file.type }));
+      expect(twice.size).toBe(once.size);
+    });
   });
 
-  it('strips EXIF chunk from a real WebP losslessly', async () => {
-    vi.restoreAllMocks();
-    const { stripMetadata } = await importFresh();
+  describe('WebP', () => {
+    it('removes EXIF chunk and clears VP8X EXIF flag', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('with-exif.webp', 'image/webp');
+      const result = await stripMetadata(file);
 
-    const file = fixtureFile('with-exif.webp', 'image/webp');
-    const result = await stripMetadata(file);
+      expect(result.type).toBe('image/webp');
+      expect(result.size).toBeLessThan(file.size);
 
-    expect(result).toBeInstanceOf(Blob);
-    expect(result.type).toBe('image/webp');
-    expect(result.size).toBeLessThan(file.size);
+      const out = new Uint8Array(await result.arrayBuffer());
+      const ascii = (s: Uint8Array) => new TextDecoder('ascii').decode(s);
+      expect(ascii(out.slice(0, 4))).toBe('RIFF');
+      expect(ascii(out.slice(8, 12))).toBe('WEBP');
+      expect(new TextDecoder('latin1').decode(out)).not.toContain('EXIF');
+      expect(out[20] & 0x08).toBe(0); // VP8X EXIF flag cleared
+    });
 
-    const outBytes = new Uint8Array(await result.arrayBuffer());
-    const outText = new TextDecoder('latin1').decode(outBytes);
-    expect(outText).not.toContain('EXIF');
-    const vp8xFlagsOffset = 20;
-    expect(outBytes[vp8xFlagsOffset] & 0x08).toBe(0);
+    it('preserves VP8 image data', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('with-exif.webp', 'image/webp');
+      const result = await stripMetadata(file);
+
+      const outText = new TextDecoder('latin1').decode(new Uint8Array(await result.arrayBuffer()));
+      expect(outText).toContain('VP8');
+    });
+
+    it('is idempotent — stripping twice gives the same size', async () => {
+      vi.restoreAllMocks();
+      const { stripMetadata } = await importFresh();
+      const file = fixtureFile('with-exif.webp', 'image/webp');
+      const once = await stripMetadata(file);
+      const twice = await stripMetadata(new File([await once.arrayBuffer()], file.name, { type: file.type }));
+      expect(twice.size).toBe(once.size);
+    });
   });
 });

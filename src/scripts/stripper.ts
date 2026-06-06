@@ -1,5 +1,5 @@
-import { readMetadata, readRichMetadata, stripMetadata, defaultStripperManager } from '../lib/stripMeta.ts';
-import type { WarningLevel } from '../lib/stripMeta.ts';
+import { readMetadata, readRichMetadata, defaultStripperManager, paranoidStripperManager } from '../lib/stripMeta.ts';
+import type { WarningLevel, MetadataPreview } from '../lib/stripMeta.ts';
 import { formatBytes, formatGps } from '../lib/format.ts';
 
 const dropZone = document.getElementById('drop-zone')!;
@@ -13,10 +13,26 @@ const modal = document.getElementById('metadata-modal') as HTMLDialogElement;
 const modalTitle = modal.querySelector<HTMLElement>('.modal-title')!;
 const modalContent = modal.querySelector<HTMLElement>('.modal-content')!;
 
+const toggleParanoid = document.getElementById('toggle-paranoid') as HTMLInputElement;
+const toggleSkipClean = document.getElementById('toggle-skip-clean') as HTMLInputElement;
+const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
+
+const settings = {
+  get paranoid() { return toggleParanoid.checked; },
+  get skipClean() { return toggleSkipClean.checked; },
+  get skipUnsupported() { return toggleSkipUnsupported.checked; },
+};
+
+function activeManager() {
+  return settings.paranoid ? paranoidStripperManager : defaultStripperManager;
+}
+
 const WARNING_ORDER: Record<WarningLevel, number> = { unsupported: 0, lossy: 1, none: 2 };
 
 let files: File[] = [];
 let sortedFiles: File[] = [];
+let levelOf = new Map<File, WarningLevel>();
+const metadataCache = new Map<File, MetadataPreview>();
 
 // — Metadata modal —
 
@@ -149,6 +165,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
       if (preview.software) {
         badgesSlot.appendChild(badge('badge-ghost max-w-[8rem] truncate', preview.software, preview.software));
       }
+      metadataCache.set(file, preview);
       if (!preview.gps && !preview.make && !preview.model && !preview.serialNumber && !preview.dateTime && !preview.software) {
         detailsBtn.textContent = 'no metadata';
       }
@@ -191,8 +208,8 @@ async function render() {
 
   if (!visible) { fileWarningBanner.hidden = true; return; }
 
-  const levels = await Promise.all(files.map(f => defaultStripperManager.classify(f)));
-  const levelOf = new Map(files.map((f, i) => [f, levels[i]!]));
+  const levels = await Promise.all(files.map(f => activeManager().classify(f)));
+  levelOf = new Map(files.map((f, i) => [f, levels[i]!]));
 
   sortedFiles = [...files].sort((a, b) => WARNING_ORDER[levelOf.get(a)!] - WARNING_ORDER[levelOf.get(b)!]);
   sortedFiles.forEach(file => fileList.appendChild(renderRow(file, levelOf.get(file)!)));
@@ -217,8 +234,30 @@ async function stripAndDownload() {
 
   await Promise.all(sortedFiles.map(async (file, i) => {
     const statusBadge = rows[i]?.querySelector<HTMLElement>('.status-badge');
+
+    const level = levelOf.get(file)!;
+    if (settings.skipUnsupported && level === 'unsupported') {
+      if (statusBadge) {
+        statusBadge.textContent = 'Skipped';
+        statusBadge.className = 'badge badge-ghost badge-sm status-badge';
+      }
+      return;
+    }
+
+    if (settings.skipClean) {
+      const meta = metadataCache.get(file);
+      const isClean = meta && !meta.gps && !meta.make && !meta.model && !meta.serialNumber && !meta.dateTime && !meta.software;
+      if (isClean) {
+        if (statusBadge) {
+          statusBadge.textContent = 'Skipped';
+          statusBadge.className = 'badge badge-ghost badge-sm status-badge';
+        }
+        return;
+      }
+    }
+
     try {
-      const blob = await stripMetadata(file);
+      const blob = await activeManager().strip(file);
       blobs.push({ name: file.name, blob });
       if (statusBadge) {
         statusBadge.textContent = 'Done';
@@ -265,5 +304,29 @@ dropZone.addEventListener('drop', e => {
   if (e.dataTransfer?.files) addFiles(e.dataTransfer.files);
 });
 
-btnClear.addEventListener('click', () => { files = []; sortedFiles = []; render(); });
+btnClear.addEventListener('click', () => { files = []; sortedFiles = []; levelOf.clear(); metadataCache.clear(); render(); });
 btnStrip.addEventListener('click', stripAndDownload);
+
+// Paranoid mode changes how files are classified → rebuild the file list.
+// Skip toggles only affect strip behaviour, no visual update needed.
+toggleParanoid.addEventListener('change', render);
+
+// Animate settings panel open and close.
+const settingsDetails = document.getElementById('settings-details') as HTMLDetailsElement;
+const settingsBody = settingsDetails.querySelector<HTMLElement>('.settings-body')!;
+
+settingsDetails.querySelector('summary')!.addEventListener('click', e => {
+  e.preventDefault();
+  if (settingsDetails.open) {
+    settingsBody.animate(
+      [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-6px)' }],
+      { duration: 150, easing: 'ease' },
+    ).onfinish = () => settingsDetails.removeAttribute('open');
+  } else {
+    settingsDetails.setAttribute('open', '');
+    settingsBody.animate(
+      [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      { duration: 200, easing: 'ease' },
+    );
+  }
+});
