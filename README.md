@@ -3,7 +3,7 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Built with Astro](https://img.shields.io/badge/Built%20with-Astro-FF5D01?logo=astro&logoColor=white)](https://astro.build)
 [![Live site](https://img.shields.io/badge/Live%20site-stripmeta.info-brightgreen)](https://stripmeta.info)
-[![Cloudflare Pages](https://img.shields.io/endpoint?url=https://cloudflare-pages-status-badge.nico-rittinghaus.workers.dev/?projectName=stripmeta&branch=main&showEnv=true)](https://stripmeta.info)
+[![Cloudflare Pages](https://img.shields.io/endpoint?url=https://cloudflare-pages-status-badge-stripmeta.nico-rittinghaus.workers.dev/?projectName=stripmeta&branch=main&showEnv=true)](https://stripmeta.info)
 
 Remove EXIF and other embedded metadata from photos — entirely in your browser. Nothing is ever uploaded anywhere.
 
