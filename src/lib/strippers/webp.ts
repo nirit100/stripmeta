@@ -79,7 +79,13 @@ export const webpStripper: StripperHandler = {
   description: 'Removes EXIF and XMP chunks from the WebP RIFF container without decoding or re-encoding the image bitstream.',
   lossless: true,
 
-  supports: async (file) => file.type === 'image/webp',
+  supports: async (file) => {
+    // Verify the RIFF....WEBP signature regardless of reported MIME type.
+    // Catches WebP files with wrong extensions and rejects non-WebP claiming to be WebP.
+    const sig = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    return sig[0] === 0x52 && sig[1] === 0x49 && sig[2] === 0x46 && sig[3] === 0x46 &&
+           sig[8] === 0x57 && sig[9] === 0x45 && sig[10] === 0x42 && sig[11] === 0x50;
+  },
 
   strip: async (file) => {
     const buffer = await file.arrayBuffer();
