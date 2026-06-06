@@ -155,11 +155,11 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
 
   if (level !== 'unsupported') {
     const sep = document.createElement('span');
-    sep.className = 'text-base-content/30 text-xs select-none shrink-0';
+    sep.className = 'text-base-content/30 text-xs select-none shrink-0 mx-1';
     sep.textContent = '·';
     const detailsBtn = document.createElement('button');
     detailsBtn.type = 'button';
-    detailsBtn.className = 'text-xs text-base-content/40 hover:text-primary transition-colors shrink-0';
+    detailsBtn.className = 'text-xs text-base-content/40 hover:text-primary transition-colors shrink-0 py-0 leading-none inline-flex items-center';
     detailsBtn.textContent = 'details…';
     detailsBtn.addEventListener('click', () => openMetadataModal(file, activeManager()));
     subline.append(sep, detailsBtn);
@@ -173,14 +173,14 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
         badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '📷 ' + cam, cam));
       }
       if (preview.serialNumber) {
-        badgesSlot.appendChild(badge('badge-warning', '# S/N', preview.serialNumber));
+        badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
       }
       if (preview.dateTime) {
         const dateStr = String(preview.dateTime).slice(0, 10).replace(/:/g, '-');
-        badgesSlot.appendChild(badge('badge-ghost font-mono', dateStr));
+        badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + dateStr));
       }
       if (preview.software) {
-        badgesSlot.appendChild(badge('badge-ghost max-w-[8rem] truncate', preview.software, preview.software));
+        badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '🛠️ ' + preview.software, preview.software));
       }
       if (preview.artist) {
         badgesSlot.appendChild(badge('badge-error max-w-[9rem] truncate', '👤 ' + preview.artist, preview.artist));
