@@ -1,0 +1,63 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+public/build/
+
+# Astro & framework caches
+.astro/
+.cache/
+.vercel/
+.vercel/output/
+.next/
+.vite/
+.parcel-cache/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# Dependency directories
+/.pnp/
+.pnp.js
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing / coverage
+coverage/
+.nyc_output/
+coverage-*.json
+
+# Env files
+.env
+.env.*.local
+.env.local
+
+# Editor directories and files
+.vscode/
+.vscode-test/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Key files
+*.pem
+*.key
+
+# Misc
+*.tgz
+*.lock
+.cache-loader
+dist-*/
+
