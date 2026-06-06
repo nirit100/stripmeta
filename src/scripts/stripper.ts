@@ -155,7 +155,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   rowOf.set(file, row);
 
   const body = document.createElement('div');
-  body.className = 'card-body p-4 flex-row items-start gap-3';
+  body.className = 'card-body p-4 flex-row items-stretch gap-3';
 
   // Left: name + subline
   const left = document.createElement('div');
@@ -182,19 +182,19 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
 
   // Right: status + handler row (with inline lossy badge)
   const right = document.createElement('div');
-  right.className = 'flex flex-col items-end gap-1 shrink-0';
+  right.className = 'flex flex-col items-end justify-between shrink-0';
 
   if (level === 'unsupported') {
     right.appendChild(badge('badge-error badge-sm', '✕ Unsupported', 'Cannot be decoded in this browser — stripping will fail', 'tooltip-left'));
   }
 
   const statusBadge = document.createElement('span');
-  statusBadge.className = 'badge badge-ghost badge-sm status-badge';
+  statusBadge.className = 'badge badge-outline badge-sm status-badge';
   statusBadge.textContent = 'Ready';
   right.appendChild(statusBadge);
 
   const handlerRow = document.createElement('div');
-  handlerRow.className = 'flex items-center gap-1.5';
+  handlerRow.className = 'flex items-center justify-end gap-1.5';
   const handlerInfo = document.createElement('span');
   handlerInfo.className = 'text-xs text-base-content/35';
   handlerRow.appendChild(handlerInfo);
@@ -207,7 +207,11 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   activeManager().resolve(file).then(h => {
     handlerInfo.textContent = h.name;
     if (level === 'lossy') {
-      handlerRow.appendChild(badge('badge-warning badge-xs', '⚠️ Lossy', 'Output will be re-encoded as JPEG (small quality loss)', 'tooltip-left'));
+      const lossyLabel = document.createElement('span');
+      lossyLabel.className = 'text-xs text-warning tooltip tooltip-left cursor-default';
+      lossyLabel.textContent = '⚠️ Lossy';
+      lossyLabel.dataset.tip = 'Output will be re-encoded as JPEG (small quality loss)';
+      handlerRow.appendChild(lossyLabel);
     }
   }).catch(() => {});
 
@@ -325,7 +329,7 @@ async function stripAndDownload() {
     if (getSkipReason(file) !== null) {
       if (statusBadge) {
         statusBadge.textContent = 'Skipped';
-        statusBadge.className = 'badge badge-ghost badge-sm status-badge';
+        statusBadge.className = 'badge badge-outline badge-sm status-badge';
       }
       return;
     }
