@@ -33,6 +33,71 @@ let sortedFiles: File[] = [];
 let levelOf = new Map<File, WarningLevel>();
 const metadataCache = new Map<File, MetadataPreview>();
 const rowOf = new Map<File, HTMLElement>();
+const urlOf = new Map<File, string>();
+
+function detachFile(file: File) {
+  const url = urlOf.get(file);
+  if (url) URL.revokeObjectURL(url);
+  urlOf.delete(file);
+  metadataCache.delete(file);
+  levelOf.delete(file);
+  files = files.filter(f => f !== file);
+  sortedFiles = sortedFiles.filter(f => f !== file);
+  rowOf.delete(file);
+}
+
+function afterRemove() {
+  if (files.length === 0) {
+    fileList.classList.add('hidden');
+    actions.classList.add('hidden');
+    fileWarningBanner.hidden = true;
+  } else {
+    renderBanner(levelOf);
+  }
+}
+
+function removeFile(file: File) {
+  const row = rowOf.get(file);
+  detachFile(file);
+  if (!row) { afterRemove(); return; }
+  row.style.transition = 'opacity 150ms ease-out';
+  row.style.opacity = '0';
+  setTimeout(() => { row.remove(); afterRemove(); }, 160);
+}
+
+function addSwipeToRemove(slideTarget: HTMLElement, removeTarget: HTMLElement, file: File) {
+  const hint = removeTarget.querySelector<HTMLElement>('.delete-hint');
+  let startX = 0;
+  slideTarget.addEventListener('touchstart', e => {
+    startX = e.touches[0]!.clientX;
+    slideTarget.style.transition = 'none';
+    if (hint) hint.style.transition = 'none';
+  }, { passive: true });
+  slideTarget.addEventListener('touchmove', e => {
+    const dx = Math.min(0, e.touches[0]!.clientX - startX);
+    if (dx < 0) {
+      slideTarget.style.transform = `translateX(${dx}px)`;
+      if (hint) hint.style.opacity = String(Math.min(1, -dx / 80));
+    }
+  }, { passive: true });
+  slideTarget.addEventListener('touchend', () => {
+    const match = /translateX\((-?\d+(?:\.\d+)?)px\)/.exec(slideTarget.style.transform);
+    const dx = match ? parseFloat(match[1]!) : 0;
+    if (dx < -80) {
+      slideTarget.style.transition = 'transform 180ms ease-out';
+      slideTarget.style.transform = 'translateX(-110%)';
+      setTimeout(() => { detachFile(file); removeTarget.remove(); afterRemove(); }, 190);
+    } else {
+      slideTarget.style.transition = 'transform 200ms ease-out';
+      slideTarget.style.transform = '';
+      if (hint) {
+        hint.style.transition = 'opacity 200ms ease-out';
+        hint.style.opacity = '0';
+      }
+      setTimeout(() => { slideTarget.style.transition = ''; }, 210);
+    }
+  });
+}
 
 function getSkipReason(file: File) {
   return _getSkipReason(file, settings, levelOf, metadataCache);
@@ -85,12 +150,25 @@ function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-right'
 
 function renderRow(file: File, level: WarningLevel): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'card card-bordered bg-base-200 shadow-none transition-opacity';
+  row.className = 'card card-bordered bg-base-200 shadow-none transition-opacity relative overflow-hidden';
   row.dataset.type = file.type;
   rowOf.set(file, row);
 
+  const deleteHint = document.createElement('div');
+  deleteHint.className = 'delete-hint absolute inset-y-0 right-0 flex items-center gap-2 px-6 bg-error text-error-content text-sm font-semibold pointer-events-none select-none opacity-0';
+  deleteHint.textContent = '✕ Remove';
+  row.appendChild(deleteHint);
+
   const body = document.createElement('div');
-  body.className = 'card-body p-4 flex-row items-start gap-3';
+  body.className = 'card-body p-4 flex-row items-start gap-3 bg-base-200 relative';
+
+  const objUrl = URL.createObjectURL(file);
+  urlOf.set(file, objUrl);
+  const thumb = document.createElement('img');
+  thumb.className = 'w-12 h-12 rounded object-cover shrink-0 bg-base-300';
+  thumb.src = objUrl;
+  thumb.alt = '';
+  thumb.draggable = false;
 
   // Left: name + subline
   const left = document.createElement('div');
@@ -115,18 +193,34 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
 
   left.append(nameEl, subline);
 
-  // Right: status + handler row (with inline lossy badge)
+  // Right: status + remove button (top), handler row (bottom)
   const right = document.createElement('div');
-  right.className = 'flex flex-col items-end justify-between shrink-0 self-stretch';
+  right.className = 'flex flex-col items-end shrink-0 self-stretch';
+
+  const topRow = document.createElement('div');
+  topRow.className = 'flex items-center gap-1.5';
 
   if (level === 'unsupported') {
-    right.appendChild(badge('badge-error badge-sm', '✕ Unsupported', 'Cannot be decoded in this browser — stripping will fail', 'tooltip-left'));
+    topRow.appendChild(badge('badge-error badge-sm', '✕ Unsupported', 'Cannot be decoded in this browser — stripping will fail', 'tooltip-left'));
   }
 
   const statusBadge = document.createElement('span');
   statusBadge.className = 'badge badge-outline badge-sm status-badge';
   statusBadge.textContent = 'Ready';
-  right.appendChild(statusBadge);
+  topRow.appendChild(statusBadge);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn btn-ghost btn-xs btn-circle -mr-1 text-error/80 hover:text-error-content hover:bg-error';
+  removeBtn.innerHTML = '&times;';
+  removeBtn.addEventListener('click', () => removeFile(file));
+  topRow.appendChild(removeBtn);
+
+  right.appendChild(topRow);
+
+  const spacer = document.createElement('div');
+  spacer.className = 'flex-1';
+  right.appendChild(spacer);
 
   const handlerRow = document.createElement('div');
   handlerRow.className = 'flex items-center justify-end gap-1.5';
@@ -135,7 +229,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   handlerRow.appendChild(handlerInfo);
   right.appendChild(handlerRow);
 
-  body.append(left, right);
+  body.append(thumb, left, right);
   row.appendChild(body);
 
   // Resolve handler name; append lossy badge inline when applicable
@@ -196,6 +290,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
     }).catch(() => {});
   }
 
+  addSwipeToRemove(body, row, file);
   return row;
 }
 
@@ -332,7 +427,15 @@ dropZone.addEventListener('drop', e => {
   if (e.dataTransfer?.files) addFiles(e.dataTransfer.files);
 });
 
-btnClear.addEventListener('click', () => { files = []; sortedFiles = []; levelOf.clear(); metadataCache.clear(); render(); });
+btnClear.addEventListener('click', () => {
+  for (const url of urlOf.values()) URL.revokeObjectURL(url);
+  urlOf.clear();
+  files = [];
+  sortedFiles = [];
+  levelOf.clear();
+  metadataCache.clear();
+  render();
+});
 btnStrip.addEventListener('click', stripAndDownload);
 
 // Paranoid mode changes classification → rebuild the full list.
