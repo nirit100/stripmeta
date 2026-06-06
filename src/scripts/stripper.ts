@@ -269,7 +269,15 @@ function renderBanner(levelOf: Map<File, WarningLevel>) {
 
   const lines: string[] = [];
   if (unsupported) lines.push(`<span class="text-error font-medium">${unsupported} file${unsupported > 1 ? 's' : ''} cannot be processed</span> — format not supported in this browser.`);
-  if (lossy) lines.push(`<span class="text-warning font-medium">${lossy} file${lossy > 1 ? 's' : ''} will be re-encoded as JPEG</span> — no lossless handler exists for ${lossy > 1 ? 'their' : 'its'} format${lossy > 1 ? 's' : ''}.`);
+  if (lossy) {
+    const plural = lossy > 1;
+    if (!settings.paranoid && settings.skipUnsupported) {
+      lines.push(`<span class="text-warning font-medium">${lossy} file${plural ? 's' : ''} will be skipped</span> — no lossless handler exists for ${plural ? 'their' : 'its'} format${plural ? 's' : ''}.`);
+    } else {
+      const reason = settings.paranoid ? 'because paranoid mode is enabled.' : `no lossless handler exists for ${plural ? 'their' : 'its'} format${plural ? 's' : ''}.`;
+      lines.push(`<span class="text-warning font-medium">${lossy} file${plural ? 's' : ''} will be re-encoded as JPEG</span> — ${reason}`);
+    }
+  }
 
   fileWarningBanner.hidden = false;
   fileWarningBanner.innerHTML = `
@@ -374,8 +382,26 @@ btnClear.addEventListener('click', () => { files = []; sortedFiles = []; levelOf
 btnStrip.addEventListener('click', stripAndDownload);
 
 // Paranoid mode changes classification → rebuild the full list.
+// When paranoid is on, skip-unsupported is meaningless (all lossy files are processed),
+// so we force it off and disable the control until paranoid is turned off.
+const labelSkipUnsupported = toggleSkipUnsupported.closest('label')!;
+let savedSkipUnsupported = toggleSkipUnsupported.checked;
+
+toggleParanoid.addEventListener('change', () => {
+  if (settings.paranoid) {
+    savedSkipUnsupported = toggleSkipUnsupported.checked;
+    toggleSkipUnsupported.checked = false;
+    toggleSkipUnsupported.disabled = true;
+    labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
+  } else {
+    toggleSkipUnsupported.disabled = false;
+    toggleSkipUnsupported.checked = savedSkipUnsupported;
+    labelSkipUnsupported.classList.remove('opacity-40', 'pointer-events-none');
+  }
+  render();
+});
+
 // Skip toggles only change status badges and row opacity.
-toggleParanoid.addEventListener('change', render);
 toggleSkipClean.addEventListener('change', syncList);
 toggleSkipUnsupported.addEventListener('change', syncList);
 
