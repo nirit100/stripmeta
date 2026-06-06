@@ -138,8 +138,12 @@ export async function readRichMetadata(file: File): Promise<MetadataSection[]> {
   if (file.type === 'image/png') {
     const buf = await file.arrayBuffer().catch(() => null);
     if (buf) {
-      const section = decodePngTextChunks(new Uint8Array(buf));
-      if (section) sections.push(section);
+      try {
+        const section = decodePngTextChunks(new Uint8Array(buf));
+        if (section) sections.push(section);
+      } catch {
+        // ignore malformed or unsupported PNG chunk structures
+      }
     }
   }
 

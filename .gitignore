@@ -61,3 +61,5 @@ Thumbs.db
 .cache-loader
 dist-*/
 
+# Test images
+Screenshot*
