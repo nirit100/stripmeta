@@ -1,5 +1,5 @@
 import { readMetadata, readRichMetadata, defaultStripperManager, paranoidStripperManager } from '../lib/stripMeta.ts';
-import type { WarningLevel, MetadataPreview } from '../lib/stripMeta.ts';
+import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stripMeta.ts';
 import { formatBytes, formatGps } from '../lib/format.ts';
 
 const dropZone = document.getElementById('drop-zone')!;
@@ -11,6 +11,7 @@ const btnStrip = document.getElementById('btn-strip') as HTMLButtonElement;
 const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
 const modal = document.getElementById('metadata-modal') as HTMLDialogElement;
 const modalTitle = modal.querySelector<HTMLElement>('.modal-title')!;
+const modalHandler = modal.querySelector<HTMLElement>('.modal-handler')!;
 const modalContent = modal.querySelector<HTMLElement>('.modal-content')!;
 
 const toggleParanoid = document.getElementById('toggle-paranoid') as HTMLInputElement;
@@ -23,7 +24,7 @@ const settings = {
   get skipUnsupported() { return toggleSkipUnsupported.checked; },
 };
 
-function activeManager() {
+function activeManager(): StripperManager {
   return settings.paranoid ? paranoidStripperManager : defaultStripperManager;
 }
 
@@ -33,13 +34,73 @@ let files: File[] = [];
 let sortedFiles: File[] = [];
 let levelOf = new Map<File, WarningLevel>();
 const metadataCache = new Map<File, MetadataPreview>();
+const rowOf = new Map<File, HTMLElement>();
+
+function getSkipReason(file: File): 'unsupported' | 'lossy' | 'no-metadata' | null {
+  if (settings.skipUnsupported) {
+    const level = levelOf.get(file);
+    if (level === 'unsupported') return 'unsupported';
+    // 'lossy' means no lossless handler — treat as unsupported unless paranoid mode is on
+    // (paranoid explicitly re-encodes via canvas, so the user accepts lossy output)
+    if (!settings.paranoid && level === 'lossy') return 'lossy';
+  }
+  if (settings.skipClean) {
+    const meta = metadataCache.get(file);
+    if (meta && !meta.gps && !meta.make && !meta.model && !meta.serialNumber && !meta.dateTime && !meta.software) {
+      return 'no-metadata';
+    }
+  }
+  return null;
+}
+
+function applySkipStatus(file: File) {
+  const row = rowOf.get(file);
+  if (!row) return;
+  const statusBadge = row.querySelector<HTMLElement>('.status-badge');
+  if (!statusBadge) return;
+
+  const reason = getSkipReason(file);
+  row.classList.toggle('opacity-40', reason !== null);
+  if (reason === 'unsupported') {
+    statusBadge.textContent = 'Skipped — unsupported';
+  } else if (reason === 'lossy') {
+    statusBadge.textContent = 'Skipped — no lossless handler';
+  } else if (reason === 'no-metadata') {
+    statusBadge.textContent = 'Skipped — no metadata';
+  } else {
+    statusBadge.textContent = 'Ready';
+  }
+}
+
+// Sorts files (skipped items last, then by warning level), updates status badges,
+// and repositions DOM rows — all in one pass.
+function syncList() {
+  sortedFiles = [...files].sort((a, b) => {
+    const aSkip = getSkipReason(a) !== null ? 1 : 0;
+    const bSkip = getSkipReason(b) !== null ? 1 : 0;
+    if (aSkip !== bSkip) return aSkip - bSkip;
+    return WARNING_ORDER[levelOf.get(a) ?? 'none'] - WARNING_ORDER[levelOf.get(b) ?? 'none'];
+  });
+  for (const file of sortedFiles) {
+    applySkipStatus(file);
+    const row = rowOf.get(file);
+    if (row) fileList.appendChild(row);
+  }
+}
 
 // — Metadata modal —
 
 function openMetadataModal(file: File) {
   modalTitle.textContent = file.name;
+  modalHandler.textContent = '';
+  modalHandler.classList.add('hidden');
   modalContent.innerHTML = '<div class="flex justify-center py-10"><span class="loading loading-spinner loading-md"></span></div>';
   modal.showModal();
+
+  activeManager().resolve(file).then(h => {
+    modalHandler.innerHTML = `<span class="font-semibold text-base-content/50">${h.name}</span><span class="mx-1.5 text-base-content/20">—</span>${h.description}`;
+    modalHandler.classList.remove('hidden');
+  }).catch(() => {});
 
   readRichMetadata(file).then(sections => {
     modalContent.innerHTML = '';
@@ -89,8 +150,9 @@ function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-right'
 
 function renderRow(file: File, level: WarningLevel): HTMLElement {
   const row = document.createElement('div');
-  row.className = 'card card-bordered bg-base-200 shadow-none';
+  row.className = 'card card-bordered bg-base-200 shadow-none transition-opacity';
   row.dataset.type = file.type;
+  rowOf.set(file, row);
 
   const body = document.createElement('div');
   body.className = 'card-body p-4 flex-row items-start gap-3';
@@ -118,13 +180,11 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
 
   left.append(nameEl, subline);
 
-  // Right: warning + status badges
+  // Right: status + handler row (with inline lossy badge)
   const right = document.createElement('div');
-  right.className = 'flex flex-col items-end gap-1.5 shrink-0';
+  right.className = 'flex flex-col items-end gap-1 shrink-0';
 
-  if (level === 'lossy') {
-    right.appendChild(badge('badge-warning badge-sm', '⚠️ Lossy', 'Output will be re-encoded as JPEG (small quality loss)', 'tooltip-left'));
-  } else if (level === 'unsupported') {
+  if (level === 'unsupported') {
     right.appendChild(badge('badge-error badge-sm', '✕ Unsupported', 'Cannot be decoded in this browser — stripping will fail', 'tooltip-left'));
   }
 
@@ -133,8 +193,26 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   statusBadge.textContent = 'Ready';
   right.appendChild(statusBadge);
 
+  const handlerRow = document.createElement('div');
+  handlerRow.className = 'flex items-center gap-1.5';
+  const handlerInfo = document.createElement('span');
+  handlerInfo.className = 'text-xs text-base-content/25';
+  handlerRow.appendChild(handlerInfo);
+  right.appendChild(handlerRow);
+
   body.append(left, right);
   row.appendChild(body);
+
+  // Resolve handler name; append lossy badge inline when applicable
+  activeManager().resolve(file).then(h => {
+    handlerInfo.textContent = h.name;
+    if (level === 'lossy') {
+      handlerRow.appendChild(badge('badge-warning badge-xs', '⚠️ Lossy', 'Output will be re-encoded as JPEG (small quality loss)', 'tooltip-left'));
+    }
+  }).catch(() => {});
+
+  // Apply initial skip state (unsupported is known now; no-metadata needs cache)
+  applySkipStatus(file);
 
   if (level !== 'unsupported') {
     const sep = document.createElement('span');
@@ -169,6 +247,7 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
       if (!preview.gps && !preview.make && !preview.model && !preview.serialNumber && !preview.dateTime && !preview.software) {
         detailsBtn.textContent = 'no metadata';
       }
+      syncList();
     }).catch(() => {});
   }
 
@@ -190,7 +269,7 @@ function renderBanner(levelOf: Map<File, WarningLevel>) {
 
   const lines: string[] = [];
   if (unsupported) lines.push(`<span class="text-error font-medium">${unsupported} file${unsupported > 1 ? 's' : ''} cannot be processed</span> — format not supported in this browser.`);
-  if (lossy) lines.push(`<span class="text-warning font-medium">${lossy} file${lossy > 1 ? 's' : ''} will be re-encoded as JPEG</span> — no lossless handler exists for their format.`);
+  if (lossy) lines.push(`<span class="text-warning font-medium">${lossy} file${lossy > 1 ? 's' : ''} will be re-encoded as JPEG</span> — no lossless handler exists for ${lossy > 1 ? 'their' : 'its'} format${lossy > 1 ? 's' : ''}.`);
 
   fileWarningBanner.hidden = false;
   fileWarningBanner.innerHTML = `
@@ -202,6 +281,7 @@ function renderBanner(levelOf: Map<File, WarningLevel>) {
 
 async function render() {
   fileList.innerHTML = '';
+  rowOf.clear();
   const visible = files.length > 0;
   fileList.classList.toggle('hidden', !visible);
   actions.classList.toggle('hidden', !visible);
@@ -211,8 +291,8 @@ async function render() {
   const levels = await Promise.all(files.map(f => activeManager().classify(f)));
   levelOf = new Map(files.map((f, i) => [f, levels[i]!]));
 
-  sortedFiles = [...files].sort((a, b) => WARNING_ORDER[levelOf.get(a)!] - WARNING_ORDER[levelOf.get(b)!]);
-  sortedFiles.forEach(file => fileList.appendChild(renderRow(file, levelOf.get(file)!)));
+  for (const file of files) renderRow(file, levelOf.get(file)!);
+  syncList();
   renderBanner(levelOf);
 }
 
@@ -229,31 +309,17 @@ async function stripAndDownload() {
   btnStrip.disabled = true;
   btnStrip.textContent = 'Processing…';
 
-  const rows = fileList.querySelectorAll<HTMLElement>('.card');
   const blobs: { name: string; blob: Blob }[] = [];
 
-  await Promise.all(sortedFiles.map(async (file, i) => {
-    const statusBadge = rows[i]?.querySelector<HTMLElement>('.status-badge');
+  await Promise.all(sortedFiles.map(async file => {
+    const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
 
-    const level = levelOf.get(file)!;
-    if (settings.skipUnsupported && level === 'unsupported') {
+    if (getSkipReason(file) !== null) {
       if (statusBadge) {
         statusBadge.textContent = 'Skipped';
         statusBadge.className = 'badge badge-ghost badge-sm status-badge';
       }
       return;
-    }
-
-    if (settings.skipClean) {
-      const meta = metadataCache.get(file);
-      const isClean = meta && !meta.gps && !meta.make && !meta.model && !meta.serialNumber && !meta.dateTime && !meta.software;
-      if (isClean) {
-        if (statusBadge) {
-          statusBadge.textContent = 'Skipped';
-          statusBadge.className = 'badge badge-ghost badge-sm status-badge';
-        }
-        return;
-      }
     }
 
     try {
@@ -307,9 +373,11 @@ dropZone.addEventListener('drop', e => {
 btnClear.addEventListener('click', () => { files = []; sortedFiles = []; levelOf.clear(); metadataCache.clear(); render(); });
 btnStrip.addEventListener('click', stripAndDownload);
 
-// Paranoid mode changes how files are classified → rebuild the file list.
-// Skip toggles only affect strip behaviour, no visual update needed.
+// Paranoid mode changes classification → rebuild the full list.
+// Skip toggles only change status badges and row opacity.
 toggleParanoid.addEventListener('change', render);
+toggleSkipClean.addEventListener('change', syncList);
+toggleSkipUnsupported.addEventListener('change', syncList);
 
 // Animate settings panel open and close.
 const settingsDetails = document.getElementById('settings-details') as HTMLDetailsElement;

@@ -10,7 +10,7 @@ import Layout from '../layouts/Layout.astro';
       GPS coordinates, device serial numbers, timestamps — baked into every image you share.
     </p>
     <p class="text-base-content/60 max-w-lg mx-auto leading-relaxed">
-      <strong class="inline bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 bg-clip-text text-transparent">StripMeta</strong> removes them instantly, entirely in your browser! <br />
+      <strong class="inline bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 bg-clip-text text-transparent">StripMeta</strong> removes them instantly, entirely in your browser!<br />
       No uploads, no servers, no tracking.
       Just control over your privacy and the information you share.
     </p>
@@ -50,16 +50,23 @@ import Layout from '../layouts/Layout.astro';
       <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
         <div>
           <p class="text-sm font-medium">Paranoid mode</p>
-          <p class="text-xs text-base-content/40">Always re-encode via canvas — strips everything, output is JPEG</p>
+          <p class="text-xs text-base-content/40">Always re-encode via canvas — strips everything, but output is <b>always JPEG</b>. Small quality loss.</p>
+          <p class="text-xs text-base-content/40">Only use when you're really paranoid.</p>
         </div>
         <input type="checkbox" id="toggle-paranoid" class="toggle toggle-sm toggle-warning shrink-0" />
       </label>
       <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
-        <p class="text-sm font-medium">Skip files without metadata</p>
+        <div>
+          <p class="text-sm font-medium">Skip files with no found metadata</p>
+          <p class="text-xs text-base-content/40">If disabled they will be processed anyways.</p>
+        </div>
         <input type="checkbox" id="toggle-skip-clean" class="toggle toggle-sm shrink-0" checked />
       </label>
       <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
-        <p class="text-sm font-medium">Skip unsupported files</p>
+        <div>
+          <p class="text-sm font-medium">Skip unsupported files</p>
+          <p class="text-xs text-base-content/40">This tool really supports the most common image formats (e.g. JPEG, PNG, WEBP). If disabled, images in other formats are re-encoded to JPEG via the canvas method.</p>
+        </div>
         <input type="checkbox" id="toggle-skip-unsupported" class="toggle toggle-sm shrink-0" checked />
       </label>
     </div>
@@ -83,7 +90,10 @@ import Layout from '../layouts/Layout.astro';
 <dialog id="metadata-modal" class="modal">
   <div class="modal-box w-full max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden">
     <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300 shrink-0">
-      <h3 class="font-semibold text-sm flex-1 truncate modal-title text-base-content/80"></h3>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-semibold text-sm truncate modal-title text-base-content/80"></h3>
+        <p class="modal-handler text-xs text-base-content/35 mt-0.5 hidden leading-relaxed"></p>
+      </div>
       <form method="dialog">
         <button class="btn btn-ghost btn-sm btn-circle text-base-content/40">✕</button>
       </form>
