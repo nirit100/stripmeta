@@ -40,7 +40,7 @@ export class BrowserCapabilities implements PlatformCapabilities {
     if (BASELINE.has(mimeType)) return true;
     const sample = PROBE_SAMPLES.get(mimeType);
     if (!sample) return false;
-    return createImageBitmap(new Blob([sample], { type: mimeType }))
+    return createImageBitmap(new Blob([new Uint8Array(sample)], { type: mimeType }))
       .then(() => true)
       .catch(() => false);
   }
