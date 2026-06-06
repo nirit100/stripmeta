@@ -31,7 +31,7 @@ All processing happens locally in the browser. No server ever sees your files.
 - [Tailwind CSS](https://tailwindcss.com) v4 + [DaisyUI](https://daisyui.com) v5
 - [exifr](https://github.com/MikeKovarik/exifr) — metadata reading
 - [piexifjs](https://github.com/hMatoba/piexifjs) — JPEG EXIF stripping
-- [png-chunks-extract/encode](https://github.com/hughsk/png-chunk-stream) — PNG chunk manipulation
+- [png-chunks-extract/encode](https://github.com/hughsk/png-chunks-extract) — PNG chunk manipulation
 - Deployed on Cloudflare Pages
 
 ## Development
