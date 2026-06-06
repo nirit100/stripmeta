@@ -119,47 +119,40 @@ describe('stripMetadata', () => {
     expect(hasExifMarker).toBe(false);
   });
 
-  it('strips metadata from a PNG losslessly', async () => {
+  it('strips iTXt metadata from a real PNG losslessly', async () => {
     vi.restoreAllMocks();
     const { stripMetadata } = await importFresh();
 
-    // Build a minimal PNG with a tEXt chunk using raw bytes
-    const PNG_SIG = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-    // Minimal 1×1 red PNG IHDR chunk
-    const IHDR = new Uint8Array([
-      0, 0, 0, 13, // length
-      73, 72, 68, 82, // "IHDR"
-      0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0, // 1×1, 8-bit RGB
-      144, 119, 83, 222, // CRC
-    ]);
-    const TEXT_DATA = new TextEncoder().encode('Comment\0Hello');
-    const tEXt = new Uint8Array([
-      0, 0, 0, TEXT_DATA.length,
-      116, 69, 88, 116, // "tEXt"
-      ...TEXT_DATA,
-      0, 0, 0, 0, // CRC (not validated during stripping)
-    ]);
-    const IDAT = new Uint8Array([
-      0, 0, 0, 1, 73, 68, 65, 84, 120, 1, 0, 0, 0, // length + "IDAT" + minimal data
-    ]);
-    const IEND = new Uint8Array([0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]); // "IEND" + CRC
-
-    const total = PNG_SIG.length + IHDR.length + tEXt.length + IDAT.length + IEND.length;
-    const pngBytes = new Uint8Array(total);
-    let pos = 0;
-    for (const chunk of [PNG_SIG, IHDR, tEXt, IDAT, IEND]) {
-      pngBytes.set(chunk, pos); pos += chunk.length;
-    }
-
-    const file = new File([pngBytes], 'test.png', { type: 'image/png' });
+    // test.png from png-chunks-extract — contains IHDR, iCCP, pHYs, iTXt, IDAT×4, IEND
+    const file = fixtureFile('test.png', 'image/png');
     const result = await stripMetadata(file);
 
     expect(result).toBeInstanceOf(Blob);
     expect(result.type).toBe('image/png');
-    // tEXt chunk should be gone
+    expect(result.size).toBeLessThan(file.size);
+
+    // Verify iTXt chunk is gone from output
     const outBytes = new Uint8Array(await result.arrayBuffer());
     const outText = new TextDecoder('latin1').decode(outBytes);
-    expect(outText).not.toContain('tEXt');
-    expect(outText).not.toContain('Comment');
+    expect(outText).not.toContain('iTXt');
+  });
+
+  it('strips EXIF chunk from a real WebP losslessly', async () => {
+    vi.restoreAllMocks();
+    const { stripMetadata } = await importFresh();
+
+    const file = fixtureFile('with-exif.webp', 'image/webp');
+    const result = await stripMetadata(file);
+
+    expect(result).toBeInstanceOf(Blob);
+    expect(result.type).toBe('image/webp');
+    expect(result.size).toBeLessThan(file.size);
+
+    const outBytes = new Uint8Array(await result.arrayBuffer());
+    const outText = new TextDecoder('latin1').decode(outBytes);
+    expect(outText).not.toContain('EXIF');
+    // VP8X flags byte should have EXIF bit (0x08) cleared
+    const vp8xFlagsOffset = 20; // 12 RIFF header + 8 VP8X chunk header
+    expect(outBytes[vp8xFlagsOffset] & 0x08).toBe(0);
   });
 });
