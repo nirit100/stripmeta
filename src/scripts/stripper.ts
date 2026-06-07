@@ -389,7 +389,7 @@ function addFiles(incoming: FileList | File[]) {
 async function stripAndDownload() {
   if (!sortedFiles.length) return;
   btnStrip.disabled = true;
-  btnStrip.textContent = 'Processing…';
+  btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Processing…';
 
   const blobs: { name: string; blob: Blob }[] = [];
 
@@ -453,11 +453,11 @@ dropZone.addEventListener('click', () => fileInput.click());
 dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
 fileInput.addEventListener('change', () => { if (fileInput.files) addFiles(fileInput.files); fileInput.value = ''; });
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-primary', 'bg-primary/5'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-primary', 'bg-primary/5'));
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-teal-500/50', 'bg-teal-500/5'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-teal-500/50', 'bg-teal-500/5'));
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
-  dropZone.classList.remove('border-primary', 'bg-primary/5');
+  dropZone.classList.remove('border-emerald-500', 'bg-emerald-500/5');
   if (e.dataTransfer?.files) addFiles(e.dataTransfer.files);
 });
 

@@ -26,3 +26,46 @@ html {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+.btn-brand {
+  position: relative;
+  isolation: isolate;
+  background: var(--brand-gradient) !important;
+  border-color: transparent !important;
+  color: white !important;
+  box-shadow: 0 2px 14px -3px rgba(16, 185, 129, 0.35);
+  transition: filter 180ms ease, transform 150ms ease, box-shadow 180ms ease;
+}
+/* Dark overlay sits above the gradient but below the text (z-index: -1 within isolated context) */
+.btn-brand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.18);
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+.btn-brand:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px) scale(1.015);
+  box-shadow: 0 5px 22px -3px rgba(16, 185, 129, 0.5);
+}
+.btn-brand:hover:not(:disabled)::after {
+  opacity: 0;
+}
+.btn-brand:active:not(:disabled) {
+  filter: brightness(0.94);
+  transform: scale(0.96) translateY(0);
+  box-shadow: 0 1px 6px -2px rgba(16, 185, 129, 0.25);
+  transition: filter 60ms ease, transform 60ms ease, box-shadow 60ms ease;
+}
+.btn-brand:active:not(:disabled)::after {
+  opacity: 0.28;
+  transition: opacity 60ms ease;
+}
+.btn-brand:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
