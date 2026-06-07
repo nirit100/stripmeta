@@ -29,6 +29,7 @@ const toggleParanoid        = document.getElementById('toggle-paranoid') as HTML
 const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
 const togglePersist         = document.getElementById('toggle-persist') as HTMLInputElement;
+const toggleIncludeSkipped  = document.getElementById('toggle-include-skipped') as HTMLInputElement;
 const toggleWarnUnload      = document.getElementById('toggle-warn-unload') as HTMLInputElement;
 const clearStorageHint      = document.getElementById('clear-storage-hint')!;
 const btnClearStorage       = document.getElementById('btn-clear-storage') as HTMLButtonElement;
@@ -40,10 +41,12 @@ const btnClearStorage       = document.getElementById('btn-clear-storage') as HT
     const pv  = localStorage.getItem('stripmeta-paranoid');
     const sc  = localStorage.getItem('stripmeta-skip-clean');
     const su  = localStorage.getItem('stripmeta-skip-unsupported');
+    const is  = localStorage.getItem('stripmeta-include-skipped');
     const wu  = localStorage.getItem('stripmeta-warn-unload');
     if (pv  !== null) toggleParanoid.checked        = pv  === '1';
     if (sc  !== null) toggleSkipClean.checked       = sc  === '1';
     if (su  !== null) toggleSkipUnsupported.checked = su  === '1';
+    if (is  !== null) toggleIncludeSkipped.checked  = is  === '1';
     if (wu  !== null) toggleWarnUnload.checked       = wu  === '1';
     else if (import.meta.env.DEV) toggleWarnUnload.checked = false;
   } else if (import.meta.env.DEV) {
@@ -775,7 +778,12 @@ async function stripAndDownload() {
     const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
 
     if (getSkipReason(file) !== null) {
-      if (statusBadge) { statusBadge.textContent = 'Skipped'; statusBadge.className = 'badge badge-outline badge-sm status-badge'; }
+      if (toggleIncludeSkipped.checked) {
+        blobs.push({ path, blob: file });
+        if (statusBadge) { statusBadge.textContent = 'Copied'; statusBadge.className = 'badge badge-outline badge-sm status-badge'; }
+      } else {
+        if (statusBadge) { statusBadge.textContent = 'Skipped'; statusBadge.className = 'badge badge-outline badge-sm status-badge'; }
+      }
       return;
     }
 
@@ -906,7 +914,7 @@ if (settings.paranoid) {
   labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
 }
 
-const PERSIST_KEYS = ['stripmeta-paranoid','stripmeta-skip-clean','stripmeta-skip-unsupported','stripmeta-no-glass','stripmeta-warn-unload'] as const;
+const PERSIST_KEYS = ['stripmeta-paranoid','stripmeta-skip-clean','stripmeta-skip-unsupported','stripmeta-include-skipped','stripmeta-no-glass','stripmeta-warn-unload'] as const;
 
 function hasSavedSettings(): boolean {
   return PERSIST_KEYS.some(k => localStorage.getItem(k) !== null);
@@ -923,6 +931,7 @@ togglePersist.addEventListener('change', () => {
     localStorage.setItem('stripmeta-paranoid',         settings.paranoid ? '1' : '0');
     localStorage.setItem('stripmeta-skip-clean',       toggleSkipClean.checked       ? '1' : '0');
     localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
+    localStorage.setItem('stripmeta-include-skipped',  toggleIncludeSkipped.checked ? '1' : '0');
     localStorage.setItem('stripmeta-no-glass',         document.documentElement.classList.contains('no-glass') ? '1' : '0');
     localStorage.setItem('stripmeta-warn-unload',      toggleWarnUnload.checked ? '1' : '0');
     clearStorageHint.classList.remove('hint-visible');
@@ -960,6 +969,10 @@ toggleSkipUnsupported.addEventListener('change', () => {
   for (const e of entries) applySkipStatus(e.file);
   syncFlatList();
   updateAllDirCounts();
+});
+
+toggleIncludeSkipped.addEventListener('change', () => {
+  if (togglePersist.checked) localStorage.setItem('stripmeta-include-skipped', toggleIncludeSkipped.checked ? '1' : '0');
 });
 
 toggleWarnUnload.addEventListener('change', () => {
