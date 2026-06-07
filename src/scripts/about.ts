@@ -79,6 +79,7 @@ function animateKb(el: HTMLElement, target: number, delayMs: number): void {
 function renderStats(stats: StripStats, animate: boolean): void {
   if (!statsSection) return;
   statsSection.classList.remove('hidden');
+  animate = animate && !document.documentElement.classList.contains('no-glass');
 
   // Show/hide optional stat blocks based on whether they have data
   statGpsWrap?.classList.toggle('hidden', stats.gpsRemoved === 0);
