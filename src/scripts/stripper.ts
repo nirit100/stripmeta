@@ -112,13 +112,13 @@ function updateLogUI() {
   if (errors > 0) {
     const warnPart = warnings > 0 ? `, ${warnings} warning${warnings !== 1 ? 's' : ''}` : '';
     text     = `${errors} error${errors !== 1 ? 's' : ''}${warnPart} — click to expand`;
-    colorCls = 'text-error/70 hover:text-error hover:bg-base-200/50';
+    colorCls = 'text-error hover:text-error hover:bg-base-200/50';
   } else if (warnings > 0) {
     text     = `${warnings} warning${warnings !== 1 ? 's' : ''} — click to expand`;
-    colorCls = 'text-warning/70 hover:text-warning hover:bg-base-200/50';
+    colorCls = 'text-warning hover:text-warning hover:bg-base-200/50';
   } else {
     text     = 'No issues';
-    colorCls = 'text-base-content/30 hover:text-base-content/50 hover:bg-base-200/50';
+    colorCls = 'text-base-content/50 hover:text-base-content/70 hover:bg-base-200/50';
   }
 
   btnLogToggle.textContent = text;
@@ -139,15 +139,15 @@ function updateLogUI() {
     content.className = 'flex-1 min-w-0';
 
     const name = document.createElement('div');
-    name.className = 'text-xs font-medium text-base-content/70 truncate';
+    name.className = 'text-xs font-medium text-base-content/90 truncate';
     name.textContent = entry.fileName;
 
     const path = document.createElement('div');
-    path.className = 'text-[0.65rem] text-base-content/35 truncate font-mono';
+    path.className = 'text-[0.65rem] text-base-content/50 truncate font-mono';
     path.textContent = entry.filePath;
 
     const msg = document.createElement('div');
-    msg.className = 'text-xs text-base-content/50 mt-0.5';
+    msg.className = 'text-xs text-base-content/65 mt-0.5';
     msg.textContent = entry.message;
 
     content.append(name, path, msg);
@@ -667,7 +667,7 @@ function renderBanner() {
   }
 
   fileWarningBanner.hidden = false;
-  fileWarningBanner.innerHTML = `<div class="alert alert-soft alert-warning flex flex-col items-start gap-1 text-sm">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
+  fileWarningBanner.innerHTML = `<div class="alert alert-warning flex flex-col items-start gap-1 text-sm">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
 }
 
 // — Main render —
