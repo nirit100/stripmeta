@@ -13,6 +13,9 @@ const {
   title,
   description = "Remove EXIF metadata from your photos privately. Everything happens in your browser — nothing is ever uploaded.",
 } = Astro.props;
+
+const kofiUrl  = import.meta.env.KOFI_URL  as string;
+const paypalUrl = import.meta.env.PAYPAL_URL as string;
 ---
 
 <html lang="en">
@@ -63,14 +66,14 @@ const {
         <div class="flex items-center gap-2">
           <a
             class="btn btn-xs btn-outline overflow-hidden footer-donate-btn hover:bg-[#FF5E78] hover:text-white hover:border-[#FF5E78]"
-            href="https://ko-fi.com/T2X820XGLH"
+            href={kofiUrl}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Buy me a coffee on Ko-fi">☕ Ko-fi</a
           >
           <a
             class="btn btn-xs btn-outline overflow-hidden footer-donate-btn hover:bg-[#0070ba] hover:text-white hover:border-[#0070ba]"
-            href="https://paypal.me/nrittinghaus"
+            href={paypalUrl}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Donate via PayPal">💸 PayPal</a

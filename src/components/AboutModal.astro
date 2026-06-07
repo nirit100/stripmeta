@@ -1,5 +1,9 @@
 ---
 import Brand from './Brand.astro';
+
+const kofiId        = import.meta.env.KOFI_ID          as string;
+const paypalDonateUrl = import.meta.env.PAYPAL_DONATE_URL as string;
+const githubUrl     = import.meta.env.GITHUB_URL        as string;
 ---
 
 <dialog id="about-modal" class="modal">
@@ -51,16 +55,16 @@ import Brand from './Brand.astro';
       <div class="flex flex-wrap items-center justify-center gap-2">
         <div id="kofi-button-container"></div>
         <script type="text/javascript" src="https://storage.ko-fi.com/cdn/widget/Widget_2.js"></script>
-        <script type="text/javascript">kofiwidget2.init("Buy me a Ko-fi", "#ff6b6b", "T2X820XGLH");kofiwidget2.draw();</script>
+        <script is:inline define:vars={{ kofiId }}>kofiwidget2.init("Buy me a Ko-fi", "#ff6b6b", kofiId);kofiwidget2.draw();</script>
         <span>or</span>
-        <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 h-9 mx-1 rounded-md" href="https://www.paypal.com/donate/?hosted_button_id=CGU9PUFDTHRT6" target="_blank" rel="noopener noreferrer">
+        <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 h-9 mx-1 rounded-md" href={paypalDonateUrl} target="_blank" rel="noopener noreferrer">
           <img class="w-4 h-4 shrink-0 object-contain" src="https://www.paypalobjects.com/paypal-ui/logos/svg/paypal-mark-monotone-transparent.svg" alt="PayPal logo" />
           Donate via PayPal
         </a>
       </div>
       <div class="flex items-center justify-center gap-3">
         <p>This project is open-source:</p>
-        <a class="btn btn-sm btn-outline" href="https://github.com/nirit100/stripmeta" target="_blank" rel="noopener noreferrer">🐙 Source</a>
+        <a class="btn btn-sm btn-outline" href={githubUrl} target="_blank" rel="noopener noreferrer">🐙 Source</a>
       </div>
     </div>
   </div>
