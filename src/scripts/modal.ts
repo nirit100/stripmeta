@@ -46,9 +46,8 @@ export function openMetadataModal(file: File, manager: StripperManager): void {
       for (const { key, value } of section.entries) {
         const pii = isPiiKey(key);
         const tr = document.createElement('tr');
-        if (pii) tr.className = 'bg-warning/10';
         const tdKey = document.createElement('td');
-        tdKey.className = `w-2/5 align-top font-medium py-1 pr-3 ${pii ? 'text-warning/70' : 'text-base-content/50'}`;
+        tdKey.className = `w-2/5 align-top font-medium py-1 pr-3 ${pii ? 'text-warning' : 'text-base-content/50'}`;
         tdKey.textContent = key;
         const tdVal = document.createElement('td');
         tdVal.className = 'break-all py-1 text-base-content/80';
