@@ -35,10 +35,16 @@ import Brand from '../components/Brand.astro';
       <rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <p class="text-base-content/50 text-sm text-center">
-      <strong class="text-base-content font-semibold">Drop photos here</strong> or click to select
+      <strong class="text-base-content font-semibold">Drop photos or folders here</strong>
     </p>
-    <p class="text-xs text-base-content/50">JPEG, PNG, TIFF, HEIC — up to 50 files</p>
+    <div class="flex items-center gap-3 text-sm">
+      <button id="btn-pick-files" type="button" class="btn btn-sm btn-outline">Select files</button>
+      <span class="text-base-content/30 text-xs">or</span>
+      <button id="btn-pick-dir" type="button" class="btn btn-sm btn-outline">📁 Open folder</button>
+    </div>
+    <p class="text-xs text-base-content/40">JPEG, PNG, WebP, TIFF, HEIC and more</p>
     <input id="file-input" type="file" accept="image/*" multiple class="hidden" />
+    <input id="dir-input" type="file" accept="image/*" multiple webkitdirectory class="hidden" />
   </div>
 
   <details id="settings-details" class="w-full group border border-base-300 rounded-xl overflow-hidden">

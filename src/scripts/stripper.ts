@@ -5,21 +5,24 @@ import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
 import { openMetadataModal } from './modal.ts';
 import { initSettingsPanel } from './settings-panel.ts';
 
-const hero = document.getElementById('hero') as HTMLElement;
-const dropZone = document.getElementById('drop-zone')!;
-const fileInput = document.getElementById('file-input') as HTMLInputElement;
-const fileList = document.getElementById('file-list')!;
+const hero        = document.getElementById('hero') as HTMLElement;
+const dropZone    = document.getElementById('drop-zone')!;
+const fileInput   = document.getElementById('file-input') as HTMLInputElement;
+const dirInput    = document.getElementById('dir-input') as HTMLInputElement;
+const btnPickFiles = document.getElementById('btn-pick-files') as HTMLButtonElement;
+const btnPickDir  = document.getElementById('btn-pick-dir') as HTMLButtonElement;
+const fileList    = document.getElementById('file-list')!;
 const fileWarningBanner = document.getElementById('file-warning-banner')!;
-const actions = document.getElementById('actions')!;
-const btnStrip = document.getElementById('btn-strip') as HTMLButtonElement;
-const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
-const toggleParanoid = document.getElementById('toggle-paranoid') as HTMLInputElement;
-const toggleSkipClean = document.getElementById('toggle-skip-clean') as HTMLInputElement;
+const actions     = document.getElementById('actions')!;
+const btnStrip    = document.getElementById('btn-strip') as HTMLButtonElement;
+const btnClear    = document.getElementById('btn-clear') as HTMLButtonElement;
+const toggleParanoid        = document.getElementById('toggle-paranoid') as HTMLInputElement;
+const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
 
 const settings = {
-  get paranoid() { return toggleParanoid.checked; },
-  get skipClean() { return toggleSkipClean.checked; },
+  get paranoid()        { return toggleParanoid.checked; },
+  get skipClean()       { return toggleSkipClean.checked; },
   get skipUnsupported() { return toggleSkipUnsupported.checked; },
 };
 
@@ -29,11 +32,33 @@ function activeManager(): StripperManager {
 
 const WARNING_ORDER: Record<WarningLevel, number> = { unsupported: 0, lossy: 1, none: 2 };
 
-let files: File[] = [];
-let sortedFiles: File[] = [];
-let levelOf = new Map<File, WarningLevel>();
-const metadataCache = new Map<File, MetadataPreview>();
+
+// — Data model —
+
+interface FileEntry {
+  file: File;
+  path: string; // relative path e.g. "vacation/beach/photo.jpg" or just "photo.jpg"
+}
+
+interface DirNode {
+  name: string;
+  path: string;
+  subdirs: Map<string, DirNode>;
+  files: FileEntry[];
+}
+
+let entries: FileEntry[] = [];
+let levelOf      = new Map<File, WarningLevel>();
+let metadataCache = new Map<File, MetadataPreview>();
 let heroCollapsed = false;
+
+// DOM tracking
+const rowOf       = new Map<File, HTMLElement>();
+const urlOf       = new Map<File, string>();
+const dirRowOf    = new Map<string, HTMLElement>();
+const dirCounters = new Map<string, () => void>(); // path → update fn for the stat label
+
+// — Hero collapse/expand —
 
 function collapseHero() {
   if (heroCollapsed) return;
@@ -43,7 +68,7 @@ function collapseHero() {
   hero.style.overflow = 'hidden';
   const anim = hero.animate(
     [{ height: h + 'px', opacity: 1, marginBottom: '0px' },
-     { height: '0px', opacity: 0, marginBottom: '-2.5rem' }],
+     { height: '0px',    opacity: 0, marginBottom: '-2.5rem' }],
     { duration: 350, easing: 'ease', fill: 'forwards' },
   );
   anim.onfinish = () => { hero.hidden = true; anim.cancel(); hero.style.overflow = ''; };
@@ -57,48 +82,79 @@ function expandHero() {
   hero.style.overflow = 'hidden';
   const h = hero.scrollHeight;
   const anim = hero.animate(
-    [{ height: '0px', opacity: 0, marginBottom: '-2.5rem' },
+    [{ height: '0px',    opacity: 0, marginBottom: '-2.5rem' },
      { height: h + 'px', opacity: 1, marginBottom: '0px' }],
     { duration: 350, easing: 'ease', fill: 'both' },
   );
   anim.onfinish = () => { anim.cancel(); hero.style.overflow = ''; };
 }
 
-const rowOf = new Map<File, HTMLElement>();
-const urlOf = new Map<File, string>();
+// — Tree building —
 
-function detachFile(file: File) {
-  const url = urlOf.get(file);
+function buildTree(allEntries: FileEntry[]): DirNode {
+  const root: DirNode = { name: '', path: '', subdirs: new Map(), files: [] };
+  for (const entry of allEntries) {
+    const parts = entry.path.split('/');
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const seg = parts[i]!;
+      if (!node.subdirs.has(seg)) {
+        const p = node.path ? `${node.path}/${seg}` : seg;
+        node.subdirs.set(seg, { name: seg, path: p, subdirs: new Map(), files: [] });
+      }
+      node = node.subdirs.get(seg)!;
+    }
+    node.files.push(entry);
+  }
+  return root;
+}
+
+
+// — File removal —
+
+function detachEntry(entry: FileEntry) {
+  const url = urlOf.get(entry.file);
   if (url) URL.revokeObjectURL(url);
-  urlOf.delete(file);
-  metadataCache.delete(file);
-  levelOf.delete(file);
-  files = files.filter(f => f !== file);
-  sortedFiles = sortedFiles.filter(f => f !== file);
-  rowOf.delete(file);
+  urlOf.delete(entry.file);
+  metadataCache.delete(entry.file);
+  levelOf.delete(entry.file);
+  rowOf.delete(entry.file);
+  entries = entries.filter(e => e !== entry);
 }
 
 function afterRemove() {
-  if (files.length === 0) {
+  if (entries.length === 0) {
     fileList.classList.add('hidden');
     actions.classList.add('hidden');
     fileWarningBanner.hidden = true;
+    dirRowOf.clear();
     expandHero();
   } else {
-    renderBanner(levelOf);
+    renderBanner();
+    updateAllDirCounts();
   }
 }
 
-function removeFile(file: File) {
-  const row = rowOf.get(file);
-  detachFile(file);
+function removeEntry(entry: FileEntry) {
+  const row = rowOf.get(entry.file);
+  detachEntry(entry);
   if (!row) { afterRemove(); return; }
   row.style.transition = 'opacity 150ms ease-out';
   row.style.opacity = '0';
-  setTimeout(() => { row.remove(); afterRemove(); }, 160);
+  setTimeout(() => { row.remove(); cleanEmptyDirs(); afterRemove(); }, 160);
 }
 
-function addSwipeToRemove(slideTarget: HTMLElement, removeTarget: HTMLElement, file: File) {
+function cleanEmptyDirs() {
+  for (const [path, dirRow] of dirRowOf) {
+    const stillHasFiles = entries.some(e => e.path === path + '/' + e.path.split('/').at(-1) ||
+      e.path.startsWith(path + '/'));
+    if (!stillHasFiles) { dirRow.remove(); dirRowOf.delete(path); }
+  }
+}
+
+// — Swipe to remove —
+
+function addSwipeToRemove(slideTarget: HTMLElement, removeTarget: HTMLElement, entry: FileEntry) {
   const hint = removeTarget.querySelector<HTMLElement>('.delete-hint');
   let startX = 0;
   slideTarget.addEventListener('touchstart', e => {
@@ -119,18 +175,17 @@ function addSwipeToRemove(slideTarget: HTMLElement, removeTarget: HTMLElement, f
     if (dx < -80) {
       slideTarget.style.transition = 'transform 180ms ease-out';
       slideTarget.style.transform = 'translateX(-110%)';
-      setTimeout(() => { detachFile(file); removeTarget.remove(); afterRemove(); }, 190);
+      setTimeout(() => { detachEntry(entry); removeTarget.remove(); cleanEmptyDirs(); afterRemove(); }, 190);
     } else {
       slideTarget.style.transition = 'transform 200ms ease-out';
       slideTarget.style.transform = '';
-      if (hint) {
-        hint.style.transition = 'opacity 200ms ease-out';
-        hint.style.opacity = '0';
-      }
+      if (hint) { hint.style.transition = 'opacity 200ms ease-out'; hint.style.opacity = '0'; }
       setTimeout(() => { slideTarget.style.transition = ''; }, 210);
     }
   });
 }
+
+// — Skip logic —
 
 function getSkipReason(file: File) {
   return _getSkipReason(file, settings, levelOf, metadataCache);
@@ -141,37 +196,15 @@ function applySkipStatus(file: File) {
   if (!row) return;
   const statusBadge = row.querySelector<HTMLElement>('.status-badge');
   if (!statusBadge) return;
-
   const reason = getSkipReason(file);
   row.classList.toggle('opacity-40', reason !== null);
-  if (reason === 'unsupported') {
-    statusBadge.textContent = 'Skipped — unsupported';
-  } else if (reason === 'lossy') {
-    statusBadge.textContent = 'Skipped — no lossless handler';
-  } else if (reason === 'no-metadata') {
-    statusBadge.textContent = 'Skipped — no metadata';
-  } else {
-    statusBadge.textContent = 'Ready';
-  }
+  if (reason === 'unsupported')  statusBadge.textContent = 'Skipped — unsupported';
+  else if (reason === 'lossy')   statusBadge.textContent = 'Skipped — no lossless handler';
+  else if (reason === 'no-metadata') statusBadge.textContent = 'Skipped — no metadata';
+  else statusBadge.textContent = 'Ready';
 }
 
-// Sorts files (skipped items last, then by warning level), updates status badges,
-// and repositions DOM rows — all in one pass.
-function syncList() {
-  sortedFiles = [...files].sort((a, b) => {
-    const aSkip = getSkipReason(a) !== null ? 1 : 0;
-    const bSkip = getSkipReason(b) !== null ? 1 : 0;
-    if (aSkip !== bSkip) return aSkip - bSkip;
-    return WARNING_ORDER[levelOf.get(a) ?? 'none'] - WARNING_ORDER[levelOf.get(b) ?? 'none'];
-  });
-  for (const file of sortedFiles) {
-    applySkipStatus(file);
-    const row = rowOf.get(file);
-    if (row) fileList.appendChild(row);
-  }
-}
-
-// — File row —
+// — Badge helper —
 
 function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-right'): HTMLElement {
   const el = document.createElement('span');
@@ -181,7 +214,10 @@ function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-right'
   return el;
 }
 
-function renderRow(file: File, level: WarningLevel): HTMLElement {
+// — File card (preserved from original) —
+
+function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
+  const { file } = entry;
   const row = document.createElement('div');
   row.className = 'card card-bordered bg-base-200 shadow-none transition-opacity relative overflow-hidden';
   row.dataset.type = file.type;
@@ -203,7 +239,6 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   thumb.alt = '';
   thumb.draggable = false;
 
-  // Left: name + subline
   const left = document.createElement('div');
   left.className = 'flex-1 min-w-0 space-y-1.5';
 
@@ -218,15 +253,11 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   sizeSpan.className = 'text-xs text-base-content/45 shrink-0';
   sizeSpan.textContent = formatBytes(file.size);
 
-  // Container where metadata badges will be inserted asynchronously
   const badgesSlot = document.createElement('div');
   badgesSlot.className = 'contents';
-
   subline.append(sizeSpan, badgesSlot);
-
   left.append(nameEl, subline);
 
-  // Right: status + remove button (top), handler row (bottom)
   const right = document.createElement('div');
   right.className = 'flex flex-col items-end shrink-0 self-stretch';
 
@@ -246,9 +277,8 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   removeBtn.type = 'button';
   removeBtn.className = 'btn btn-ghost btn-xs btn-circle -mr-1 text-error/80 hover:text-error-content hover:bg-error';
   removeBtn.innerHTML = '&times;';
-  removeBtn.addEventListener('click', () => removeFile(file));
+  removeBtn.addEventListener('click', () => removeEntry(entry));
   topRow.appendChild(removeBtn);
-
   right.appendChild(topRow);
 
   const spacer = document.createElement('div');
@@ -265,7 +295,6 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
   body.append(thumb, left, right);
   row.appendChild(body);
 
-  // Resolve handler name; append lossy badge inline when applicable
   activeManager().resolve(file).then(h => {
     handlerInfo.textContent = h.name;
     if (level === 'lossy') {
@@ -277,7 +306,6 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
     }
   }).catch(() => {});
 
-  // Apply initial skip state (unsupported is known now; no-metadata needs cache)
   applySkipStatus(file);
 
   if (level !== 'unsupported') {
@@ -292,53 +320,186 @@ function renderRow(file: File, level: WarningLevel): HTMLElement {
     subline.append(sep, detailsBtn);
 
     readMetadata(file).then(preview => {
-      if (preview.gps) {
-        badgesSlot.appendChild(badge('badge-error', '📍 GPS', formatGps(preview.gps.latitude, preview.gps.longitude)));
-      }
+      if (preview.gps)          badgesSlot.appendChild(badge('badge-error', '📍 GPS', formatGps(preview.gps.latitude, preview.gps.longitude)));
       if (preview.make || preview.model) {
         const cam = [preview.make, preview.model].filter(Boolean).join(' ');
         badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '📷 ' + cam, cam));
       }
-      if (preview.serialNumber) {
-        badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
-      }
+      if (preview.serialNumber)  badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
       if (preview.dateTime) {
         const dateStr = String(preview.dateTime).slice(0, 10).replace(/:/g, '-');
         badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + dateStr));
       }
-      if (preview.software) {
-        badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '🛠️ ' + preview.software, preview.software));
-      }
-      if (preview.artist) {
-        badgesSlot.appendChild(badge('badge-error max-w-[9rem] truncate', '👤 ' + preview.artist, preview.artist));
-      }
-      if (preview.userComment) {
-        badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
-      }
+      if (preview.software)      badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '🛠️ ' + preview.software, preview.software));
+      if (preview.artist)        badgesSlot.appendChild(badge('badge-error max-w-[9rem] truncate', '👤 ' + preview.artist, preview.artist));
+      if (preview.userComment)   badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
       metadataCache.set(file, preview);
-      if (!preview.gps && !preview.make && !preview.model && !preview.serialNumber && !preview.dateTime && !preview.software && !preview.artist && !preview.userComment) {
+      if (!preview.gps && !preview.make && !preview.model && !preview.serialNumber &&
+          !preview.dateTime && !preview.software && !preview.artist && !preview.userComment) {
         detailsBtn.textContent = 'no metadata';
       }
-      syncList();
+      applySkipStatus(file);
+      syncFlatList();
+      updateAllDirCounts();
     }).catch(() => {});
   }
 
-  addSwipeToRemove(body, row, file);
+  addSwipeToRemove(body, row, entry);
   return row;
 }
 
-// — Banner + render —
+// — Directory row —
 
-function renderBanner(levelOf: Map<File, WarningLevel>) {
+function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLElement): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'w-full';
+  dirRowOf.set(node.path, wrap);
+
+  const header = document.createElement('div');
+  header.className = 'flex items-center gap-2 px-3 py-2 rounded-xl bg-base-200/60 border border-base-300 cursor-pointer select-none hover:bg-base-200 transition-colors';
+
+  const chevron = document.createElement('span');
+  chevron.className = 'text-base-content/40 text-xs transition-transform duration-200 inline-block';
+  chevron.textContent = '▶';
+
+  const label = document.createElement('span');
+  label.className = 'text-sm font-medium flex-1 min-w-0 truncate';
+  label.textContent = `📁 ${node.name}/`;
+
+  const countBadge = document.createElement('span');
+  countBadge.className = 'text-xs text-base-content/40 shrink-0';
+
+  function updateCount() {
+    const under = entriesUnder(node.path);
+    const n = under.length;
+    const skipped = under.filter(e => getSkipReason(e.file) !== null).length;
+    const ready = n - skipped;
+    let stat = `${n} file${n !== 1 ? 's' : ''}`;
+    if (n > 0 && levelOf.size > 0) {
+      if (skipped === 0)   stat += ' · all ready';
+      else if (ready === 0) stat += ' · all skipped';
+      else                  stat += ` · ${ready} ready, ${skipped} skipped`;
+    }
+    countBadge.textContent = stat;
+  }
+
+  dirCounters.set(node.path, updateCount);
+  updateCount();
+
+  const removeDir = document.createElement('button');
+  removeDir.type = 'button';
+  removeDir.className = 'btn btn-ghost btn-xs btn-circle -mr-1 text-error/80 hover:text-error-content hover:bg-error';
+  removeDir.innerHTML = '&times;';
+  removeDir.addEventListener('click', e => {
+    e.stopPropagation();
+    removeDirNode(node);
+  });
+
+  header.append(chevron, label, countBadge, removeDir);
+
+  const children = document.createElement('div');
+  children.className = 'flex flex-col gap-2 pl-4 mt-2';
+  children.hidden = true;
+
+  let materialised = false;
+
+  function expand() {
+    chevron.style.transform = 'rotate(90deg)';
+    if (!materialised) {
+      materialised = true;
+      materialiseDir(node, children);
+    }
+    children.hidden = false;
+  }
+  function collapse() {
+    chevron.style.transform = '';
+    children.hidden = true;
+  }
+
+  header.addEventListener('click', () => {
+    children.hidden ? expand() : collapse();
+  });
+
+  wrap.append(header, children);
+  container.appendChild(wrap);
+
+  if (defaultExpanded) expand();
+
+  return wrap;
+}
+
+function materialiseDir(node: DirNode, container: HTMLElement) {
+  for (const sub of node.subdirs.values()) {
+    renderDirRow(sub, true, container);
+  }
+  for (const entry of node.files) {
+    const level = levelOf.get(entry.file) ?? 'none';
+    container.appendChild(renderFileCard(entry, level));
+  }
+}
+
+function removeDirNode(node: DirNode) {
+  const allEntries = collectEntries(node);
+  for (const entry of allEntries) {
+    const url = urlOf.get(entry.file);
+    if (url) URL.revokeObjectURL(url);
+    urlOf.delete(entry.file);
+    metadataCache.delete(entry.file);
+    levelOf.delete(entry.file);
+    rowOf.delete(entry.file);
+  }
+  entries = entries.filter(e => !allEntries.includes(e));
+  const wrap = dirRowOf.get(node.path);
+  wrap?.remove();
+  dirRowOf.delete(node.path);
+  afterRemove();
+}
+
+function collectEntries(node: DirNode): FileEntry[] {
+  const result: FileEntry[] = [...node.files];
+  for (const sub of node.subdirs.values()) result.push(...collectEntries(sub));
+  return result;
+}
+
+// — Directory counts —
+
+function entriesUnder(path: string): FileEntry[] {
+  return entries.filter(e => e.path.startsWith(path + '/'));
+}
+
+function updateAllDirCounts() {
+  for (const update of dirCounters.values()) update();
+}
+
+// — Flat-mode sorting (only when no directory structure) —
+
+function isFlatMode() {
+  return entries.every(e => !e.path.includes('/'));
+}
+
+function syncFlatList() {
+  if (!isFlatMode()) return;
+  const sorted = [...entries].sort((a, b) => {
+    const aSkip = getSkipReason(a.file) !== null ? 1 : 0;
+    const bSkip = getSkipReason(b.file) !== null ? 1 : 0;
+    if (aSkip !== bSkip) return aSkip - bSkip;
+    return WARNING_ORDER[levelOf.get(a.file) ?? 'none'] - WARNING_ORDER[levelOf.get(b.file) ?? 'none'];
+  });
+  for (const entry of sorted) {
+    const row = rowOf.get(entry.file);
+    if (row) fileList.appendChild(row); // reorder in-place
+    applySkipStatus(entry.file);
+  }
+}
+
+// — Banner —
+
+function renderBanner() {
   const levels = [...levelOf.values()];
   const lossy = levels.filter(l => l === 'lossy').length;
   const unsupported = levels.filter(l => l === 'unsupported').length;
 
-  if (!lossy && !unsupported) {
-    fileWarningBanner.hidden = true;
-    fileWarningBanner.innerHTML = '';
-    return;
-  }
+  if (!lossy && !unsupported) { fileWarningBanner.hidden = true; fileWarningBanner.innerHTML = ''; return; }
 
   const lines: string[] = [];
   if (unsupported) lines.push(`<span class="text-error font-medium">${unsupported} file${unsupported > 1 ? 's' : ''} cannot be processed</span> — format not supported in this browser.`);
@@ -353,91 +514,114 @@ function renderBanner(levelOf: Map<File, WarningLevel>) {
   }
 
   fileWarningBanner.hidden = false;
-  fileWarningBanner.innerHTML = `
-    <div class="alert alert-soft alert-warning flex flex-col items-start gap-1 text-sm">
-      ${lines.map(l => `<p>${l}</p>`).join('')}
-    </div>
-  `;
+  fileWarningBanner.innerHTML = `<div class="alert alert-soft alert-warning flex flex-col items-start gap-1 text-sm">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
 }
+
+// — Main render —
 
 async function render() {
   fileList.innerHTML = '';
   rowOf.clear();
-  const visible = files.length > 0;
+  dirRowOf.clear();
+  dirCounters.clear();
+
+  const visible = entries.length > 0;
   fileList.classList.toggle('hidden', !visible);
   actions.classList.toggle('hidden', !visible);
 
   if (!visible) { fileWarningBanner.hidden = true; expandHero(); return; }
 
   collapseHero();
-  const levels = await Promise.all(files.map(f => activeManager().classify(f)));
-  levelOf = new Map(files.map((f, i) => [f, levels[i]!]));
+  const levels = await Promise.all(entries.map(e => activeManager().classify(e.file)));
+  levelOf = new Map(entries.map((e, i) => [e.file, levels[i]!]));
 
-  for (const file of files) renderRow(file, levelOf.get(file)!);
-  syncList();
-  renderBanner(levelOf);
+  const tree = buildTree(entries);
+  const defaultExpanded = entries.length <= 10;
+
+  // Root-level files (no directory)
+  for (const entry of tree.files) {
+    fileList.appendChild(renderFileCard(entry, levelOf.get(entry.file)!));
+  }
+  // Directory nodes
+  for (const sub of tree.subdirs.values()) {
+    renderDirRow(sub, defaultExpanded, fileList);
+  }
+
+  renderBanner();
 }
 
-function addFiles(incoming: FileList | File[]) {
-  const images = [...incoming].filter(f => f.type.startsWith('image/'));
-  files = [...files, ...images].slice(0, 50);
+// — Adding files —
+
+async function* scanDirectoryEntry(entry: FileSystemEntry): AsyncGenerator<FileEntry> {
+  if (entry.isFile) {
+    const file = await new Promise<File>((res, rej) =>
+      (entry as FileSystemFileEntry).file(res, rej));
+    if (file.type.startsWith('image/')) {
+      yield { file, path: entry.fullPath.replace(/^\//, '') };
+    }
+  } else if (entry.isDirectory) {
+    const reader = (entry as FileSystemDirectoryEntry).createReader();
+    let batch: FileSystemEntry[];
+    do {
+      batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+      for (const child of batch) yield* scanDirectoryEntry(child);
+    } while (batch.length > 0);
+  }
+}
+
+function addEntries(incoming: FileEntry[]) {
+  const images = incoming.filter(e => e.file.type.startsWith('image/'));
+  const existing = new Set(entries.map(e => e.file));
+  const fresh = images.filter(e => !existing.has(e.file));
+  entries = [...entries, ...fresh];
   render();
+}
+
+function fromFileList(fileList: FileList | File[], getPath: (f: File) => string): FileEntry[] {
+  return [...fileList].map(f => ({ file: f, path: getPath(f) }));
 }
 
 // — Strip & download —
 
 async function stripAndDownload() {
-  if (!sortedFiles.length) return;
+  if (!entries.length) return;
   btnStrip.disabled = true;
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Processing…';
 
-  const blobs: { name: string; blob: Blob }[] = [];
+  const blobs: { path: string; blob: Blob }[] = [];
 
-  await Promise.all(sortedFiles.map(async file => {
+  await Promise.all(entries.map(async entry => {
+    const { file, path } = entry;
     const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
 
     if (getSkipReason(file) !== null) {
-      if (statusBadge) {
-        statusBadge.textContent = 'Skipped';
-        statusBadge.className = 'badge badge-outline badge-sm status-badge';
-      }
+      if (statusBadge) { statusBadge.textContent = 'Skipped'; statusBadge.className = 'badge badge-outline badge-sm status-badge'; }
       return;
     }
 
     try {
       const blob = await activeManager().strip(file);
-      blobs.push({ name: file.name, blob });
-      if (statusBadge) {
-        statusBadge.textContent = 'Done';
-        statusBadge.className = 'badge badge-success badge-sm status-badge';
-      }
+      blobs.push({ path, blob });
+      if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
     } catch {
-      if (statusBadge) {
-        statusBadge.textContent = 'Error';
-        statusBadge.className = 'badge badge-error badge-sm status-badge';
-      }
+      if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
     }
   }));
 
   if (blobs.length === 1) {
-    download(URL.createObjectURL(blobs[0].blob), blobs[0].name);
+    download(URL.createObjectURL(blobs[0]!.blob), blobs[0]!.path.split('/').at(-1) ?? blobs[0]!.path);
   } else if (blobs.length > 1) {
     const { default: JSZip } = await import('jszip');
     const zip = new JSZip();
-    for (const { name, blob } of blobs) zip.file(name, blob);
+    for (const { path, blob } of blobs) zip.file(path, blob);
     download(URL.createObjectURL(await zip.generateAsync({ type: 'blob' })), 'stripped-photos.zip');
   }
 
   btnStrip.disabled = false;
   btnStrip.textContent = 'Strip metadata & download';
 
-  // Notify others that the user successfully processed files at least once.
   if (blobs.length > 0) {
-    try {
-      window.dispatchEvent(new CustomEvent('stripmeta:processed'));
-    } catch (e) {
-      // ignore
-    }
+    try { window.dispatchEvent(new CustomEvent('stripmeta:processed')); } catch { /* ignore */ }
   }
 }
 
@@ -449,32 +633,66 @@ function download(url: string, filename: string) {
 
 // — Event wiring —
 
-dropZone.addEventListener('click', () => fileInput.click());
+btnPickFiles.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+btnPickDir.addEventListener('click',   e => { e.stopPropagation(); dirInput.click(); });
+dropZone.addEventListener('click', e => {
+  if ((e.target as Element).closest('button, input')) return;
+  fileInput.click();
+});
 dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
-fileInput.addEventListener('change', () => { if (fileInput.files) addFiles(fileInput.files); fileInput.value = ''; });
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-teal-500/50', 'bg-teal-500/5'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-teal-500/50', 'bg-teal-500/5'));
-dropZone.addEventListener('drop', e => {
+fileInput.addEventListener('change', () => {
+  if (fileInput.files) addEntries(fromFileList(fileInput.files, f => f.name));
+  fileInput.value = '';
+});
+
+dirInput.addEventListener('change', () => {
+  if (dirInput.files) {
+    addEntries(fromFileList(dirInput.files, f =>
+      (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name));
+  }
+  dirInput.value = '';
+});
+
+dropZone.addEventListener('dragover', e => {
   e.preventDefault();
-  dropZone.classList.remove('border-emerald-500', 'bg-emerald-500/5');
-  if (e.dataTransfer?.files) addFiles(e.dataTransfer.files);
+  dropZone.classList.add('border-teal-500/50', 'bg-teal-500/5');
+});
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('border-teal-500/50', 'bg-teal-500/5');
+});
+dropZone.addEventListener('drop', async e => {
+  e.preventDefault();
+  dropZone.classList.remove('border-teal-500/50', 'bg-teal-500/5');
+
+  const items = [...(e.dataTransfer?.items ?? [])];
+  const fsEntries = items.map(i => i.webkitGetAsEntry()).filter(Boolean) as FileSystemEntry[];
+
+  if (fsEntries.length > 0) {
+    const collected: FileEntry[] = [];
+    for (const fsEntry of fsEntries) {
+      for await (const fe of scanDirectoryEntry(fsEntry)) collected.push(fe);
+    }
+    addEntries(collected);
+  } else if (e.dataTransfer?.files) {
+    addEntries(fromFileList(e.dataTransfer.files, f => f.name));
+  }
 });
 
 btnClear.addEventListener('click', () => {
   for (const url of urlOf.values()) URL.revokeObjectURL(url);
   urlOf.clear();
-  files = [];
-  sortedFiles = [];
+  entries = [];
   levelOf.clear();
   metadataCache.clear();
+  dirRowOf.clear();
+  dirCounters.clear();
   render();
 });
+
 btnStrip.addEventListener('click', stripAndDownload);
 
-// Paranoid mode changes classification → rebuild the full list.
-// When paranoid is on, skip-unsupported is meaningless (all lossy files are processed),
-// so we force it off and disable the control until paranoid is turned off.
+// Paranoid mode
 const labelSkipUnsupported = toggleSkipUnsupported.closest('label')!;
 let savedSkipUnsupported = toggleSkipUnsupported.checked;
 
@@ -492,8 +710,15 @@ toggleParanoid.addEventListener('change', () => {
   render();
 });
 
-// Skip toggles only change status badges and row opacity.
-toggleSkipClean.addEventListener('change', syncList);
-toggleSkipUnsupported.addEventListener('change', syncList);
+toggleSkipClean.addEventListener('change', () => {
+  for (const e of entries) applySkipStatus(e.file);
+  syncFlatList();
+  updateAllDirCounts();
+});
+toggleSkipUnsupported.addEventListener('change', () => {
+  for (const e of entries) applySkipStatus(e.file);
+  syncFlatList();
+  updateAllDirCounts();
+});
 
 initSettingsPanel();
