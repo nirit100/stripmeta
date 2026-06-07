@@ -25,6 +25,7 @@ const btnLogToggle  = document.getElementById('btn-log-toggle') as HTMLButtonEle
 const logPanel      = document.getElementById('log-panel')!;
 const logEntriesEl  = document.getElementById('log-entries')!;
 const btnClearLog       = document.getElementById('btn-clear-log') as HTMLButtonElement;
+const stripProgressEl   = document.getElementById('strip-progress') as HTMLElement;
 const fileListHeader    = document.getElementById('file-list-header')!;
 const fileCountEl       = document.getElementById('file-count')!;
 const fileListArea      = document.getElementById('file-list-area')!;
@@ -260,6 +261,7 @@ function afterRemove() {
     fileList.classList.add('hidden');
     actions.classList.add('hidden');
     logSection.classList.add('hidden');
+    stripProgressEl.classList.add('hidden');
     fileWarningBanner.hidden = true;
     dirRowOf.clear();
     expandHero();
@@ -746,7 +748,7 @@ async function render() {
   logSection.classList.toggle('hidden', !visible);
   updateFileListHeader();
 
-  if (!visible) { fileWarningBanner.hidden = true; expandHero(); updateFabs(); return; }
+  if (!visible) { fileWarningBanner.hidden = true; stripProgressEl.classList.add('hidden'); expandHero(); updateFabs(); return; }
 
   collapseHero();
   btnStrip.disabled = true;
@@ -824,6 +826,9 @@ async function stripAndDownload() {
 
   const blobs: { path: string; blob: Blob }[] = [];
   let hadErrors = false;
+  const total = entries.filter(e => getSkipReason(e.file) === null).length;
+  let doneCount = 0;
+  stripProgressEl.classList.remove('hidden');
 
   await Promise.all(entries.map(async entry => {
     const { file, path } = entry;
@@ -840,6 +845,7 @@ async function stripAndDownload() {
     }
 
     try {
+      stripProgressEl.textContent = `${++doneCount} / ${total} — ${file.name}`;
       const blob = await activeManager().strip(file);
       blobs.push({ path, blob });
       sessionStats.filesProcessed++;
@@ -860,12 +866,19 @@ async function stripAndDownload() {
   if (blobs.length === 1) {
     download(URL.createObjectURL(blobs[0]!.blob), blobs[0]!.path.split('/').at(-1) ?? blobs[0]!.path);
   } else if (blobs.length > 1) {
+    stripProgressEl.classList.remove('hidden');
+    stripProgressEl.textContent = 'Building ZIP…';
     const { default: JSZip } = await import('jszip');
     const zip = new JSZip();
     for (const { path, blob } of blobs) zip.file(path, blob);
-    download(URL.createObjectURL(await zip.generateAsync({ type: 'blob' })), 'stripped-photos.zip');
+    const zipBlob = await zip.generateAsync({ type: 'blob' }, ({ percent }) => {
+      stripProgressEl.textContent = `Building ZIP… ${Math.round(percent)}%`;
+    });
+    download(URL.createObjectURL(zipBlob), 'stripped-photos.zip');
   }
 
+  stripProgressEl.classList.add('hidden');
+  stripProgressEl.textContent = '';
   btnStrip.disabled = false;
   btnStrip.textContent = 'Strip metadata & download';
   updateAllDirCounts();
