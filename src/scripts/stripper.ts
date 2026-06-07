@@ -408,38 +408,58 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
     const sep = document.createElement('span');
     sep.className = 'text-base-content/30 text-xs select-none shrink-0 mx-1';
     sep.textContent = '·';
+
     const detailsBtn = document.createElement('button');
     detailsBtn.type = 'button';
     detailsBtn.className = 'text-xs text-base-content/40 hover:text-primary transition-colors shrink-0 py-0 leading-none inline-flex items-center';
     detailsBtn.textContent = 'details…';
     detailsBtn.addEventListener('click', () => openMetadataModal(file, activeManager()));
+
     subline.append(sep, detailsBtn);
 
-    readMetadata(file).then(preview => {
-      if (preview.gps)          badgesSlot.appendChild(badge('badge-error', '📍 GPS', formatGps(preview.gps.latitude, preview.gps.longitude)));
-      if (preview.make || preview.model) {
-        const cam = [preview.make, preview.model].filter(Boolean).join(' ');
-        badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '📷 ' + cam, cam));
+    void (async () => {
+      try {
+        const preview = await readMetadata(file);
+
+        if (preview.gps) {
+          badgesSlot.appendChild(badge('badge-error', '📍 GPS', formatGps(preview.gps.latitude, preview.gps.longitude)));
+        }
+        if (preview.make || preview.model) {
+          const cam = [preview.make, preview.model].filter(Boolean).join(' ');
+          badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '📷 ' + cam, cam));
+        }
+        if (preview.serialNumber) {
+          badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
+        }
+        if (preview.dateTime) {
+          const d = preview.dateTime instanceof Date
+            ? preview.dateTime
+            : new Date(String(preview.dateTime).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
+          badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + (!isNaN(d.getTime()) ? d.toDateString() : String(preview.dateTime))));
+        }
+        if (preview.software) {
+          badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '🛠️ ' + preview.software, preview.software));
+        }
+        if (preview.artist) {
+          badgesSlot.appendChild(badge('badge-error max-w-[9rem] truncate', '👤 ' + preview.artist, preview.artist));
+        }
+        if (preview.userComment) {
+          badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
+        }
+
+        metadataCache.set(file, preview);
+
+        const hasMetadata = !!(preview.gps || preview.make || preview.model || preview.serialNumber
+          || preview.dateTime || preview.software || preview.artist || preview.userComment);
+        if (!hasMetadata) detailsBtn.textContent = 'no metadata';
+
+        applySkipStatus(file);
+        syncFlatList();
+        updateAllDirCounts();
+      } catch (err) {
+        logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
       }
-      if (preview.serialNumber)  badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
-      if (preview.dateTime) {
-        const dateStr = String(preview.dateTime).slice(0, 10).replace(/:/g, '-');
-        badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + dateStr));
-      }
-      if (preview.software)      badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '🛠️ ' + preview.software, preview.software));
-      if (preview.artist)        badgesSlot.appendChild(badge('badge-error max-w-[9rem] truncate', '👤 ' + preview.artist, preview.artist));
-      if (preview.userComment)   badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
-      metadataCache.set(file, preview);
-      if (!preview.gps && !preview.make && !preview.model && !preview.serialNumber &&
-          !preview.dateTime && !preview.software && !preview.artist && !preview.userComment) {
-        detailsBtn.textContent = 'no metadata';
-      }
-      applySkipStatus(file);
-      syncFlatList();
-      updateAllDirCounts();
-    }).catch(err => {
-      logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
-    });
+    })();
   }
 
   addSwipeToRemove(body, row, entry);
@@ -483,7 +503,7 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
     const ready = n - skipped;
     let stat = `${n} file${n !== 1 ? 's' : ''}`;
     if (n > 0 && levelOf.size > 0) {
-      if (skipped === 0)   stat += ' · all ready';
+      if (skipped === 0)    stat += ' · all ready';
       else if (ready === 0) stat += ' · all skipped';
       else                  stat += ` · ${ready} ready, ${skipped} skipped`;
     }

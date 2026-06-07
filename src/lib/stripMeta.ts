@@ -82,7 +82,7 @@ export interface MetadataPreview {
   model: string | null;
   serialNumber: string | null;
   software: string | null;
-  dateTime: string | null;
+  dateTime: Date | string | null;
   artist: string | null;
   userComment: string | null;
 }
