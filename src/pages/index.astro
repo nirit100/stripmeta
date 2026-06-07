@@ -60,7 +60,13 @@ import Settings from '../components/Settings.astro';
 
 
   <div id="file-warning-banner" class="w-full" hidden></div>
-  <div id="file-list" class="w-full flex flex-col gap-2 hidden"></div>
+  <div id="file-list-area" class="w-full flex flex-col gap-2">
+    <div id="file-list-header" class="hidden flex items-center justify-between px-1">
+      <span class="text-xs font-semibold uppercase tracking-widest text-base-content/40">Files</span>
+      <span id="file-count" class="text-xs text-base-content/35 tabular-nums"></span>
+    </div>
+    <div id="file-list" class="flex flex-col gap-2 hidden"></div>
+  </div>
 
   <div id="actions" class="flex gap-3 flex-wrap hidden">
     <button id="btn-strip" type="button" class="btn btn-brand">

@@ -24,7 +24,18 @@ const logSection    = document.getElementById('log-section')!;
 const btnLogToggle  = document.getElementById('btn-log-toggle') as HTMLButtonElement;
 const logPanel      = document.getElementById('log-panel')!;
 const logEntriesEl  = document.getElementById('log-entries')!;
-const btnClearLog   = document.getElementById('btn-clear-log') as HTMLButtonElement;
+const btnClearLog       = document.getElementById('btn-clear-log') as HTMLButtonElement;
+const fileListHeader    = document.getElementById('file-list-header')!;
+const fileCountEl       = document.getElementById('file-count')!;
+const fileListArea      = document.getElementById('file-list-area')!;
+
+function updateFileListHeader() {
+  const n = entries.length;
+  const visible = n > 0;
+  fileListHeader.classList.toggle('hidden', !visible);
+  fileCountEl.textContent = visible ? `${n} image${n !== 1 ? 's' : ''}` : '';
+}
+
 function setScanState(active: boolean, count = 0) {
   dropZoneContent.classList.toggle('hidden', active);
   scanStateEl.classList.toggle('hidden', !active);
@@ -214,6 +225,7 @@ function detachEntry(entry: FileEntry) {
 
 function afterRemove() {
   collapseSettings();
+  updateFileListHeader();
   if (entries.length === 0) {
     fileList.classList.add('hidden');
     actions.classList.add('hidden');
@@ -315,7 +327,8 @@ function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-right'
 function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   const { file } = entry;
   const row = document.createElement('div');
-  row.className = 'card card-bordered bg-base-200 shadow-none transition-opacity relative overflow-hidden';
+  const noGlass = document.documentElement.classList.contains('no-glass');
+  row.className = `card card-bordered bg-base-200 shadow-none transition-opacity relative overflow-hidden${noGlass ? '' : ' card-new'}`;
   row.dataset.type = file.type;
   rowOf.set(file, row);
 
@@ -673,6 +686,7 @@ async function render() {
   fileList.classList.toggle('hidden', !visible);
   actions.classList.toggle('hidden', !visible);
   logSection.classList.toggle('hidden', !visible);
+  updateFileListHeader();
 
   if (!visible) { fileWarningBanner.hidden = true; expandHero(); updateFabs(); return; }
 
@@ -714,13 +728,17 @@ async function* scanDirectoryEntry(entry: FileSystemEntry): AsyncGenerator<FileE
   }
 }
 
-function addEntries(incoming: FileEntry[]) {
+async function addEntries(incoming: FileEntry[]) {
   const images = incoming.filter(e => e.file.type.startsWith('image/'));
   const existing = new Set(entries.map(e => e.file));
   const fresh = images.filter(e => !existing.has(e.file));
+  const wasEmpty = entries.length === 0;
   entries = [...entries, ...fresh];
   collapseSettings();
-  render();
+  await render();
+  if (wasEmpty && entries.length > 0) {
+    requestAnimationFrame(() => fileListArea.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
 }
 
 function fromFileList(fileList: FileList | File[], getPath: (f: File) => string): FileEntry[] {
