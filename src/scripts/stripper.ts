@@ -79,7 +79,7 @@ const dirCounters = new Map<string, () => void>(); // path → update fn for the
 // — Directory breadcrumb (fixed, single bar, no stacking) —
 
 const dirBreadcrumb = document.createElement('div');
-dirBreadcrumb.className = 'fixed z-50 px-3 py-1.5 text-sm text-base-content/60 bg-base-100/90 backdrop-blur-sm border border-base-300 rounded-xl transition-opacity duration-150';
+dirBreadcrumb.className = 'fixed z-50 px-3 py-1.5 text-sm text-base-content/80 bg-base-100 backdrop-blur-sm border border-base-300 rounded-xl transition-opacity duration-150';
 dirBreadcrumb.style.cssText = 'top: 8px; left: 50%; transform: translateX(-50%); width: min(calc(100% - 2rem), 48rem); opacity: 0; pointer-events: none;';
 document.body.appendChild(dirBreadcrumb);
 
@@ -561,10 +561,12 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
       materialiseDir(node, children);
     }
     children.hidden = false;
+    updateFabs();
   }
   function collapse() {
     chevron.style.transform = '';
     children.hidden = true;
+    updateFabs();
   }
 
   header.addEventListener('click', () => {
@@ -681,7 +683,7 @@ async function render() {
   actions.classList.toggle('hidden', !visible);
   logSection.classList.toggle('hidden', !visible);
 
-  if (!visible) { fileWarningBanner.hidden = true; expandHero(); return; }
+  if (!visible) { fileWarningBanner.hidden = true; expandHero(); updateFabs(); return; }
 
   collapseHero();
   const levels = await Promise.all(entries.map(e => activeManager().classify(e.file)));
@@ -893,5 +895,74 @@ toggleSkipUnsupported.addEventListener('change', () => {
   syncFlatList();
   updateAllDirCounts();
 });
+
+// — Floating action buttons —
+
+function makeFabSvg(d: string): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2.5');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('w-4', 'h-4');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('d', d);
+  svg.appendChild(path);
+  return svg;
+}
+
+const fabContainer = document.createElement('div');
+fabContainer.className = 'fixed bottom-6 right-4 z-50 flex flex-col gap-2';
+document.body.appendChild(fabContainer);
+
+function makeFab(tip: string, icon: SVGSVGElement, onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'flex items-center justify-center w-8 h-8 text-base-content/70 bg-base-100 backdrop-blur-sm border border-base-300 rounded-lg cursor-pointer hover:text-base-content hover:bg-base-200 tooltip tooltip-left transition-all duration-150';
+  btn.setAttribute('data-tip', tip);
+  btn.style.opacity = '0';
+  btn.style.pointerEvents = 'none';
+  btn.addEventListener('click', onClick);
+  btn.appendChild(icon);
+  fabContainer.appendChild(btn);
+  return btn;
+}
+
+function collapseAll() {
+  for (const wrap of dirRowOf.values()) {
+    const children = wrap.children[1] as HTMLElement | undefined;
+    const chevron  = (wrap.children[0] as HTMLElement)?.children[0] as HTMLElement | undefined;
+    if (children && !children.hidden) {
+      children.hidden = true;
+      if (chevron) chevron.style.transform = '';
+    }
+  }
+  updateFabs();
+}
+
+const fabTop     = makeFab('Scroll to top',    makeFabSvg('M5 15l7-7 7 7'),         () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+const fabBottom  = makeFab('Scroll to bottom', makeFabSvg('M19 9l-7 7-7-7'),        () => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
+const fabCollapse = makeFab('Collapse all',    makeFabSvg('M4 6h16M6 12h12M8 18h8'), collapseAll);
+
+function setFabVisible(btn: HTMLButtonElement, visible: boolean) {
+  btn.style.opacity = visible ? '1' : '0';
+  btn.style.pointerEvents = visible ? 'auto' : 'none';
+}
+
+function updateFabs() {
+  const scrollY    = window.scrollY;
+  const maxScroll  = document.body.scrollHeight - window.innerHeight;
+  const hasDirs    = dirRowOf.size > 0;
+  const hasExpanded = hasDirs && [...dirRowOf.values()].some(w => !(w.children[1] as HTMLElement)?.hidden);
+
+  setFabVisible(fabTop,      scrollY > 200);
+  setFabVisible(fabBottom,   hasDirs && maxScroll > 50 && scrollY < maxScroll - 50);
+  setFabVisible(fabCollapse, hasExpanded);
+}
+
+window.addEventListener('scroll', updateFabs, { passive: true });
 
 initSettingsPanel();
