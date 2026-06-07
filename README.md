@@ -7,6 +7,9 @@
 
 Remove EXIF and other embedded metadata from photos — entirely in your browser. Nothing is ever uploaded anywhere.
 
+> [!TIP]
+> **Looking for the StripMeta.info tool?** Use it directly at **[stripmeta.info](https://stripmeta.info)** — no installation needed.
+
 ## What it does
 
 Photos taken with phones and cameras carry hidden metadata: GPS coordinates, device serial numbers, camera make and model, timestamps, software signatures, and more. StripMeta removes all of it before you share an image.
