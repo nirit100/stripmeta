@@ -36,11 +36,11 @@ const paypalUrl = import.meta.env.PUBLIC_PAYPAL_URL as string;
   </head>
   <body class="min-h-dvh flex flex-col bg-base-100 text-base-content">
     <header class="navbar border-b border-base-200 px-6">
-      <div class="flex-1">
-        <a href="/" class="text-xl font-bold tracking-tight">
+      <div class="flex-1 min-w-0 flex items-center">
+        <a href="/" class="text-xl font-bold tracking-tight shrink-0">
           <Brand />
         </a>
-        <span class="ml-3 text-sm text-base-content/50 hidden sm:inline"
+        <span class="ml-3 text-sm text-base-content/50 hidden sm:block truncate"
           >Remove photo metadata — privately.</span
         >
       </div>
