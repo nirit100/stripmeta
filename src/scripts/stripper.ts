@@ -43,6 +43,10 @@ function setScanState(active: boolean, count = 0) {
   scanCountEl.textContent = active && count > 0
     ? `${count} image${count !== 1 ? 's' : ''} found so far…`
     : '';
+  if (active && !actions.classList.contains('hidden')) {
+    btnStrip.disabled = true;
+    btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Scanning…';
+  }
 }
 
 function activeManager(): StripperManager {
@@ -72,6 +76,9 @@ let entries: FileEntry[] = [];
 let levelOf      = new Map<File, WarningLevel>();
 let metadataCache = new Map<File, MetadataPreview>();
 let heroCollapsed = false;
+let renderGen = 0;
+const stripErrorOf = new Set<File>();
+const stripDoneOf  = new Set<File>();
 
 // DOM tracking
 const rowOf       = new Map<File, HTMLElement>();
@@ -88,6 +95,27 @@ document.body.appendChild(dirBreadcrumb);
 
 window.addEventListener('scroll', () => {
   if (dirRowOf.size === 0) { dirBreadcrumb.style.opacity = '0'; dirBreadcrumb.style.pointerEvents = 'none'; return; }
+
+  const CRUMB_BOTTOM = dirBreadcrumb.offsetHeight + 16; // breadcrumb height + margin
+
+  // Priority 1: a dir header currently being covered by the breadcrumb
+  let covered = '';
+  let coveredTop = Infinity;
+  for (const [path, wrap] of dirRowOf) {
+    const headerTop = (wrap.firstElementChild as HTMLElement).getBoundingClientRect().top;
+    if (headerTop >= 0 && headerTop < CRUMB_BOTTOM && headerTop < coveredTop) {
+      covered = path;
+      coveredTop = headerTop;
+    }
+  }
+  if (covered) {
+    dirBreadcrumb.textContent = '📁 ' + covered.replaceAll('/', ' / ') + ' /';
+    dirBreadcrumb.style.opacity = '1';
+    dirBreadcrumb.style.pointerEvents = 'auto';
+    return;
+  }
+
+  // Priority 2: deepest dir that has scrolled off the top
   let best = '';
   for (const [path, wrap] of dirRowOf) {
     const rect = wrap.getBoundingClientRect();
@@ -526,18 +554,44 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
   const countBadge = document.createElement('span');
   countBadge.className = 'text-xs text-base-content/40 shrink-0';
 
+  const statusDot = document.createElement('span');
+  statusDot.className = 'w-2 h-2 rounded-full shrink-0 hidden';
+
   function updateCount() {
     const under = entriesUnder(node.path);
     const n = under.length;
-    const skipped = under.filter(e => getSkipReason(e.file) !== null).length;
+    let incompatible = 0, clean = 0, stripErrors = 0, done = 0;
+    for (const e of under) {
+      const r = getSkipReason(e.file);
+      if (r === 'unsupported' || r === 'lossy') incompatible++;
+      else if (r === 'no-metadata') clean++;
+      if (stripErrorOf.has(e.file)) stripErrors++;
+      if (stripDoneOf.has(e.file))  done++;
+    }
+    const skipped = incompatible + clean;
     const ready = n - skipped;
     let stat = `${n} file${n !== 1 ? 's' : ''}`;
     if (n > 0 && levelOf.size > 0) {
-      if (skipped === 0)    stat += ' · all ready';
-      else if (ready === 0) stat += ' · all skipped';
-      else                  stat += ` · ${ready} ready, ${skipped} skipped`;
+      const parts: string[] = [];
+      if (ready > 0)        parts.push(`${ready} ready`);
+      if (incompatible > 0) parts.push(`${incompatible} incompatible`);
+      if (clean > 0)        parts.push(`${clean} no metadata`);
+      if (stripErrors > 0)  parts.push(`${stripErrors} error${stripErrors !== 1 ? 's' : ''}`);
+      stat += ' · ' + (parts.length ? parts.join(', ') : 'all skipped');
     }
     countBadge.textContent = stat;
+
+    // Status dot: green = all done (≥1), red = any errors, hidden = not run or all skipped
+    if (stripErrors > 0) {
+      statusDot.className = 'w-2 h-2 rounded-full shrink-0 bg-error';
+    } else if (done > 0) {
+      statusDot.className = 'w-2 h-2 rounded-full shrink-0 bg-success';
+    } else {
+      statusDot.className = 'w-2 h-2 rounded-full shrink-0 hidden';
+    }
+
+    // Dim the row if no files are ready to strip
+    wrap.style.opacity = (n > 0 && levelOf.size > 0 && ready === 0) ? '0.45' : '';
   }
 
   dirCounters.set(node.path, updateCount);
@@ -552,7 +606,7 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
     removeDirNode(node);
   });
 
-  header.append(chevron, label, countBadge, removeDir);
+  header.append(chevron, label, countBadge, statusDot, removeDir);
 
   const children = document.createElement('div');
   children.className = 'flex flex-col gap-2 mt-2 ml-[1.1rem] pl-3 border-l-2 border-base-300/70';
@@ -589,7 +643,7 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
 
 function materialiseDir(node: DirNode, container: HTMLElement) {
   for (const sub of node.subdirs.values()) {
-    renderDirRow(sub, true, container);
+    renderDirRow(sub, false, container);
   }
   for (const entry of node.files) {
     const level = levelOf.get(entry.file) ?? 'none';
@@ -679,6 +733,8 @@ function renderBanner() {
 // — Main render —
 
 async function render() {
+  const gen = ++renderGen;
+
   fileList.innerHTML = '';
   rowOf.clear();
   dirRowOf.clear();
@@ -693,7 +749,14 @@ async function render() {
   if (!visible) { fileWarningBanner.hidden = true; expandHero(); updateFabs(); return; }
 
   collapseHero();
+  btnStrip.disabled = true;
+  btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Analysing…';
+
   const levels = await Promise.all(entries.map(e => activeManager().classify(e.file)));
+
+  // A newer render() call started while we were classifying — let it own the result.
+  if (gen !== renderGen) return;
+
   levelOf = new Map(entries.map((e, i) => [e.file, levels[i]!]));
 
   const tree = buildTree(entries);
@@ -709,6 +772,8 @@ async function render() {
   }
 
   renderBanner();
+  btnStrip.disabled = false;
+  btnStrip.textContent = 'Strip metadata & download';
 }
 
 // — Adding files —
@@ -752,6 +817,8 @@ function fromFileList(fileList: FileList | File[], getPath: (f: File) => string)
 async function stripAndDownload() {
   if (!entries.length) return;
   collapseSettings();
+  stripErrorOf.clear();
+  stripDoneOf.clear();
   btnStrip.disabled = true;
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Processing…';
 
@@ -780,9 +847,11 @@ async function stripAndDownload() {
       if (preview?.gps)      sessionStats.gpsRemoved++;
       if (preview?.dateTime) sessionStats.datesRemoved++;
       sessionStats.bytesStripped += Math.max(0, file.size - blob.size);
+      stripDoneOf.add(file);
       if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
     } catch (err) {
       hadErrors = true;
+      stripErrorOf.add(file);
       if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
       logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
     }
@@ -799,6 +868,7 @@ async function stripAndDownload() {
 
   btnStrip.disabled = false;
   btnStrip.textContent = 'Strip metadata & download';
+  updateAllDirCounts();
 
   if (blobs.length > 0) {
     try { window.dispatchEvent(new CustomEvent('stripmeta:processed', { detail: { ...sessionStats } })); } catch { /* ignore */ }
