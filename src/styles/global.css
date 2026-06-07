@@ -3,6 +3,9 @@
   themes: light --default, dark --prefersdark;
 }
 
+/* Classes assigned dynamically in modal.ts — must be safelisted so the scanner includes them */
+@source inline("{bg-warning/10,text-warning/70}");
+
 html {
   scrollbar-gutter: stable;
 }
