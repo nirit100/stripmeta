@@ -63,6 +63,7 @@ import Brand from '../components/Brand.astro';
       <span class="text-xs font-medium uppercase tracking-widest text-base-content/70">Settings</span>
     </summary>
     <div class="settings-body border-t border-base-300 divide-y divide-base-300">
+      <p class="px-4 pt-3 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">Processing</p>
       <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
         <div>
           <p class="text-sm font-medium">Paranoid mode</p>
@@ -84,6 +85,14 @@ import Brand from '../components/Brand.astro';
           <p class="text-xs text-base-content/50">This tool really supports the most common image formats (e.g. JPEG, PNG, WEBP). If disabled, images in other formats are re-encoded to JPEG via the canvas method.</p>
         </div>
         <input type="checkbox" id="toggle-skip-unsupported" class="toggle toggle-sm shrink-0" checked />
+      </label>
+      <p class="px-4 pt-3 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">Appearance</p>
+      <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+        <div>
+          <p class="text-sm font-medium">Disable frosted glass</p>
+          <p class="text-xs text-base-content/50">Remove blur effects from floating elements.</p>
+        </div>
+        <input type="checkbox" id="toggle-no-glass" class="toggle toggle-sm shrink-0" />
       </label>
     </div>
   </details>
@@ -117,8 +126,8 @@ import Brand from '../components/Brand.astro';
 </Layout>
 
 <dialog id="metadata-modal" class="modal">
-  <div class="modal-box w-full max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden">
-    <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300 shrink-0">
+  <div class="modal-box w-full max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden bg-transparent">
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300/60 shrink-0 bg-base-100/75 backdrop-blur-xl backdrop-brightness-125 glass-elem">
       <div class="flex-1 min-w-0">
         <h3 class="font-semibold text-sm truncate modal-title text-base-content/80"></h3>
         <p class="modal-handler text-xs text-base-content/45 mt-0.5 hidden leading-relaxed"></p>
@@ -127,7 +136,7 @@ import Brand from '../components/Brand.astro';
         <button class="btn btn-ghost btn-sm btn-circle text-base-content/50">✕</button>
       </form>
     </div>
-    <div class="flex-1 overflow-y-auto px-5 py-4 modal-content"></div>
+    <div class="flex-1 overflow-y-auto px-5 py-4 modal-content bg-base-100"></div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>

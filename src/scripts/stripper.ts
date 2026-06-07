@@ -29,6 +29,15 @@ const toggleParanoid        = document.getElementById('toggle-paranoid') as HTML
 const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
 
+{
+  const pv = localStorage.getItem('stripmeta-paranoid');
+  const sc = localStorage.getItem('stripmeta-skip-clean');
+  const su = localStorage.getItem('stripmeta-skip-unsupported');
+  if (pv !== null) toggleParanoid.checked        = pv === '1';
+  if (sc !== null) toggleSkipClean.checked       = sc === '1';
+  if (su !== null) toggleSkipUnsupported.checked = su === '1';
+}
+
 function setScanState(active: boolean, count = 0) {
   dropZoneContent.classList.toggle('hidden', active);
   scanStateEl.classList.toggle('hidden', !active);
@@ -79,7 +88,7 @@ const dirCounters = new Map<string, () => void>(); // path → update fn for the
 // — Directory breadcrumb (fixed, single bar, no stacking) —
 
 const dirBreadcrumb = document.createElement('div');
-dirBreadcrumb.className = 'fixed z-50 px-3 py-1.5 text-sm text-base-content/80 bg-base-100 backdrop-blur-sm border border-base-300 rounded-xl transition-opacity duration-150';
+dirBreadcrumb.className = 'fixed z-50 px-3 py-1.5 text-sm text-base-content/80 bg-base-100/70 backdrop-blur-sm border border-base-300 rounded-xl transition-opacity duration-150 glass-elem';
 dirBreadcrumb.style.cssText = 'top: 8px; left: 50%; transform: translateX(-50%); width: min(calc(100% - 2rem), 48rem); opacity: 0; pointer-events: none;';
 document.body.appendChild(dirBreadcrumb);
 
@@ -873,7 +882,15 @@ btnStrip.addEventListener('click', stripAndDownload);
 const labelSkipUnsupported = toggleSkipUnsupported.closest('label')!;
 let savedSkipUnsupported = toggleSkipUnsupported.checked;
 
+if (settings.paranoid) {
+  savedSkipUnsupported = true;
+  toggleSkipUnsupported.checked = false;
+  toggleSkipUnsupported.disabled = true;
+  labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
+}
+
 toggleParanoid.addEventListener('change', () => {
+  localStorage.setItem('stripmeta-paranoid', settings.paranoid ? '1' : '0');
   if (settings.paranoid) {
     savedSkipUnsupported = toggleSkipUnsupported.checked;
     toggleSkipUnsupported.checked = false;
@@ -888,11 +905,13 @@ toggleParanoid.addEventListener('change', () => {
 });
 
 toggleSkipClean.addEventListener('change', () => {
+  localStorage.setItem('stripmeta-skip-clean', toggleSkipClean.checked ? '1' : '0');
   for (const e of entries) applySkipStatus(e.file);
   syncFlatList();
   updateAllDirCounts();
 });
 toggleSkipUnsupported.addEventListener('change', () => {
+  localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
   for (const e of entries) applySkipStatus(e.file);
   syncFlatList();
   updateAllDirCounts();
@@ -923,7 +942,7 @@ document.body.appendChild(fabContainer);
 function makeFab(tip: string, icon: SVGSVGElement, onClick: () => void): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'flex items-center justify-center w-8 h-8 text-base-content/70 bg-base-100 backdrop-blur-sm border border-base-300 rounded-lg cursor-pointer hover:text-base-content hover:bg-base-200 tooltip tooltip-left transition-all duration-150';
+  btn.className = 'flex items-center justify-center w-8 h-8 text-base-content/70 bg-base-100/70 backdrop-blur-sm border border-base-300 rounded-lg cursor-pointer hover:text-base-content hover:bg-base-200/80 tooltip tooltip-left transition-all duration-150 glass-elem';
   btn.setAttribute('data-tip', tip);
   btn.style.opacity = '0';
   btn.style.pointerEvents = 'none';

@@ -1,6 +1,15 @@
+function applyNoGlass(enabled: boolean) {
+  document.documentElement.classList.toggle('no-glass', enabled);
+  localStorage.setItem('stripmeta-no-glass', enabled ? '1' : '0');
+}
+
 export function initSettingsPanel(): void {
   const details = document.getElementById('settings-details') as HTMLDetailsElement;
   const body = details.querySelector<HTMLElement>('.settings-body')!;
+
+  const toggleNoGlass = document.getElementById('toggle-no-glass') as HTMLInputElement;
+  toggleNoGlass.checked = localStorage.getItem('stripmeta-no-glass') === '1';
+  toggleNoGlass.addEventListener('change', () => applyNoGlass(toggleNoGlass.checked));
 
   details.querySelector('summary')!.addEventListener('click', e => {
     e.preventDefault();
