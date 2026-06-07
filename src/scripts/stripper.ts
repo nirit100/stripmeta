@@ -17,6 +17,9 @@ const fileWarningBanner = document.getElementById('file-warning-banner')!;
 const actions     = document.getElementById('actions')!;
 const btnStrip    = document.getElementById('btn-strip') as HTMLButtonElement;
 const btnClear    = document.getElementById('btn-clear') as HTMLButtonElement;
+const dropZoneContent = document.getElementById('drop-zone-content')!;
+const scanStateEl   = document.getElementById('scan-state')!;
+const scanCountEl   = document.getElementById('scan-count')!;
 const logSection    = document.getElementById('log-section')!;
 const btnLogToggle  = document.getElementById('btn-log-toggle') as HTMLButtonElement;
 const logPanel      = document.getElementById('log-panel')!;
@@ -25,6 +28,15 @@ const btnClearLog   = document.getElementById('btn-clear-log') as HTMLButtonElem
 const toggleParanoid        = document.getElementById('toggle-paranoid') as HTMLInputElement;
 const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
+
+function setScanState(active: boolean, count = 0) {
+  dropZoneContent.classList.toggle('hidden', active);
+  scanStateEl.classList.toggle('hidden', !active);
+  scanStateEl.classList.toggle('flex', active);
+  scanCountEl.textContent = active && count > 0
+    ? `${count} image${count !== 1 ? 's' : ''} found so far…`
+    : '';
+}
 
 const settings = {
   get paranoid()        { return toggleParanoid.checked; },
@@ -747,14 +759,20 @@ dropZone.addEventListener('drop', async e => {
   const fsEntries = items.map(i => i.webkitGetAsEntry()).filter(Boolean) as FileSystemEntry[];
 
   if (fsEntries.length > 0) {
+    setScanState(true);
+    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
     const collected: FileEntry[] = [];
     for (const fsEntry of fsEntries) {
       try {
-        for await (const fe of scanDirectoryEntry(fsEntry)) collected.push(fe);
+        for await (const fe of scanDirectoryEntry(fsEntry)) {
+          collected.push(fe);
+          setScanState(true, collected.length);
+        }
       } catch (err) {
         logEntry({ level: 'warning', fileName: fsEntry.name, filePath: fsEntry.fullPath.replace(/^\//, ''), message: 'Could not scan directory: ' + humanizeError(err) });
       }
     }
+    setScanState(false);
     addEntries(collected);
   } else if (e.dataTransfer?.files) {
     addEntries(fromFileList(e.dataTransfer.files, f => f.name));
