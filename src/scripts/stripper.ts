@@ -275,10 +275,14 @@ function applySkipStatus(file: File) {
   if (!statusBadge) return;
   const reason = getSkipReason(file);
   row.classList.toggle('opacity-40', reason !== null);
-  if (reason === 'unsupported')  statusBadge.textContent = 'Skipped — unsupported';
-  else if (reason === 'lossy')   statusBadge.textContent = 'Skipped — no lossless handler';
-  else if (reason === 'no-metadata') statusBadge.textContent = 'Skipped — no metadata';
-  else statusBadge.textContent = 'Ready';
+  if (reason === 'unsupported') {
+    statusBadge.hidden = true; // red ✕ Unsupported badge already covers this
+  } else {
+    statusBadge.hidden = false;
+    if (reason === 'lossy')            statusBadge.textContent = 'Skipped — lossy only';
+    else if (reason === 'no-metadata') statusBadge.textContent = 'Skipped — no metadata';
+    else                               statusBadge.textContent = 'Ready';
+  }
 }
 
 // — Badge helper —
@@ -320,8 +324,23 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   left.className = 'flex-1 min-w-0 space-y-1.5';
 
   const nameEl = document.createElement('div');
-  nameEl.className = 'text-sm font-medium truncate leading-snug';
-  nameEl.textContent = file.name;
+  nameEl.className = 'text-sm font-medium leading-snug flex min-w-0';
+
+  const lastDot = file.name.lastIndexOf('.');
+  const hasExt  = lastDot > 0 && lastDot < file.name.length - 1;
+  const ext  = hasExt ? file.name.slice(lastDot) : '';
+  const base = hasExt ? file.name.slice(0, lastDot) : file.name;
+  const TAIL = 4;
+
+  const nameHead = document.createElement('span');
+  nameHead.className = 'truncate min-w-0';
+  nameHead.textContent = base.length > TAIL ? base.slice(0, -TAIL) : '';
+
+  const nameTail = document.createElement('span');
+  nameTail.className = 'shrink-0 whitespace-nowrap';
+  nameTail.textContent = (base.length > TAIL ? base.slice(-TAIL) : base) + ext;
+
+  nameEl.append(nameHead, nameTail);
 
   const subline = document.createElement('div');
   subline.className = 'flex flex-wrap items-center gap-1.5';
