@@ -3,7 +3,7 @@ import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stri
 import { formatBytes, formatGps } from '../lib/format.ts';
 import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
 import { openMetadataModal } from './modal.ts';
-import { initSettingsPanel } from './settings-panel.ts';
+import { initSettingsPanel, collapseSettings } from './settings-panel.ts';
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
@@ -245,6 +245,7 @@ function detachEntry(entry: FileEntry) {
 }
 
 function afterRemove() {
+  collapseSettings();
   if (entries.length === 0) {
     fileList.classList.add('hidden');
     actions.classList.add('hidden');
@@ -750,6 +751,7 @@ function addEntries(incoming: FileEntry[]) {
   const existing = new Set(entries.map(e => e.file));
   const fresh = images.filter(e => !existing.has(e.file));
   entries = [...entries, ...fresh];
+  collapseSettings();
   render();
 }
 
@@ -761,6 +763,7 @@ function fromFileList(fileList: FileList | File[], getPath: (f: File) => string)
 
 async function stripAndDownload() {
   if (!entries.length) return;
+  collapseSettings();
   btnStrip.disabled = true;
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Processing…';
 
@@ -869,6 +872,7 @@ dropZone.addEventListener('drop', async e => {
 });
 
 btnClear.addEventListener('click', () => {
+  collapseSettings();
   for (const url of urlOf.values()) URL.revokeObjectURL(url);
   urlOf.clear();
   entries = [];
