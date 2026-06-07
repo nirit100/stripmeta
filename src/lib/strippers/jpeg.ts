@@ -33,7 +33,12 @@ export const jpegStripper: StripperHandler = {
   },
 
   strip: async (file) => {
-    const dataUrl = await fileToDataUrl(file);
+    let dataUrl = await fileToDataUrl(file);
+    // piexifjs rejects any data URL whose MIME type is not image/jpeg, even if the
+    // content is valid JPEG (e.g. a .png file that actually contains JPEG data).
+    if (!dataUrl.startsWith('data:image/jpeg;')) {
+      dataUrl = 'data:image/jpeg;base64,' + dataUrl.split(',')[1];
+    }
     return dataUrlToBlob(piexif.remove(dataUrl));
   },
 };
