@@ -4,6 +4,7 @@ import { formatBytes, formatGps } from '../lib/format.ts';
 import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
 import { openMetadataModal } from './modal.ts';
 import { initSettingsPanel } from './settings-panel.ts';
+import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -16,6 +17,11 @@ const fileWarningBanner = document.getElementById('file-warning-banner')!;
 const actions     = document.getElementById('actions')!;
 const btnStrip    = document.getElementById('btn-strip') as HTMLButtonElement;
 const btnClear    = document.getElementById('btn-clear') as HTMLButtonElement;
+const logSection    = document.getElementById('log-section')!;
+const btnLogToggle  = document.getElementById('btn-log-toggle') as HTMLButtonElement;
+const logPanel      = document.getElementById('log-panel')!;
+const logEntriesEl  = document.getElementById('log-entries')!;
+const btnClearLog   = document.getElementById('btn-clear-log') as HTMLButtonElement;
 const toggleParanoid        = document.getElementById('toggle-paranoid') as HTMLInputElement;
 const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
@@ -57,6 +63,64 @@ const rowOf       = new Map<File, HTMLElement>();
 const urlOf       = new Map<File, string>();
 const dirRowOf    = new Map<string, HTMLElement>();
 const dirCounters = new Map<string, () => void>(); // path → update fn for the stat label
+
+// — Log panel —
+
+function updateLogUI() {
+  const log = getLog();
+  const errors   = log.filter(e => e.level === 'error').length;
+  const warnings = log.filter(e => e.level === 'warning').length;
+
+  let text: string;
+  let colorCls: string;
+  if (errors > 0) {
+    const warnPart = warnings > 0 ? `, ${warnings} warning${warnings !== 1 ? 's' : ''}` : '';
+    text     = `${errors} error${errors !== 1 ? 's' : ''}${warnPart} — click to expand`;
+    colorCls = 'text-error/70 hover:text-error hover:bg-base-200/50';
+  } else if (warnings > 0) {
+    text     = `${warnings} warning${warnings !== 1 ? 's' : ''} — click to expand`;
+    colorCls = 'text-warning/70 hover:text-warning hover:bg-base-200/50';
+  } else {
+    text     = 'No issues';
+    colorCls = 'text-base-content/30 hover:text-base-content/50 hover:bg-base-200/50';
+  }
+
+  btnLogToggle.textContent = text;
+  btnLogToggle.className = `w-full px-3 py-2 text-sm rounded-lg transition-colors text-center ${colorCls}`;
+
+  logEntriesEl.innerHTML = '';
+  for (const entry of log) {
+    const li = document.createElement('li');
+    li.className = 'flex items-start gap-3 px-4 py-3';
+
+    const icon = document.createElement('span');
+    icon.className = entry.level === 'error'
+      ? 'text-error shrink-0 mt-0.5 text-xs font-bold'
+      : 'text-warning shrink-0 mt-0.5 text-xs';
+    icon.textContent = entry.level === 'error' ? '✕' : '⚠';
+
+    const content = document.createElement('div');
+    content.className = 'flex-1 min-w-0';
+
+    const name = document.createElement('div');
+    name.className = 'text-xs font-medium text-base-content/70 truncate';
+    name.textContent = entry.fileName;
+
+    const path = document.createElement('div');
+    path.className = 'text-[0.65rem] text-base-content/35 truncate font-mono';
+    path.textContent = entry.filePath;
+
+    const msg = document.createElement('div');
+    msg.className = 'text-xs text-base-content/50 mt-0.5';
+    msg.textContent = entry.message;
+
+    content.append(name, path, msg);
+    li.append(icon, content);
+    logEntriesEl.appendChild(li);
+  }
+}
+
+onLogChange(updateLogUI);
 
 // — Hero collapse/expand —
 
@@ -126,6 +190,7 @@ function afterRemove() {
   if (entries.length === 0) {
     fileList.classList.add('hidden');
     actions.classList.add('hidden');
+    logSection.classList.add('hidden');
     fileWarningBanner.hidden = true;
     dirRowOf.clear();
     expandHero();
@@ -341,7 +406,9 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
       applySkipStatus(file);
       syncFlatList();
       updateAllDirCounts();
-    }).catch(() => {});
+    }).catch(err => {
+      logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
+    });
   }
 
   addSwipeToRemove(body, row, entry);
@@ -528,6 +595,7 @@ async function render() {
   const visible = entries.length > 0;
   fileList.classList.toggle('hidden', !visible);
   actions.classList.toggle('hidden', !visible);
+  logSection.classList.toggle('hidden', !visible);
 
   if (!visible) { fileWarningBanner.hidden = true; expandHero(); return; }
 
@@ -603,8 +671,9 @@ async function stripAndDownload() {
       const blob = await activeManager().strip(file);
       blobs.push({ path, blob });
       if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
-    } catch {
+    } catch (err) {
       if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
+      logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
     }
   }));
 
@@ -671,7 +740,11 @@ dropZone.addEventListener('drop', async e => {
   if (fsEntries.length > 0) {
     const collected: FileEntry[] = [];
     for (const fsEntry of fsEntries) {
-      for await (const fe of scanDirectoryEntry(fsEntry)) collected.push(fe);
+      try {
+        for await (const fe of scanDirectoryEntry(fsEntry)) collected.push(fe);
+      } catch (err) {
+        logEntry({ level: 'warning', fileName: fsEntry.name, filePath: fsEntry.fullPath.replace(/^\//, ''), message: 'Could not scan directory: ' + humanizeError(err) });
+      }
     }
     addEntries(collected);
   } else if (e.dataTransfer?.files) {
@@ -687,7 +760,17 @@ btnClear.addEventListener('click', () => {
   metadataCache.clear();
   dirRowOf.clear();
   dirCounters.clear();
+  clearLog();
   render();
+});
+
+btnLogToggle.addEventListener('click', () => {
+  logPanel.classList.toggle('hidden');
+});
+
+btnClearLog.addEventListener('click', () => {
+  clearLog();
+  logPanel.classList.add('hidden');
 });
 
 btnStrip.addEventListener('click', stripAndDownload);

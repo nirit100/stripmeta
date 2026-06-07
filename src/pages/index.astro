@@ -93,6 +93,19 @@ import Brand from '../components/Brand.astro';
     </button>
   </div>
 
+  <div id="log-section" class="w-full hidden">
+    <button id="btn-log-toggle" type="button"
+            class="w-full px-3 py-2 text-sm rounded-lg transition-colors text-center text-base-content/30 hover:bg-base-200/50 hover:text-base-content/50">
+      No issues
+    </button>
+    <div id="log-panel" class="hidden mt-1 rounded-xl border border-base-300 overflow-hidden">
+      <ul id="log-entries" class="divide-y divide-base-300 max-h-60 overflow-y-auto"></ul>
+      <div class="flex justify-end px-4 py-2 border-t border-base-300">
+        <button id="btn-clear-log" type="button" class="btn btn-xs btn-ghost text-base-content/40">Clear log</button>
+      </div>
+    </div>
+  </div>
+
 </Layout>
 
 <dialog id="metadata-modal" class="modal">
