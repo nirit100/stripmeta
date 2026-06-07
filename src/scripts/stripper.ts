@@ -425,9 +425,18 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
   const header = document.createElement('div');
   header.className = 'flex items-center gap-2 px-3 py-2 rounded-xl bg-base-200/60 border border-base-300 cursor-pointer select-none hover:bg-base-200 transition-colors';
 
-  const chevron = document.createElement('span');
-  chevron.className = 'text-base-content/40 text-xs transition-transform duration-200 inline-block';
-  chevron.textContent = '▶';
+  const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  chevron.setAttribute('viewBox', '0 0 24 24');
+  chevron.setAttribute('fill', 'none');
+  chevron.setAttribute('stroke', 'currentColor');
+  chevron.setAttribute('stroke-width', '2.5');
+  chevron.setAttribute('aria-hidden', 'true');
+  chevron.classList.add('w-3', 'h-3', 'text-base-content/40', 'transition-transform', 'duration-200', 'shrink-0');
+  const chevronPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  chevronPath.setAttribute('stroke-linecap', 'round');
+  chevronPath.setAttribute('stroke-linejoin', 'round');
+  chevronPath.setAttribute('d', 'M9 5l7 7-7 7');
+  chevron.appendChild(chevronPath);
 
   const label = document.createElement('span');
   label.className = 'text-sm font-medium flex-1 min-w-0 truncate';
