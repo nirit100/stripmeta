@@ -743,6 +743,7 @@ async function stripAndDownload() {
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Processing…';
 
   const blobs: { path: string; blob: Blob }[] = [];
+  let hadErrors = false;
 
   await Promise.all(entries.map(async entry => {
     const { file, path } = entry;
@@ -758,6 +759,7 @@ async function stripAndDownload() {
       blobs.push({ path, blob });
       if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
     } catch (err) {
+      hadErrors = true;
       if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
       logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
     }
@@ -775,7 +777,7 @@ async function stripAndDownload() {
   btnStrip.disabled = false;
   btnStrip.textContent = 'Strip metadata & download';
 
-  if (blobs.length > 0) {
+  if (blobs.length > 0 && !hadErrors) {
     try { window.dispatchEvent(new CustomEvent('stripmeta:processed')); } catch { /* ignore */ }
   }
 }
