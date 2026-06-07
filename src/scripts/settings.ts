@@ -1,3 +1,4 @@
+const toggleAutoAbout       = document.getElementById('toggle-auto-about') as HTMLInputElement;
 const toggleParanoid        = document.getElementById('toggle-paranoid') as HTMLInputElement;
 const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
@@ -16,6 +17,7 @@ export const settings = {
   get skipUnsupported() { return toggleSkipUnsupported.checked; },
   get includeSkipped()  { return toggleIncludeSkipped.checked; },
   get warnUnload()      { return toggleWarnUnload.checked; },
+  get autoAbout()       { return toggleAutoAbout.checked; },
 };
 
 // — Change subscriptions —
@@ -42,6 +44,7 @@ const PERSIST_KEYS = [
   'stripmeta-include-skipped',
   'stripmeta-no-glass',
   'stripmeta-warn-unload',
+  'stripmeta-auto-about',
 ] as const;
 
 function hasSavedSettings(): boolean {
@@ -86,12 +89,14 @@ export function initSettings(): void {
     const su = localStorage.getItem('stripmeta-skip-unsupported');
     const is = localStorage.getItem('stripmeta-include-skipped');
     const wu = localStorage.getItem('stripmeta-warn-unload');
+    const aa = localStorage.getItem('stripmeta-auto-about');
     if (pv !== null) toggleParanoid.checked        = pv === '1';
     if (sc !== null) toggleSkipClean.checked       = sc === '1';
     if (su !== null) toggleSkipUnsupported.checked = su === '1';
     if (is !== null) toggleIncludeSkipped.checked  = is === '1';
     if (wu !== null) toggleWarnUnload.checked       = wu === '1';
     else if (import.meta.env.DEV) toggleWarnUnload.checked = false;
+    if (aa !== null) toggleAutoAbout.checked        = aa === '1';
     toggleNoGlass.checked = localStorage.getItem('stripmeta-no-glass') === '1';
   } else if (import.meta.env.DEV) {
     toggleWarnUnload.checked = false;
@@ -142,6 +147,8 @@ export function initSettings(): void {
     notify('warnUnload');
   });
 
+  toggleAutoAbout.addEventListener('change', () => persist('stripmeta-auto-about', toggleAutoAbout.checked));
+
   toggleNoGlass.addEventListener('change', () => applyNoGlass(toggleNoGlass.checked));
 
   togglePersist.addEventListener('change', () => {
@@ -153,6 +160,7 @@ export function initSettings(): void {
       localStorage.setItem('stripmeta-include-skipped',  toggleIncludeSkipped.checked ? '1' : '0');
       localStorage.setItem('stripmeta-no-glass',         document.documentElement.classList.contains('no-glass') ? '1' : '0');
       localStorage.setItem('stripmeta-warn-unload',      toggleWarnUnload.checked ? '1' : '0');
+      localStorage.setItem('stripmeta-auto-about',       toggleAutoAbout.checked ? '1' : '0');
       clearStorageHint.classList.remove('hint-visible');
     } else {
       localStorage.setItem('stripmeta-no-persist', '1');
@@ -162,6 +170,7 @@ export function initSettings(): void {
 
   btnClearStorage.addEventListener('click', () => {
     PERSIST_KEYS.forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem('stripmeta-stats');
     clearStorageHint.classList.remove('hint-visible');
   });
 

@@ -66,6 +66,8 @@ interface DirNode {
   files: FileEntry[];
 }
 
+const sessionStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
+
 let entries: FileEntry[] = [];
 let levelOf      = new Map<File, WarningLevel>();
 let metadataCache = new Map<File, MetadataPreview>();
@@ -773,6 +775,11 @@ async function stripAndDownload() {
     try {
       const blob = await activeManager().strip(file);
       blobs.push({ path, blob });
+      sessionStats.filesProcessed++;
+      const preview = metadataCache.get(file);
+      if (preview?.gps)      sessionStats.gpsRemoved++;
+      if (preview?.dateTime) sessionStats.datesRemoved++;
+      sessionStats.bytesStripped += Math.max(0, file.size - blob.size);
       if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
     } catch (err) {
       hadErrors = true;
@@ -793,8 +800,8 @@ async function stripAndDownload() {
   btnStrip.disabled = false;
   btnStrip.textContent = 'Strip metadata & download';
 
-  if (blobs.length > 0 && !hadErrors) {
-    try { window.dispatchEvent(new CustomEvent('stripmeta:processed')); } catch { /* ignore */ }
+  if (blobs.length > 0) {
+    try { window.dispatchEvent(new CustomEvent('stripmeta:processed', { detail: { ...sessionStats } })); } catch { /* ignore */ }
   }
 }
 
