@@ -3,7 +3,7 @@ import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stri
 import { formatBytes, formatGps } from '../lib/format.ts';
 import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
 import { openMetadataModal } from './modal.ts';
-import { initSettingsPanel, collapseSettings } from './settings-panel.ts';
+import { settings, onSettingChange, collapseSettings, initSettings } from './settings.ts';
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
@@ -25,35 +25,6 @@ const btnLogToggle  = document.getElementById('btn-log-toggle') as HTMLButtonEle
 const logPanel      = document.getElementById('log-panel')!;
 const logEntriesEl  = document.getElementById('log-entries')!;
 const btnClearLog   = document.getElementById('btn-clear-log') as HTMLButtonElement;
-const toggleParanoid        = document.getElementById('toggle-paranoid') as HTMLInputElement;
-const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
-const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
-const togglePersist         = document.getElementById('toggle-persist') as HTMLInputElement;
-const toggleIncludeSkipped  = document.getElementById('toggle-include-skipped') as HTMLInputElement;
-const toggleWarnUnload      = document.getElementById('toggle-warn-unload') as HTMLInputElement;
-const clearStorageHint      = document.getElementById('clear-storage-hint')!;
-const btnClearStorage       = document.getElementById('btn-clear-storage') as HTMLButtonElement;
-
-{
-  const noPersist = localStorage.getItem('stripmeta-no-persist') === '1';
-  togglePersist.checked = !noPersist;
-  if (!noPersist) {
-    const pv  = localStorage.getItem('stripmeta-paranoid');
-    const sc  = localStorage.getItem('stripmeta-skip-clean');
-    const su  = localStorage.getItem('stripmeta-skip-unsupported');
-    const is  = localStorage.getItem('stripmeta-include-skipped');
-    const wu  = localStorage.getItem('stripmeta-warn-unload');
-    if (pv  !== null) toggleParanoid.checked        = pv  === '1';
-    if (sc  !== null) toggleSkipClean.checked       = sc  === '1';
-    if (su  !== null) toggleSkipUnsupported.checked = su  === '1';
-    if (is  !== null) toggleIncludeSkipped.checked  = is  === '1';
-    if (wu  !== null) toggleWarnUnload.checked       = wu  === '1';
-    else if (import.meta.env.DEV) toggleWarnUnload.checked = false;
-  } else if (import.meta.env.DEV) {
-    toggleWarnUnload.checked = false;
-  }
-}
-
 function setScanState(active: boolean, count = 0) {
   dropZoneContent.classList.toggle('hidden', active);
   scanStateEl.classList.toggle('hidden', !active);
@@ -62,12 +33,6 @@ function setScanState(active: boolean, count = 0) {
     ? `${count} image${count !== 1 ? 's' : ''} found so far…`
     : '';
 }
-
-const settings = {
-  get paranoid()        { return toggleParanoid.checked; },
-  get skipClean()       { return toggleSkipClean.checked; },
-  get skipUnsupported() { return toggleSkipUnsupported.checked; },
-};
 
 function activeManager(): StripperManager {
   return settings.paranoid ? paranoidStripperManager : defaultStripperManager;
@@ -101,7 +66,7 @@ const urlOf       = new Map<File, string>();
 const dirRowOf    = new Map<string, HTMLElement>();
 const dirCounters = new Map<string, () => void>(); // path → update fn for the stat label
 
-// — Directory breadcrumb (fixed, single bar, no stacking) —
+// — Directory breadcrumb
 
 const dirBreadcrumb = document.createElement('div');
 dirBreadcrumb.className = 'fixed z-50 px-3 py-1.5 text-sm text-base-content/80 bg-base-100/70 backdrop-blur-sm border border-base-300 rounded-xl transition-opacity duration-150 glass-elem';
@@ -778,7 +743,7 @@ async function stripAndDownload() {
     const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
 
     if (getSkipReason(file) !== null) {
-      if (toggleIncludeSkipped.checked) {
+      if (settings.includeSkipped) {
         blobs.push({ path, blob: file });
         if (statusBadge) { statusBadge.textContent = 'Copied'; statusBadge.className = 'badge badge-outline badge-sm status-badge'; }
       } else {
@@ -903,84 +868,12 @@ btnClearLog.addEventListener('click', () => {
 
 btnStrip.addEventListener('click', stripAndDownload);
 
-// Paranoid mode
-const labelSkipUnsupported = toggleSkipUnsupported.closest('label')!;
-let savedSkipUnsupported = toggleSkipUnsupported.checked;
-
-if (settings.paranoid) {
-  savedSkipUnsupported = true;
-  toggleSkipUnsupported.checked = false;
-  toggleSkipUnsupported.disabled = true;
-  labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
-}
-
-const PERSIST_KEYS = ['stripmeta-paranoid','stripmeta-skip-clean','stripmeta-skip-unsupported','stripmeta-include-skipped','stripmeta-no-glass','stripmeta-warn-unload'] as const;
-
-function hasSavedSettings(): boolean {
-  return PERSIST_KEYS.some(k => localStorage.getItem(k) !== null);
-}
-
-btnClearStorage.addEventListener('click', () => {
-  PERSIST_KEYS.forEach(k => localStorage.removeItem(k));
-  clearStorageHint.classList.remove('hint-visible');
-});
-
-togglePersist.addEventListener('change', () => {
-  if (togglePersist.checked) {
-    localStorage.removeItem('stripmeta-no-persist');
-    localStorage.setItem('stripmeta-paranoid',         settings.paranoid ? '1' : '0');
-    localStorage.setItem('stripmeta-skip-clean',       toggleSkipClean.checked       ? '1' : '0');
-    localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
-    localStorage.setItem('stripmeta-include-skipped',  toggleIncludeSkipped.checked ? '1' : '0');
-    localStorage.setItem('stripmeta-no-glass',         document.documentElement.classList.contains('no-glass') ? '1' : '0');
-    localStorage.setItem('stripmeta-warn-unload',      toggleWarnUnload.checked ? '1' : '0');
-    clearStorageHint.classList.remove('hint-visible');
-  } else {
-    localStorage.setItem('stripmeta-no-persist', '1');
-    if (hasSavedSettings()) {
-      clearStorageHint.classList.add('hint-visible');
-    }
-  }
-});
-
-toggleParanoid.addEventListener('change', () => {
-  if (togglePersist.checked) localStorage.setItem('stripmeta-paranoid', settings.paranoid ? '1' : '0');
-  if (settings.paranoid) {
-    savedSkipUnsupported = toggleSkipUnsupported.checked;
-    toggleSkipUnsupported.checked = false;
-    toggleSkipUnsupported.disabled = true;
-    labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
-  } else {
-    toggleSkipUnsupported.disabled = false;
-    toggleSkipUnsupported.checked = savedSkipUnsupported;
-    labelSkipUnsupported.classList.remove('opacity-40', 'pointer-events-none');
-  }
-  render();
-});
-
-toggleSkipClean.addEventListener('change', () => {
-  if (togglePersist.checked) localStorage.setItem('stripmeta-skip-clean', toggleSkipClean.checked ? '1' : '0');
-  for (const e of entries) applySkipStatus(e.file);
-  syncFlatList();
-  updateAllDirCounts();
-});
-toggleSkipUnsupported.addEventListener('change', () => {
-  if (togglePersist.checked) localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
-  for (const e of entries) applySkipStatus(e.file);
-  syncFlatList();
-  updateAllDirCounts();
-});
-
-toggleIncludeSkipped.addEventListener('change', () => {
-  if (togglePersist.checked) localStorage.setItem('stripmeta-include-skipped', toggleIncludeSkipped.checked ? '1' : '0');
-});
-
-toggleWarnUnload.addEventListener('change', () => {
-  if (togglePersist.checked) localStorage.setItem('stripmeta-warn-unload', toggleWarnUnload.checked ? '1' : '0');
-});
+onSettingChange('paranoid',        () => render());
+onSettingChange('skipClean',       () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); });
+onSettingChange('skipUnsupported', () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); });
 
 window.addEventListener('beforeunload', e => {
-  if (toggleWarnUnload.checked && entries.length > 0) e.preventDefault();
+  if (settings.warnUnload && entries.length > 0) e.preventDefault();
 });
 
 // — Floating action buttons —
@@ -1052,4 +945,4 @@ function updateFabs() {
 
 window.addEventListener('scroll', updateFabs, { passive: true });
 
-initSettingsPanel();
+initSettings();
