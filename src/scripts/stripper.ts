@@ -29,6 +29,7 @@ const toggleParanoid        = document.getElementById('toggle-paranoid') as HTML
 const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
 const togglePersist         = document.getElementById('toggle-persist') as HTMLInputElement;
+const toggleWarnUnload      = document.getElementById('toggle-warn-unload') as HTMLInputElement;
 const clearStorageHint      = document.getElementById('clear-storage-hint')!;
 const btnClearStorage       = document.getElementById('btn-clear-storage') as HTMLButtonElement;
 
@@ -36,12 +37,17 @@ const btnClearStorage       = document.getElementById('btn-clear-storage') as HT
   const noPersist = localStorage.getItem('stripmeta-no-persist') === '1';
   togglePersist.checked = !noPersist;
   if (!noPersist) {
-    const pv = localStorage.getItem('stripmeta-paranoid');
-    const sc = localStorage.getItem('stripmeta-skip-clean');
-    const su = localStorage.getItem('stripmeta-skip-unsupported');
-    if (pv !== null) toggleParanoid.checked        = pv === '1';
-    if (sc !== null) toggleSkipClean.checked       = sc === '1';
-    if (su !== null) toggleSkipUnsupported.checked = su === '1';
+    const pv  = localStorage.getItem('stripmeta-paranoid');
+    const sc  = localStorage.getItem('stripmeta-skip-clean');
+    const su  = localStorage.getItem('stripmeta-skip-unsupported');
+    const wu  = localStorage.getItem('stripmeta-warn-unload');
+    if (pv  !== null) toggleParanoid.checked        = pv  === '1';
+    if (sc  !== null) toggleSkipClean.checked       = sc  === '1';
+    if (su  !== null) toggleSkipUnsupported.checked = su  === '1';
+    if (wu  !== null) toggleWarnUnload.checked       = wu  === '1';
+    else if (import.meta.env.DEV) toggleWarnUnload.checked = false;
+  } else if (import.meta.env.DEV) {
+    toggleWarnUnload.checked = false;
   }
 }
 
@@ -896,7 +902,7 @@ if (settings.paranoid) {
   labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
 }
 
-const PERSIST_KEYS = ['stripmeta-paranoid','stripmeta-skip-clean','stripmeta-skip-unsupported','stripmeta-no-glass'] as const;
+const PERSIST_KEYS = ['stripmeta-paranoid','stripmeta-skip-clean','stripmeta-skip-unsupported','stripmeta-no-glass','stripmeta-warn-unload'] as const;
 
 function hasSavedSettings(): boolean {
   return PERSIST_KEYS.some(k => localStorage.getItem(k) !== null);
@@ -914,6 +920,7 @@ togglePersist.addEventListener('change', () => {
     localStorage.setItem('stripmeta-skip-clean',       toggleSkipClean.checked       ? '1' : '0');
     localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
     localStorage.setItem('stripmeta-no-glass',         document.documentElement.classList.contains('no-glass') ? '1' : '0');
+    localStorage.setItem('stripmeta-warn-unload',      toggleWarnUnload.checked ? '1' : '0');
     clearStorageHint.classList.remove('hint-visible');
   } else {
     localStorage.setItem('stripmeta-no-persist', '1');
@@ -949,6 +956,14 @@ toggleSkipUnsupported.addEventListener('change', () => {
   for (const e of entries) applySkipStatus(e.file);
   syncFlatList();
   updateAllDirCounts();
+});
+
+toggleWarnUnload.addEventListener('change', () => {
+  if (togglePersist.checked) localStorage.setItem('stripmeta-warn-unload', toggleWarnUnload.checked ? '1' : '0');
+});
+
+window.addEventListener('beforeunload', e => {
+  if (toggleWarnUnload.checked && entries.length > 0) e.preventDefault();
 });
 
 // — Floating action buttons —
