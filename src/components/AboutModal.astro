@@ -1,9 +1,9 @@
 ---
 import Brand from './Brand.astro';
 
-const kofiId          = import.meta.env.PUBLIC_KOFI_ID          as string;
-const paypalDonateUrl = import.meta.env.PUBLIC_PAYPAL_DONATE_URL as string;
-const githubUrl       = import.meta.env.PUBLIC_GITHUB_URL        as string;
+const kofiId      = import.meta.env.PUBLIC_KOFI_ID    as string;
+const paypalUrl   = import.meta.env.PUBLIC_PAYPAL_URL as string;
+const githubUrl   = import.meta.env.PUBLIC_GITHUB_URL as string;
 ---
 
 <dialog id="about-modal" class="modal">
@@ -57,7 +57,7 @@ const githubUrl       = import.meta.env.PUBLIC_GITHUB_URL        as string;
         <script type="text/javascript" src="https://storage.ko-fi.com/cdn/widget/Widget_2.js"></script>
         <script is:inline define:vars={{ kofiId }}>kofiwidget2.init("Buy me a Ko-fi", "#ff6b6b", kofiId);kofiwidget2.draw();</script>
         <span>or</span>
-        <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 h-9 mx-1 rounded-md" href={paypalDonateUrl} target="_blank" rel="noopener noreferrer">
+        <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 h-9 mx-1 rounded-md" href={paypalUrl} target="_blank" rel="noopener noreferrer">
           <img class="w-4 h-4 shrink-0 object-contain" src="https://www.paypalobjects.com/paypal-ui/logos/svg/paypal-mark-monotone-transparent.svg" alt="PayPal logo" />
           Donate via PayPal
         </a>
