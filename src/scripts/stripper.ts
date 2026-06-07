@@ -76,6 +76,30 @@ const urlOf       = new Map<File, string>();
 const dirRowOf    = new Map<string, HTMLElement>();
 const dirCounters = new Map<string, () => void>(); // path → update fn for the stat label
 
+// — Directory breadcrumb (fixed, single bar, no stacking) —
+
+const dirBreadcrumb = document.createElement('div');
+dirBreadcrumb.className = 'fixed z-50 px-3 py-1.5 text-sm text-base-content/60 bg-base-100/90 backdrop-blur-sm border border-base-300 rounded-xl transition-opacity duration-150';
+dirBreadcrumb.style.cssText = 'top: 8px; left: 50%; transform: translateX(-50%); width: min(calc(100% - 2rem), 48rem); opacity: 0; pointer-events: none;';
+document.body.appendChild(dirBreadcrumb);
+
+window.addEventListener('scroll', () => {
+  if (dirRowOf.size === 0) { dirBreadcrumb.style.opacity = '0'; dirBreadcrumb.style.pointerEvents = 'none'; return; }
+  let best = '';
+  for (const [path, wrap] of dirRowOf) {
+    const rect = wrap.getBoundingClientRect();
+    if (rect.top < 1 && rect.bottom > 0 && path.split('/').length > best.split('/').length) best = path;
+  }
+  if (best) {
+    dirBreadcrumb.textContent = '📁 ' + best.replaceAll('/', ' / ') + ' /';
+    dirBreadcrumb.style.opacity = '1';
+    dirBreadcrumb.style.pointerEvents = 'auto';
+  } else {
+    dirBreadcrumb.style.opacity = '0';
+    dirBreadcrumb.style.pointerEvents = 'none';
+  }
+}, { passive: true });
+
 // — Log panel —
 
 function updateLogUI() {
@@ -525,7 +549,7 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
   header.append(chevron, label, countBadge, removeDir);
 
   const children = document.createElement('div');
-  children.className = 'flex flex-col gap-2 pl-4 mt-2';
+  children.className = 'flex flex-col gap-2 mt-2 ml-[1.1rem] pl-3 border-l-2 border-base-300/70';
   children.hidden = true;
 
   let materialised = false;
