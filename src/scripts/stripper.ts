@@ -658,7 +658,7 @@ function renderBanner() {
   }
 
   fileWarningBanner.hidden = false;
-  fileWarningBanner.innerHTML = `<div class="alert alert-warning flex flex-col items-start gap-1 text-sm">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
+  fileWarningBanner.innerHTML = `<div class="flex flex-col gap-1 text-sm px-4 py-3 rounded-xl border border-base-300 text-base-content/70">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
 }
 
 // — Main render —
