@@ -179,6 +179,18 @@ export function initSettings(): void {
         [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'translateY(0)' }],
         { duration: 200, easing: 'ease' },
       );
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const rect = details.getBoundingClientRect();
+        const overflow = rect.bottom - window.innerHeight;
+        if (overflow <= 0) return;
+        if (rect.height <= window.innerHeight) {
+          // Panel fits — scroll down with breathing room
+          window.scrollBy({ top: overflow + 32, behavior: 'smooth' });
+        } else {
+          // Panel taller than viewport — bring top to 16px from screen edge
+          window.scrollBy({ top: rect.top - 16, behavior: 'smooth' });
+        }
+      }));
     }
   });
 }
