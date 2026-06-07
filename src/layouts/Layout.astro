@@ -14,8 +14,8 @@ const {
   description = "Remove EXIF metadata from your photos privately. Everything happens in your browser — nothing is ever uploaded.",
 } = Astro.props;
 
-const kofiUrl  = import.meta.env.KOFI_URL  as string;
-const paypalUrl = import.meta.env.PAYPAL_URL as string;
+const kofiUrl   = import.meta.env.PUBLIC_KOFI_URL   as string;
+const paypalUrl = import.meta.env.PUBLIC_PAYPAL_URL as string;
 ---
 
 <html lang="en">
