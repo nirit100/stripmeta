@@ -60,6 +60,8 @@ Thumbs.db
 *.lock
 .cache-loader
 dist-*/
+TODO.txt
 
 # Test images
-Screenshot*
+Screenshot*.png
+IMG_*.jpg
