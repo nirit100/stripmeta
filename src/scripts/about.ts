@@ -15,6 +15,7 @@ const statDatesWrap = document.getElementById('stat-dates-wrap') as HTMLElement 
 const statKb      = document.getElementById('stat-kb') as HTMLElement | null;
 const statKbWrap  = document.getElementById('stat-kb-wrap') as HTMLElement | null;
 const statsDate      = document.getElementById('stats-date') as HTMLElement | null;
+const btnAboutNav    = document.getElementById('btn-about-nav') as HTMLButtonElement | null;
 const btnClearStats  = document.getElementById('btn-clear-stats') as HTMLButtonElement | null;
 
 interface StripStats {
@@ -155,6 +156,7 @@ window.addEventListener('stripmeta:processed', (e: Event) => {
 window.addEventListener('stripmeta:processed', () => openModal(true), { once: true });
 
 btnAbout?.addEventListener('click', () => openModal(false));
+btnAboutNav?.addEventListener('click', () => openModal(false));
 
 btnClearStats?.addEventListener('click', () => {
   localStorage.removeItem(STATS_KEY);
