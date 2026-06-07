@@ -28,14 +28,21 @@ const btnClearLog   = document.getElementById('btn-clear-log') as HTMLButtonElem
 const toggleParanoid        = document.getElementById('toggle-paranoid') as HTMLInputElement;
 const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
+const togglePersist         = document.getElementById('toggle-persist') as HTMLInputElement;
+const clearStorageHint      = document.getElementById('clear-storage-hint')!;
+const btnClearStorage       = document.getElementById('btn-clear-storage') as HTMLButtonElement;
 
 {
-  const pv = localStorage.getItem('stripmeta-paranoid');
-  const sc = localStorage.getItem('stripmeta-skip-clean');
-  const su = localStorage.getItem('stripmeta-skip-unsupported');
-  if (pv !== null) toggleParanoid.checked        = pv === '1';
-  if (sc !== null) toggleSkipClean.checked       = sc === '1';
-  if (su !== null) toggleSkipUnsupported.checked = su === '1';
+  const noPersist = localStorage.getItem('stripmeta-no-persist') === '1';
+  togglePersist.checked = !noPersist;
+  if (!noPersist) {
+    const pv = localStorage.getItem('stripmeta-paranoid');
+    const sc = localStorage.getItem('stripmeta-skip-clean');
+    const su = localStorage.getItem('stripmeta-skip-unsupported');
+    if (pv !== null) toggleParanoid.checked        = pv === '1';
+    if (sc !== null) toggleSkipClean.checked       = sc === '1';
+    if (su !== null) toggleSkipUnsupported.checked = su === '1';
+  }
 }
 
 function setScanState(active: boolean, count = 0) {
@@ -889,8 +896,35 @@ if (settings.paranoid) {
   labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
 }
 
+const PERSIST_KEYS = ['stripmeta-paranoid','stripmeta-skip-clean','stripmeta-skip-unsupported','stripmeta-no-glass'] as const;
+
+function hasSavedSettings(): boolean {
+  return PERSIST_KEYS.some(k => localStorage.getItem(k) !== null);
+}
+
+btnClearStorage.addEventListener('click', () => {
+  PERSIST_KEYS.forEach(k => localStorage.removeItem(k));
+  clearStorageHint.classList.remove('hint-visible');
+});
+
+togglePersist.addEventListener('change', () => {
+  if (togglePersist.checked) {
+    localStorage.removeItem('stripmeta-no-persist');
+    localStorage.setItem('stripmeta-paranoid',         settings.paranoid ? '1' : '0');
+    localStorage.setItem('stripmeta-skip-clean',       toggleSkipClean.checked       ? '1' : '0');
+    localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
+    localStorage.setItem('stripmeta-no-glass',         document.documentElement.classList.contains('no-glass') ? '1' : '0');
+    clearStorageHint.classList.remove('hint-visible');
+  } else {
+    localStorage.setItem('stripmeta-no-persist', '1');
+    if (hasSavedSettings()) {
+      clearStorageHint.classList.add('hint-visible');
+    }
+  }
+});
+
 toggleParanoid.addEventListener('change', () => {
-  localStorage.setItem('stripmeta-paranoid', settings.paranoid ? '1' : '0');
+  if (togglePersist.checked) localStorage.setItem('stripmeta-paranoid', settings.paranoid ? '1' : '0');
   if (settings.paranoid) {
     savedSkipUnsupported = toggleSkipUnsupported.checked;
     toggleSkipUnsupported.checked = false;
@@ -905,13 +939,13 @@ toggleParanoid.addEventListener('change', () => {
 });
 
 toggleSkipClean.addEventListener('change', () => {
-  localStorage.setItem('stripmeta-skip-clean', toggleSkipClean.checked ? '1' : '0');
+  if (togglePersist.checked) localStorage.setItem('stripmeta-skip-clean', toggleSkipClean.checked ? '1' : '0');
   for (const e of entries) applySkipStatus(e.file);
   syncFlatList();
   updateAllDirCounts();
 });
 toggleSkipUnsupported.addEventListener('change', () => {
-  localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
+  if (togglePersist.checked) localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
   for (const e of entries) applySkipStatus(e.file);
   syncFlatList();
   updateAllDirCounts();

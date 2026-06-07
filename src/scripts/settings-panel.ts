@@ -1,6 +1,10 @@
+function canPersist(): boolean {
+  return (document.getElementById('toggle-persist') as HTMLInputElement | null)?.checked ?? true;
+}
+
 function applyNoGlass(enabled: boolean) {
   document.documentElement.classList.toggle('no-glass', enabled);
-  localStorage.setItem('stripmeta-no-glass', enabled ? '1' : '0');
+  if (canPersist()) localStorage.setItem('stripmeta-no-glass', enabled ? '1' : '0');
 }
 
 export function initSettingsPanel(): void {
@@ -8,7 +12,9 @@ export function initSettingsPanel(): void {
   const body = details.querySelector<HTMLElement>('.settings-body')!;
 
   const toggleNoGlass = document.getElementById('toggle-no-glass') as HTMLInputElement;
-  toggleNoGlass.checked = localStorage.getItem('stripmeta-no-glass') === '1';
+  if (localStorage.getItem('stripmeta-no-persist') !== '1') {
+    toggleNoGlass.checked = localStorage.getItem('stripmeta-no-glass') === '1';
+  }
   toggleNoGlass.addEventListener('change', () => applyNoGlass(toggleNoGlass.checked));
 
   details.querySelector('summary')!.addEventListener('click', e => {
