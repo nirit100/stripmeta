@@ -38,7 +38,7 @@ All processing happens locally in the browser. No server ever sees your files.
 - [png-chunks-extract/encode](https://github.com/hughsk/png-chunks-extract) — PNG chunk manipulation
 - Deployed on Cloudflare Pages
 
-## Development
+## Development & Contributions
 
 ```bash
 npm install
@@ -47,7 +47,11 @@ npm test          # vitest
 npm run build     # production build → dist/
 ```
 
-Requires Node 22+.
+Feel free to modify and host your own flavour, although I would prefer contributions.
+
+### On Donations
+
+The donation links are in the app to help cover hosting costs. They are constants injected at deployment time.
 
 ## License
 
