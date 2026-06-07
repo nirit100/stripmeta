@@ -12,6 +12,11 @@ html.no-glass * {
   -webkit-backdrop-filter: none !important;
 }
 
+html.no-glass .animate-ping {
+  animation: none;
+  opacity: 0;
+}
+
 html.no-glass .glass-elem {
   background-color: var(--color-base-100) !important;
 }
