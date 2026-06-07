@@ -14,7 +14,8 @@ const statDates   = document.getElementById('stat-dates') as HTMLElement | null;
 const statDatesWrap = document.getElementById('stat-dates-wrap') as HTMLElement | null;
 const statKb      = document.getElementById('stat-kb') as HTMLElement | null;
 const statKbWrap  = document.getElementById('stat-kb-wrap') as HTMLElement | null;
-const statsDate   = document.getElementById('stats-date') as HTMLElement | null;
+const statsDate      = document.getElementById('stats-date') as HTMLElement | null;
+const btnClearStats  = document.getElementById('btn-clear-stats') as HTMLButtonElement | null;
 
 interface StripStats {
   filesProcessed: number;
@@ -154,6 +155,13 @@ window.addEventListener('stripmeta:processed', (e: Event) => {
 window.addEventListener('stripmeta:processed', () => openModal(true), { once: true });
 
 btnAbout?.addEventListener('click', () => openModal(false));
+
+btnClearStats?.addEventListener('click', () => {
+  localStorage.removeItem(STATS_KEY);
+  liveStats = null;
+  statsAnimated = false;
+  statsSection?.classList.add('hidden');
+});
 
 // Pre-fill from storage so stats are visible as soon as modal opens
 const stored = loadStoredStats();
