@@ -30,7 +30,7 @@ const exifObj = {
     [I.DateTime]:         '2024:06:15 14:32:10',
     [I.Artist]:           'Jane Doe',
     [I.Copyright]:
-      '© 2024 Jane Doe Photography. All rights reserved. ' +
+      '(c) 2024 Jane Doe Photography. All rights reserved. ' +
       'Unauthorized reproduction, modification, distribution, transmission, display, or use of ' +
       'this image in any form or by any means without the prior explicit written permission of ' +
       'the copyright holder is strictly prohibited and may result in legal action.',
@@ -49,9 +49,6 @@ const exifObj = {
     [E.ISOSpeedRatings]:   400,
     [E.FocalLength]:       [50, 1],
     [E.FocalLengthIn35mmFilm]: 50,
-    [E.LensModel]:         'Sony FE 50mm F1.8 (SEL50F18F)',
-    [E.BodySerialNumber]:  '5061234',
-    [E.CameraOwnerName]:   'Jane Doe — Photography Workshop, Summer Retreat 2024, Lake District, UK',
     [E.Flash]:             0,
     [E.WhiteBalance]:      0,
     [E.ExposureMode]:      0,
