@@ -74,6 +74,25 @@ interface DirNode {
 
 const sessionStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
 
+// Runs at most `limit` calls of `fn` concurrently, preserving result order.
+async function pooled<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  const queue = items.map((item, i) => ({ item, i }));
+  await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    let next;
+    while ((next = queue.shift())) results[next.i] = await fn(next.item);
+  }));
+  return results;
+}
+
+// Semaphore for metadata reads — limits concurrent exifr parses to avoid OOM on mobile.
+let metaSlots = 6;
+const metaWaiters: Array<() => void> = [];
+function acquireMeta(): Promise<void> {
+  return metaSlots > 0 ? (metaSlots--, Promise.resolve()) : new Promise(r => metaWaiters.push(r));
+}
+function releaseMeta() { const w = metaWaiters.shift(); if (w) w(); else metaSlots++; }
+
 let entries: FileEntry[] = [];
 let levelOf      = new Map<File, WarningLevel>();
 let metadataCache = new Map<File, MetadataPreview>();
@@ -380,6 +399,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   thumb.src = objUrl;
   thumb.alt = '';
   thumb.draggable = false;
+  thumb.loading = 'lazy';
 
   const left = document.createElement('div');
   left.className = 'flex-1 min-w-0 space-y-1.5';
@@ -479,6 +499,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
     subline.append(sep, detailsBtn);
 
     void (async () => {
+      await acquireMeta();
       try {
         const preview = await readMetadata(file);
 
@@ -519,6 +540,8 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
         updateAllDirCounts();
       } catch (err) {
         logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
+      } finally {
+        releaseMeta();
       }
     })();
   }
@@ -755,7 +778,7 @@ async function render() {
   btnStrip.disabled = true;
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Analysing…';
 
-  const levels = await Promise.all(entries.map(e => activeManager().classify(e.file)));
+  const levels = await pooled(entries, 8, e => activeManager().classify(e.file));
 
   // A newer render() call started while we were classifying — let it own the result.
   if (gen !== renderGen) return;
@@ -832,7 +855,7 @@ async function stripAndDownload() {
   let doneCount = 0;
   stripProgressEl.classList.remove('hidden');
 
-  await Promise.all(entries.map(async entry => {
+  await pooled(entries, 3, async entry => {
     const { file, path } = entry;
     const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
 
@@ -864,7 +887,7 @@ async function stripAndDownload() {
       if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
       logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
     }
-  }));
+  });
 
   if (blobs.length === 1) {
     download(URL.createObjectURL(blobs[0]!.blob), blobs[0]!.path.split('/').at(-1) ?? blobs[0]!.path);
@@ -887,7 +910,7 @@ async function stripAndDownload() {
   updateAllDirCounts();
 
   if (blobs.length > 0) {
-    try { window.dispatchEvent(new CustomEvent('stripmeta:processed', { detail: { ...sessionStats } })); } catch { /* ignore */ }
+    try { window.dispatchEvent(new CustomEvent('stripmeta:processed', { detail: { ...sessionStats, hadErrors } })); } catch { /* ignore */ }
   }
 }
 

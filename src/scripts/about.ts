@@ -152,8 +152,12 @@ window.addEventListener('stripmeta:processed', (e: Event) => {
   }
 });
 
-// Auto-show once after first strip
-window.addEventListener('stripmeta:processed', () => openModal(true), { once: true });
+// Auto-show once after first successful (error-free) strip
+window.addEventListener('stripmeta:processed', function handler(e: Event) {
+  if ((e as CustomEvent<{ hadErrors?: boolean }>).detail?.hadErrors) return;
+  window.removeEventListener('stripmeta:processed', handler);
+  openModal(true);
+});
 
 btnAbout?.addEventListener('click', () => openModal(false));
 btnAboutNav?.addEventListener('click', () => openModal(false));
