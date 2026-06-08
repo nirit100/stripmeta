@@ -70,12 +70,12 @@ const libs = [
       </div>
 
       <div class="flex flex-col items-center gap-3 px-5 py-4 text-sm text-base-content/70 text-center">
-        <div class="flex flex-wrap items-center justify-center gap-2">
+        <div class="flex flex-wrap items-stretch justify-center gap-2">
           <div id="kofi-button-container"></div>
           <script is:inline type="text/javascript" src="https://storage.ko-fi.com/cdn/widget/Widget_2.js"></script>
           <script is:inline define:vars={{ kofiId }}>kofiwidget2.init("Buy me a Ko-fi", "#ff6b6b", kofiId);kofiwidget2.draw();</script>
-          {bothDonations && <span class="hidden sm:inline">or</span>}
-          <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 h-9 mx-1 rounded-md" href={paypalUrl} target="_blank" rel="noopener noreferrer">
+          {bothDonations && <span class="hidden sm:inline self-center">or</span>}
+          <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 mx-1 rounded-md h-auto min-h-9" href={paypalUrl} target="_blank" rel="noopener noreferrer">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={siPaypal.path}/></svg>
             Donate via PayPal
           </a>

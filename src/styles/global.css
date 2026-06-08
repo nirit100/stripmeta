@@ -21,6 +21,10 @@ html.no-glass .glass-elem {
   background-color: var(--color-base-100) !important;
 }
 
+#kofi-button-container {
+  display: contents;
+}
+
 #clear-storage-hint {
   display: flex;
   overflow: hidden;
