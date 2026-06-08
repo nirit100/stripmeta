@@ -26,21 +26,22 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="funnel" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Skip files with no found metadata</p>
-          <p class="text-xs text-base-content/50">If disabled they will be processed anyways.</p>
+          <p class="text-sm font-medium">Process files even if no metadata is found</p>
+          <p class="text-xs text-base-content/50">If disabled, files without detectable metadata are skipped.</p>
         </div>
       </div>
-      <input type="checkbox" id="toggle-skip-clean" class="toggle toggle-sm shrink-0" checked />
+      <input type="checkbox" id="toggle-skip-clean" class="toggle toggle-sm shrink-0" />
     </label>
     <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
       <div class="flex items-start gap-3">
         <Icon name="document-minus" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Skip unsupported files</p>
-          <p class="text-xs text-base-content/50">This tool really supports the most common image formats (e.g. JPEG, PNG, WEBP). If disabled, images in other formats are re-encoded to JPEG via the canvas method.</p>
+          <p class="text-sm font-medium">Try processing unsupported files</p>
+          <p class="text-xs text-base-content/50">Tries to re-encode unsupported formats to JPEG via the canvas method. <br />
+            <b>Not recommended</b> — this frequently causes errors.</p>
         </div>
       </div>
-      <input type="checkbox" id="toggle-skip-unsupported" class="toggle toggle-sm shrink-0" checked />
+      <input type="checkbox" id="toggle-skip-unsupported" class="toggle toggle-sm toggle-warning shrink-0" />
     </label>
     <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
       <div class="flex items-start gap-3">

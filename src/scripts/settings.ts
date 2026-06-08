@@ -13,8 +13,8 @@ const btnClearStorage       = document.getElementById('btn-clear-storage') as HT
 
 export const settings = {
   get paranoid()        { return toggleParanoid.checked; },
-  get skipClean()       { return toggleSkipClean.checked; },
-  get skipUnsupported() { return toggleSkipUnsupported.checked; },
+  get skipClean()       { return !toggleSkipClean.checked; },
+  get skipUnsupported() { return !toggleSkipUnsupported.checked; },
   get includeSkipped()  { return toggleIncludeSkipped.checked; },
   get warnUnload()      { return toggleWarnUnload.checked; },
   get autoAbout()       { return toggleAutoAbout.checked; },
@@ -39,8 +39,8 @@ function notify(key: keyof typeof settings): void {
 
 const PERSIST_KEYS = [
   'stripmeta-paranoid',
-  'stripmeta-skip-clean',
-  'stripmeta-skip-unsupported',
+  'stripmeta-process-clean',
+  'stripmeta-process-unsupported',
   'stripmeta-include-skipped',
   'stripmeta-no-glass',
   'stripmeta-warn-unload',
@@ -85,8 +85,8 @@ export function initSettings(): void {
   togglePersist.checked = !noPersist;
   if (!noPersist) {
     const pv = localStorage.getItem('stripmeta-paranoid');
-    const sc = localStorage.getItem('stripmeta-skip-clean');
-    const su = localStorage.getItem('stripmeta-skip-unsupported');
+    const sc = localStorage.getItem('stripmeta-process-clean');
+    const su = localStorage.getItem('stripmeta-process-unsupported');
     const is = localStorage.getItem('stripmeta-include-skipped');
     const wu = localStorage.getItem('stripmeta-warn-unload');
     const aa = localStorage.getItem('stripmeta-auto-about');
@@ -105,8 +105,8 @@ export function initSettings(): void {
   // Apply paranoid UI state on load
   let savedSkipUnsupported = toggleSkipUnsupported.checked;
   if (settings.paranoid) {
-    savedSkipUnsupported = true;
-    toggleSkipUnsupported.checked = false;
+    savedSkipUnsupported = false;
+    toggleSkipUnsupported.checked = true;
     toggleSkipUnsupported.disabled = true;
     labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
   }
@@ -116,7 +116,7 @@ export function initSettings(): void {
     persist('stripmeta-paranoid', settings.paranoid);
     if (settings.paranoid) {
       savedSkipUnsupported = toggleSkipUnsupported.checked;
-      toggleSkipUnsupported.checked = false;
+      toggleSkipUnsupported.checked = true;
       toggleSkipUnsupported.disabled = true;
       labelSkipUnsupported.classList.add('opacity-40', 'pointer-events-none');
     } else {
@@ -128,12 +128,12 @@ export function initSettings(): void {
   });
 
   toggleSkipClean.addEventListener('change', () => {
-    persist('stripmeta-skip-clean', toggleSkipClean.checked);
+    persist('stripmeta-process-clean', toggleSkipClean.checked);
     notify('skipClean');
   });
 
   toggleSkipUnsupported.addEventListener('change', () => {
-    persist('stripmeta-skip-unsupported', toggleSkipUnsupported.checked);
+    persist('stripmeta-process-unsupported', toggleSkipUnsupported.checked);
     notify('skipUnsupported');
   });
 
@@ -155,8 +155,8 @@ export function initSettings(): void {
     if (togglePersist.checked) {
       localStorage.removeItem('stripmeta-no-persist');
       localStorage.setItem('stripmeta-paranoid',         settings.paranoid ? '1' : '0');
-      localStorage.setItem('stripmeta-skip-clean',       toggleSkipClean.checked ? '1' : '0');
-      localStorage.setItem('stripmeta-skip-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
+      localStorage.setItem('stripmeta-process-clean',     toggleSkipClean.checked ? '1' : '0');
+      localStorage.setItem('stripmeta-process-unsupported', toggleSkipUnsupported.checked ? '1' : '0');
       localStorage.setItem('stripmeta-include-skipped',  toggleIncludeSkipped.checked ? '1' : '0');
       localStorage.setItem('stripmeta-no-glass',         document.documentElement.classList.contains('no-glass') ? '1' : '0');
       localStorage.setItem('stripmeta-warn-unload',      toggleWarnUnload.checked ? '1' : '0');
