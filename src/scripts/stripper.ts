@@ -473,6 +473,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
         copyBtn.innerHTML = svgCheck;
         copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-success tooltip tooltip-left transition-colors';
         copyBtn.dataset.tip = 'Copied!';
+        window.dispatchEvent(new CustomEvent('stripmeta:copied'));
       } catch {
         copyBtn.innerHTML = svgX;
         copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-error tooltip tooltip-left transition-colors';
@@ -1088,6 +1089,7 @@ btnDownload.addEventListener('click', async () => {
     btnDownload.disabled = false;
     btnDownload.textContent = 'Download ZIP';
   }
+  window.dispatchEvent(new CustomEvent('stripmeta:downloaded'));
 });
 
 let copyResultBusy = false;
@@ -1109,6 +1111,7 @@ btnCopyResult.addEventListener('click', async () => {
     }
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
     btnCopyResult.innerHTML = `${iconSvg('check', 'w-4 h-4', '2.5')} Copied!`;
+    window.dispatchEvent(new CustomEvent('stripmeta:copied'));
   } catch {
     btnCopyResult.innerHTML = `${iconSvg('x-mark', 'w-4 h-4', '2.5')} Failed`;
   }

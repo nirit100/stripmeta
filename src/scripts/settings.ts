@@ -151,7 +151,10 @@ export function initSettings(): void {
     notify('warnUnload');
   });
 
-  toggleAutoAbout.addEventListener('change', () => persist('stripmeta-auto-about', toggleAutoAbout.checked));
+  toggleAutoAbout.addEventListener('change', () => {
+    persist('stripmeta-auto-about', toggleAutoAbout.checked);
+    notify('autoAbout');
+  });
 
   toggleNoGlass.addEventListener('change', () => applyNoGlass(toggleNoGlass.checked));
 
@@ -174,8 +177,8 @@ export function initSettings(): void {
 
   btnClearStorage.addEventListener('click', () => {
     PERSIST_KEYS.forEach(k => localStorage.removeItem(k));
-    localStorage.removeItem('stripmeta-stats');
     clearStorageHint.classList.remove('hint-visible');
+    window.dispatchEvent(new CustomEvent('stripmeta:storageCleared'));
   });
 
   // Panel open/close animation

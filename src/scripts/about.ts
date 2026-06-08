@@ -1,4 +1,4 @@
-import { settings } from './settings.ts';
+import { settings, onSettingChange } from './settings.ts';
 
 const ABOUT_KEY  = 'stripmeta:about_shown_v1';
 const STATS_KEY  = 'stripmeta:stats_v1';
@@ -152,11 +152,47 @@ window.addEventListener('stripmeta:processed', (e: Event) => {
   }
 });
 
-// Auto-show once after first successful (error-free) strip
-window.addEventListener('stripmeta:processed', function handler(e: Event) {
-  if ((e as CustomEvent<{ hadErrors?: boolean }>).detail?.hadErrors) return;
-  window.removeEventListener('stripmeta:processed', handler);
+// Auto-show once after first error-free strip, deferred until download or copy
+let pendingAutoShow = false;
+let autoShowHandler: ((e: Event) => void) | null = null;
+
+function registerAutoShowHandler(): void {
+  if (autoShowHandler) return;
+  autoShowHandler = (e: Event) => {
+    if ((e as CustomEvent<{ hadErrors?: boolean }>).detail?.hadErrors) return;
+    window.removeEventListener('stripmeta:processed', autoShowHandler!);
+    autoShowHandler = null;
+    pendingAutoShow = true;
+  };
+  window.addEventListener('stripmeta:processed', autoShowHandler);
+}
+
+function resetAutoShow(): void {
+  localStorage.removeItem(ABOUT_KEY);
+  pendingAutoShow = false;
+  registerAutoShowHandler();
+}
+
+function tryAutoShow() {
+  if (!pendingAutoShow) return;
+  pendingAutoShow = false;
   openModal(true);
+}
+
+registerAutoShowHandler();
+window.addEventListener('stripmeta:downloaded', tryAutoShow);
+window.addEventListener('stripmeta:copied', tryAutoShow);
+
+// Re-enable the toggle → reset so the modal can auto-show again on next run
+onSettingChange('autoAbout', () => { if (settings.autoAbout) resetAutoShow(); });
+
+// "Clear storage" → reset the already-shown flag and wipe stats
+window.addEventListener('stripmeta:storageCleared', () => {
+  resetAutoShow();
+  localStorage.removeItem(STATS_KEY);
+  liveStats = null;
+  statsAnimated = false;
+  statsSection?.classList.add('hidden');
 });
 
 btnAbout?.addEventListener('click', () => openModal(false));
