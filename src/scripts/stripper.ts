@@ -923,7 +923,24 @@ function download(url: string, filename: string) {
 // — Event wiring —
 
 btnPickFiles.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
-btnPickDir.addEventListener('click',   e => { e.stopPropagation(); dirInput.click(); });
+
+const folderWarningModal = document.getElementById('folder-warning-modal') as HTMLDialogElement | null;
+const btnFolderWarningConfirm = document.getElementById('btn-folder-warning-confirm') as HTMLButtonElement | null;
+
+btnPickDir.addEventListener('click', e => {
+  e.stopPropagation();
+  const isMobile = window.matchMedia('(pointer: coarse)').matches;
+  if (isMobile && folderWarningModal) {
+    folderWarningModal.showModal();
+  } else {
+    dirInput.click();
+  }
+});
+
+btnFolderWarningConfirm?.addEventListener('click', () => {
+  folderWarningModal?.close();
+  dirInput.click();
+});
 dropZone.addEventListener('click', e => {
   if ((e.target as Element).closest('button, input')) return;
   fileInput.click();
