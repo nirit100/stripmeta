@@ -72,6 +72,30 @@ html.no-glass .glass-elem {
   z-index: 5;
 }
 
+/* Lift a card above its siblings when one of its tooltips is hovered. */
+.card:has([data-tip]:hover) {
+  z-index: 10;
+}
+/* Lift the hovered tooltip element above its badge siblings within the same card. */
+[data-tip]:hover {
+  position: relative;
+  z-index: 20;
+}
+
+/* Tooltip style — distinct from badges, inverted base colors work in both themes. */
+.tooltip {
+  --tt-bg: var(--color-base-content);
+}
+.tooltip[data-tip]::before {
+  color: var(--color-base-100);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding-block: 0.2rem;
+  padding-inline: 0.45rem;
+  box-shadow: 0 2px 8px oklch(0% 0 0 / 0.2);
+}
+
 /* Brand gradient — slightly darker in light mode for legibility */
 :root {
   --brand-gradient: linear-gradient(to right, #10b981, #0d9488, #0891b2);
