@@ -22,9 +22,10 @@ const btnPickDir  = document.getElementById('btn-pick-dir') as HTMLButtonElement
 const fileList    = document.getElementById('file-list')!;
 const fileWarningBanner = document.getElementById('file-warning-banner')!;
 const actions     = document.getElementById('actions')!;
-const btnStrip    = document.getElementById('btn-strip') as HTMLButtonElement;
-const btnDownload = document.getElementById('btn-download') as HTMLButtonElement;
-const btnClear    = document.getElementById('btn-clear') as HTMLButtonElement;
+const btnStrip       = document.getElementById('btn-strip') as HTMLButtonElement;
+const btnDownload    = document.getElementById('btn-download') as HTMLButtonElement;
+const btnCopyResult  = document.getElementById('btn-copy-result') as HTMLButtonElement;
+const btnClear       = document.getElementById('btn-clear') as HTMLButtonElement;
 const dropZoneContent = document.getElementById('drop-zone-content')!;
 const scanStateEl   = document.getElementById('scan-state')!;
 const scanCountEl   = document.getElementById('scan-count')!;
@@ -829,6 +830,7 @@ async function render() {
 
   renderBanner();
   btnDownload.hidden = true;
+  btnCopyResult.hidden = true;
   btnStrip.hidden = false;
   btnStrip.disabled = false;
   btnStrip.textContent = 'Strip metadata';
@@ -939,6 +941,15 @@ async function stripAndDownload() {
     btnDownload.textContent = blobs.length === 1 ? 'Download' : 'Download ZIP';
     btnDownload.hidden = false;
     btnStrip.hidden = true;
+  }
+  if (blobs.length === 1 && navigator.clipboard) {
+    const blobType = blobs[0]!.blob.type;
+    const label = blobType === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
+    btnCopyResult.innerHTML = `${iconSvg('clipboard', 'w-4 h-4', '2')} ${label}`;
+    btnCopyResult.disabled = false;
+    btnCopyResult.hidden = false;
+  } else {
+    btnCopyResult.hidden = true;
   }
 
   stripProgressEl.classList.add('hidden');
@@ -1077,6 +1088,35 @@ btnDownload.addEventListener('click', async () => {
     btnDownload.disabled = false;
     btnDownload.textContent = 'Download ZIP';
   }
+});
+
+let copyResultBusy = false;
+btnCopyResult.addEventListener('click', async () => {
+  if (copyResultBusy || !pendingBlobs.length) return;
+  const { blob } = pendingBlobs[0]!;
+  copyResultBusy = true;
+  btnCopyResult.disabled = true;
+  const originalHtml = btnCopyResult.innerHTML;
+  btnCopyResult.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Copying…';
+  try {
+    let clipBlob = blob;
+    if (blob.type !== 'image/png') {
+      const bmp = await createImageBitmap(blob);
+      const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+      canvas.getContext('2d')!.drawImage(bmp, 0, 0);
+      bmp.close();
+      clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+    }
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
+    btnCopyResult.innerHTML = `${iconSvg('check', 'w-4 h-4', '2.5')} Copied!`;
+  } catch {
+    btnCopyResult.innerHTML = `${iconSvg('x-mark', 'w-4 h-4', '2.5')} Failed`;
+  }
+  setTimeout(() => {
+    btnCopyResult.innerHTML = originalHtml;
+    btnCopyResult.disabled = false;
+    copyResultBusy = false;
+  }, 2000);
 });
 
 onSettingChange('paranoid', () => {
