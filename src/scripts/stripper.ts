@@ -348,8 +348,13 @@ function applySkipStatus(file: File) {
 function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-right'): HTMLElement {
   const el = document.createElement('span');
   el.className = `badge badge-xs [--size:1.25rem] cursor-default ${cls}${tip ? ` tooltip ${tipDir}` : ''}`;
-  el.textContent = text;
   if (tip) el.dataset.tip = tip;
+  // Inner span so text-overflow ellipsis works: flex items need an explicit child element
+  // for truncation to fire at the correct edge instead of clipping symmetrically.
+  const inner = document.createElement('span');
+  inner.className = 'truncate min-w-0';
+  inner.textContent = text;
+  el.appendChild(inner);
   return el;
 }
 
@@ -381,7 +386,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   thumb.loading = 'lazy';
 
   const left = document.createElement('div');
-  left.className = 'flex-1 min-w-0 space-y-1.5';
+  left.className = 'flex-1 min-w-0 self-stretch flex flex-col justify-between';
 
   const nameEl = document.createElement('div');
   nameEl.className = 'text-sm font-medium leading-snug flex min-w-0';
@@ -549,7 +554,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
         }
         if (preview.make || preview.model) {
           const cam = [preview.make, preview.model].filter(Boolean).join(' ');
-          badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '📷 ' + cam, cam));
+          badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '📷 ' + cam, cam));
         }
         if (preview.serialNumber) {
           badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
@@ -561,10 +566,10 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
           badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + (!isNaN(d.getTime()) ? d.toDateString() : String(preview.dateTime))));
         }
         if (preview.software) {
-          badgesSlot.appendChild(badge('badge-neutral max-w-[9rem] truncate', '🛠️ ' + preview.software, preview.software));
+          badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '🛠️ ' + preview.software, preview.software));
         }
         if (preview.artist) {
-          badgesSlot.appendChild(badge('badge-error max-w-[9rem] truncate', '👤 ' + preview.artist, preview.artist));
+          badgesSlot.appendChild(badge('badge-error max-w-[9rem]', '👤 ' + preview.artist, preview.artist));
         }
         if (preview.userComment) {
           badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
