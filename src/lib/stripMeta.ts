@@ -11,6 +11,7 @@ import { browserCapabilities } from './platform.ts';
 
 export type { StripperHandler, WarningLevel } from './strippers/types.ts';
 export { StripperManager };
+export { browserCapabilities } from './platform.ts';
 
 // Handlers are tried in registration order; first match wins.
 // canvasStripper must be last — it defers to capabilities to decide support.

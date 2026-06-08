@@ -1,4 +1,4 @@
-import { readMetadata, defaultStripperManager, paranoidStripperManager } from '../lib/stripMeta.ts';
+import { readMetadata, defaultStripperManager, paranoidStripperManager, browserCapabilities } from '../lib/stripMeta.ts';
 import { iconSvg } from '../lib/icons.ts';
 import { siGooglemaps, siOpenstreetmap, siApple } from 'simple-icons';
 import { computeToProcess, collectBlobs } from '../lib/stripPlan.ts';
@@ -64,7 +64,7 @@ function activeManager(): StripperManager {
   return settings.paranoid ? paranoidStripperManager : defaultStripperManager;
 }
 
-const WARNING_ORDER: Record<WarningLevel, number> = { unsupported: 0, lossy: 1, none: 2 };
+const WARNING_ORDER: Record<WarningLevel, number> = { unsupported: 0, lossy: 1, experimental: 2, none: 3 };
 
 
 // — Data model —
@@ -91,7 +91,8 @@ function acquireMeta(): Promise<void> {
 function releaseMeta() { const w = metaWaiters.shift(); if (w) w(); else metaSlots++; }
 
 let entries: FileEntry[] = [];
-let levelOf      = new Map<File, WarningLevel>();
+let levelOf         = new Map<File, WarningLevel>();
+let canConvertPngOf = new Map<File, boolean>();
 let metadataCache = new Map<File, MetadataPreview>();
 let heroCollapsed = false;
 let renderGen = 0;
@@ -641,7 +642,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   }
   topRow.appendChild(statusBadge);
 
-  if (level !== 'unsupported' && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+  if (level !== 'unsupported' && canConvertPngOf.get(file) && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
     const copyBtn = document.createElement('button');
     copyBtn.type = 'button';
     copyBtn.className = COPY_BTN_CLASS;
@@ -891,10 +892,11 @@ function syncFlatList() {
 
 function renderBanner() {
   const levels = [...levelOf.values()];
-  const lossy = levels.filter(l => l === 'lossy').length;
-  const unsupported = levels.filter(l => l === 'unsupported').length;
+  const lossy        = levels.filter(l => l === 'lossy').length;
+  const unsupported  = levels.filter(l => l === 'unsupported').length;
+  const experimental = levels.filter(l => l === 'experimental').length;
 
-  if (!lossy && !unsupported) { fileWarningBanner.hidden = true; fileWarningBanner.innerHTML = ''; return; }
+  if (!lossy && !unsupported && !experimental) { fileWarningBanner.hidden = true; fileWarningBanner.innerHTML = ''; return; }
 
   const lines: string[] = [];
   if (unsupported) lines.push(`<span class="text-error font-medium">${unsupported} file${unsupported > 1 ? 's' : ''} cannot be processed</span> — format not supported in this browser.`);
@@ -906,6 +908,11 @@ function renderBanner() {
       const reason = settings.paranoid ? 'because paranoid mode is enabled.' : `no lossless handler exists for ${plural ? 'their' : 'its'} format${plural ? 's' : ''}.`;
       lines.push(`<span class="text-warning font-medium">${lossy} file${plural ? 's' : ''} will be re-encoded as JPEG</span> — ${reason}`);
     }
+  }
+
+  if (experimental) {
+    const p = experimental > 1;
+    lines.push(`<span class="text-warning font-medium">${experimental} file${p ? 's' : ''} will use an experimental handler</span> — review the output carefully before sharing.`);
   }
 
   fileWarningBanner.hidden = false;
@@ -935,12 +942,20 @@ async function render() {
   btnStrip.disabled = true;
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Analysing…';
 
-  const levels = await pooled(entries, 8, e => activeManager().classify(e.file));
+  const classified = await pooled(entries, 8, async e => {
+    const level = await activeManager().classify(e.file);
+    // Lossless (incl. experimental): output type = input type. Lossy (canvas): output is JPEG.
+    const canConvertPng = level === 'lossy'
+      || e.file.type === 'image/png'
+      || (level !== 'unsupported' && await browserCapabilities.canDecodeImage(e.file.type));
+    return { level, canConvertPng };
+  });
 
   // A newer render() call started while we were classifying — let it own the result.
   if (gen !== renderGen) return;
 
-  levelOf = new Map(entries.map((e, i) => [e.file, levels[i]!]));
+  levelOf         = new Map(entries.map((e, i) => [e.file, classified[i]!.level]));
+  canConvertPngOf = new Map(entries.map((e, i) => [e.file, classified[i]!.canConvertPng]));
 
   const tree = buildTree(entries);
   const defaultExpanded = entries.length <= 10;
@@ -1070,10 +1085,15 @@ async function stripAndDownload() {
   }
   if (blobs.length === 1 && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
     const blobType = blobs[0]!.blob.type;
-    const label = blobType === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
-    btnCopyResult.innerHTML = `${iconSvg('clipboard', 'w-4 h-4', '2')} ${label}`;
-    btnCopyResult.disabled = false;
-    btnCopyResult.hidden = false;
+    const canConvert = blobType === 'image/png' || await browserCapabilities.canDecodeImage(blobType);
+    if (canConvert) {
+      const label = blobType === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
+      btnCopyResult.innerHTML = `${iconSvg('clipboard', 'w-4 h-4', '2')} ${label}`;
+      btnCopyResult.disabled = false;
+      btnCopyResult.hidden = false;
+    } else {
+      btnCopyResult.hidden = true;
+    }
   } else {
     btnCopyResult.hidden = true;
   }

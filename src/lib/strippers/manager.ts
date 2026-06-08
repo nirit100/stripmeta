@@ -20,7 +20,8 @@ export class StripperManager {
   async classify(file: File): Promise<WarningLevel> {
     for (const handler of this.handlers) {
       if (await handler.supports(file, this.capabilities)) {
-        return handler.lossless ? 'none' : 'lossy';
+        if (!handler.lossless) return 'lossy';
+        return handler.experimental ? 'experimental' : 'none';
       }
     }
     return 'unsupported';

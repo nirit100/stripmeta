@@ -12,4 +12,4 @@ export interface StripperHandler {
   strip(file: File): Promise<Blob>;
 }
 
-export type WarningLevel = 'none' | 'lossy' | 'unsupported';
+export type WarningLevel = 'none' | 'experimental' | 'lossy' | 'unsupported';
