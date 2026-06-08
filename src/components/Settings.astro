@@ -70,6 +70,7 @@ import Icon from './Icon.astro';
         <div>
           <p class="text-sm font-medium">Warn before leaving with files loaded</p>
           <p class="text-xs text-base-content/50">Shows a browser confirmation if you try to close or reload the tab while images are loaded.</p>
+          {import.meta.env.DEV && <p class="text-xs text-warning/70 mt-0.5">Off by default in dev mode unless overridden in localStorage.</p>}
         </div>
       </div>
       <input type="checkbox" id="toggle-warn-unload" class="toggle toggle-sm shrink-0" checked />

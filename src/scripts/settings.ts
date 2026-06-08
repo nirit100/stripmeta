@@ -103,6 +103,9 @@ export function initSettings(): void {
     toggleWarnUnload.checked = false;
   }
 
+  // Show stale-data hint if persist was already disabled and old data exists
+  if (noPersist && hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
+
   // Apply paranoid UI state on load
   let savedSkipUnsupported = toggleSkipUnsupported.checked;
   if (settings.paranoid) {

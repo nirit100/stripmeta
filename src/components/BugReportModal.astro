@@ -1,5 +1,13 @@
 ---
 const privacyUrl = import.meta.env.PUBLIC_PRIVACY_URL as string;
+
+const devMissing = import.meta.env.DEV ? [
+  !import.meta.env.PUBLIC_BUG_REPORT_ENABLED && 'PUBLIC_BUG_REPORT_ENABLED',
+  !import.meta.env.EMAIL_CF_API_TOKEN       && 'EMAIL_CF_API_TOKEN',
+  !import.meta.env.EMAIL_CF_ACCOUNT_ID      && 'EMAIL_CF_ACCOUNT_ID',
+  !import.meta.env.BUG_REPORT_TO            && 'BUG_REPORT_TO',
+  !import.meta.env.BUG_REPORT_FROM          && 'BUG_REPORT_FROM',
+].filter(Boolean) as string[] : [];
 ---
 <dialog id="bug-report-modal" class="modal">
   <div class="modal-box w-full max-w-lg p-0 overflow-hidden bg-transparent">
@@ -15,6 +23,15 @@ const privacyUrl = import.meta.env.PUBLIC_PRIVACY_URL as string;
     </div>
 
     <div class="overflow-y-auto max-h-[70vh] flex flex-col divide-y divide-base-300/60 bg-base-100">
+
+      {devMissing.length > 0 && (
+        <div class="px-5 py-3 bg-warning border-b-2 border-warning-content/20">
+          <p class="text-xs font-bold text-warning-content mb-1">⚠ DEV — submissions will fail. Missing:</p>
+          <ul class="flex flex-col gap-0.5">
+            {devMissing.map(k => <li class="text-xs font-mono text-warning-content/80">{k}</li>)}
+          </ul>
+        </div>
+      )}
 
       <!-- Always included: error log -->
       <div class="px-5 py-4 flex flex-col gap-2">

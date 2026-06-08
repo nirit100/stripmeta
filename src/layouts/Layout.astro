@@ -91,7 +91,7 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
           )}
         </div>
         <div class="flex items-center gap-2">
-          {bugReportEnabled && <button class="btn btn-xs btn-ghost js-open-bug-report">🐛 Report a bug</button>}
+          {(bugReportEnabled || import.meta.env.DEV) && <button class="btn btn-xs btn-ghost js-open-bug-report">🐛 Report a bug</button>}
           <div class="relative inline-flex">
             <span id="about-badge" class="hidden absolute -top-1 -right-1 z-10 pointer-events-none">
               <span class="relative flex h-2.5 w-2.5">
