@@ -4,6 +4,8 @@ import { StripperManager } from './strippers/manager.ts';
 import { jpegStripper } from './strippers/jpeg.ts';
 import { pngStripper } from './strippers/png.ts';
 import { webpStripper } from './strippers/webp.ts';
+import { heicStripper } from './strippers/heic.ts';
+import { avifStripper } from './strippers/avif.ts';
 import { canvasStripper } from './strippers/canvas.ts';
 import { browserCapabilities } from './platform.ts';
 
@@ -16,6 +18,8 @@ export const defaultStripperManager = new StripperManager(browserCapabilities)
   .register(jpegStripper)
   .register(pngStripper)
   .register(webpStripper)
+  .register(heicStripper)
+  .register(avifStripper)
   .register(canvasStripper);
 
 // Paranoid mode: skip all native handlers and always re-encode through canvas.

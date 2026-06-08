@@ -685,6 +685,14 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
       lossyLabel.dataset.tip = 'Output will be re-encoded as JPEG (small quality loss)';
       handlerRow.appendChild(lossyLabel);
     }
+    if (h.experimental) {
+      handlerRow.appendChild(badge(
+        'badge-warning badge-outline badge-xs tooltip tooltip-left',
+        'Experimental',
+        'Metadata stripping for this format is new — some files may fail',
+        'tooltip-left',
+      ));
+    }
   }).catch(err => console.warn('[handler resolve]', err));
 
   applySkipStatus(file);
