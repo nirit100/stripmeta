@@ -5,11 +5,13 @@ import Brand from "../components/Brand.astro";
 
 <Layout
   title="How to Remove Metadata from Photos — StripMeta Guide"
-  description="Learn what EXIF metadata is, how it reveals your location, device model, and daily routine — and how to strip it in seconds using StripMeta, entirely in your browser."
+  description="Learn what EXIF metadata is, what data photos typically carry and when you might want to remove it before sharing, and how to strip it in seconds using StripMeta, entirely in your browser."
 >
   <!-- Hero -->
   <section class="w-full text-center flex flex-col gap-3">
-    <div class="text-xs font-semibold uppercase tracking-widest text-base-content/35">
+    <div
+      class="text-xs font-semibold uppercase tracking-widest text-base-content/35"
+    >
       Guide
     </div>
     <h1 class="text-4xl font-extrabold tracking-tight">
@@ -23,7 +25,7 @@ import Brand from "../components/Brand.astro";
       <p class="text-base-content/60 leading-relaxed text-left">
         Every image you take or screenshot you capture is quietly embedded with
         data about where you were, what device you used, and when. Here's what
-        that means, and how to stop it.
+        that data is, and how to remove it before sharing.
       </p>
       <div class="flex justify-center">
         <a href="/" class="btn btn-brand btn-sm">Use StripMeta now →</a>
@@ -31,23 +33,39 @@ import Brand from "../components/Brand.astro";
     </div>
 
     <!-- TOC -->
-    <nav aria-label="Page contents" class="w-full lg:w-auto lg:shrink-0 rounded-xl border border-base-300 px-5 py-4">
-    <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35 mb-3">Contents</p>
-    <ol class="flex flex-col gap-1.5 list-none m-0 p-0">
-      {[
-        ["#what-is-metadata", "What is photo metadata?"],
-        ["#real-example",     "A real example"],
-        ["#why-it-matters",   "Why it's a privacy problem"],
-        ["#how-it-removes",   "How StripMeta removes it"],
-        ["#how-to-use",       "How to use StripMeta"],
-      ].map(([href, label], i) => (
-        <li class="flex items-baseline gap-2.5">
-          <span class="text-[0.65rem] tabular-nums text-base-content/30 w-3 shrink-0">{i + 1}.</span>
-          <a href={href} class="text-sm text-base-content/60 hover:text-base-content/90 transition-colors underline-offset-2 hover:underline">{label}</a>
-        </li>
-      ))}
-    </ol>
-  </nav>
+    <nav
+      aria-label="Page contents"
+      class="w-full lg:w-auto lg:shrink-0 rounded-xl border border-base-300 px-5 py-4"
+    >
+      <p
+        class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35 mb-3"
+      >
+        Contents
+      </p>
+      <ol class="flex flex-col gap-1.5 list-none m-0 p-0">
+        {
+          [
+            ["#what-is-metadata", "What is photo metadata?"],
+            ["#real-example", "A real example"],
+            ["#why-it-matters", "Why it's a privacy problem"],
+            ["#how-it-removes", "How StripMeta removes it"],
+            ["#how-to-use", "How to use StripMeta"],
+          ].map(([href, label], i) => (
+            <li class="flex items-baseline gap-2.5">
+              <span class="text-[0.65rem] tabular-nums text-base-content/30 w-3 shrink-0">
+                {i + 1}.
+              </span>
+              <a
+                href={href}
+                class="text-sm text-base-content/60 hover:text-base-content/90 transition-colors underline-offset-2 hover:underline"
+              >
+                {label}
+              </a>
+            </li>
+          ))
+        }
+      </ol>
+    </nav>
   </div>
 
   <!-- What is metadata -->
@@ -83,13 +101,13 @@ import Brand from "../components/Brand.astro";
       <p class="mt-3 text-base-content/65 leading-relaxed">
         It isn't visible in the image itself, it's not shown by default in file
         managers or photo viewers, and it travels with the photo wherever it
-        goes. Anyone looking for it can easily view or extract it in order to
-        identify or track you across the internet or in real life.
+        goes. Anyone receiving or seeing that photo online can view or extract
+        it easily using freely available tools.
       </p>
       <p class="mt-3 text-base-content/65 leading-relaxed">
-        Usually that is not a real concern for most people, but in some
-        situations you'd want to sanitise your photos or screenshots before
-        sharing them — that is where you might want to use a tool like <Brand
+        For most people under usual circumstances that is not a real problem,
+        but in some situations you'd want to sanitise your photos or screenshots
+        before sharing them — that is where you might want to use a tool like <Brand
         />. Screenshots typically carry a smaller set of metadata (e.g. device
         model, OS version and a timestamp) — but it is often the combination of
         data that makes you trackable, not a single piece of information on its
@@ -107,7 +125,8 @@ import Brand from "../components/Brand.astro";
               target="_blank"
               rel="noopener noreferrer"
               class="underline underline-offset-2 decoration-base-content/30 hover:decoration-base-content/60 transition-colors"
-              >GPS coordinates</a>
+              >GPS coordinates</a
+            >
           </p>
           <p class="text-xs text-base-content/55 mt-1 leading-relaxed">
             Precise latitude, longitude, and altitude at the moment the photo
@@ -130,16 +149,6 @@ import Brand from "../components/Brand.astro";
         </div>
       </div>
       <div class="rounded-xl border border-base-300 p-4 flex gap-3">
-        <span class="text-2xl shrink-0">🕐</span>
-        <div>
-          <p class="font-semibold text-sm">Timestamps</p>
-          <p class="text-xs text-base-content/55 mt-1 leading-relaxed">
-            The exact date and time the photo was captured, and when it was last
-            modified. Some formats also record the local timezone offset.
-          </p>
-        </div>
-      </div>
-      <div class="rounded-xl border border-base-300 p-4 flex gap-3">
         <span class="text-2xl shrink-0">🔧</span>
         <div>
           <p class="font-semibold text-sm">Software & editing history</p>
@@ -151,13 +160,23 @@ import Brand from "../components/Brand.astro";
         </div>
       </div>
       <div class="rounded-xl border border-base-300 p-4 flex gap-3">
+        <span class="text-2xl shrink-0">🕐</span>
+        <div>
+          <p class="font-semibold text-sm">Timestamps</p>
+          <p class="text-xs text-base-content/55 mt-1 leading-relaxed">
+            The exact date and time the photo was captured, and when it was last
+            modified. Some formats also record the local timezone offset.
+          </p>
+        </div>
+      </div>
+      <div class="rounded-xl border border-base-300 p-4 flex gap-3">
         <span class="text-2xl shrink-0">📷</span>
         <div>
           <p class="font-semibold text-sm">Camera settings</p>
           <p class="text-xs text-base-content/55 mt-1 leading-relaxed">
             ISO speed, aperture, shutter speed, focal length, flash state, white
             balance, metering mode, and lens information — the full technical
-            context of every shot.
+            context of every shot, like a fingerprint.
           </p>
         </div>
       </div>
@@ -195,43 +214,51 @@ import Brand from "../components/Brand.astro";
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36">GPS Latitude</span
             ><span class="text-red-500 dark:text-red-400 font-medium"
-              >48.8566° N</span>
+              >48.8566° N</span
+            >
           </div>
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36">GPS Longitude</span
             ><span class="text-red-500 dark:text-red-400 font-medium"
-              >2.3522° E</span>
+              >2.3522° E</span
+            >
           </div>
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36">GPS Altitude</span
             ><span class="text-red-500 dark:text-red-400 font-medium"
-              >35.2 m</span>
+              >35.2 m</span
+            >
           </div>
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36">Date / Time</span
             ><span class="text-orange-500 dark:text-orange-400 font-medium"
-              >2024-07-14 14:32:08</span>
+              >2024-07-14 14:32:08</span
+            >
           </div>
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36">Offset Time</span
             ><span class="text-orange-500 dark:text-orange-400 font-medium"
-              >+02:00</span>
+              >+02:00</span
+            >
           </div>
         </div>
         <div class="flex flex-col gap-0.5 mt-2 sm:mt-0">
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36">Make</span><span
-              class="text-base-content/70">Apple</span>
+              class="text-base-content/70">Apple</span
+            >
           </div>
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36">Model</span><span
-              class="text-base-content/70">iPhone 15 Pro</span>
+              class="text-base-content/70">iPhone 15 Pro</span
+            >
           </div>
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36"
               >Image Unique ID</span
             ><span class="text-orange-500 dark:text-orange-400 font-medium"
-              >C8JFNF3TMQXF</span>
+              >C8JFNF3TMQXF</span
+            >
           </div>
           <div class="flex gap-3">
             <span class="text-base-content/35 shrink-0 w-36">Software</span
@@ -272,10 +299,10 @@ import Brand from "../components/Brand.astro";
           Your home address, extracted from photos
         </p>
         <p class="text-xs text-base-content/55 leading-relaxed">
-          A photo taken at home and uploaded to a forum, social media profile,
-          or sent in an email embeds your precise coordinates. Anyone can paste
-          those into a maps app. This has been used to locate people who never
-          disclosed their address.
+          A photo taken at home and shared online embeds your precise
+          coordinates. Anyone can look up those coordinates in a maps app to
+          identify where it was taken. This is how people leak their home
+          address.
         </p>
       </div>
       <div class="rounded-xl border border-base-300 p-4">
@@ -293,9 +320,10 @@ import Brand from "../components/Brand.astro";
           Timestamps build a timeline of your movements
         </p>
         <p class="text-xs text-base-content/55 leading-relaxed">
-          A series of photos with accurate timestamps reveals your daily
-          patterns: when you wake up, where you work, your travel schedule.
-          Combined with GPS, it's a precise movement log.
+          A series of photos with accurate timestamps and location data can
+          reveal where you were and when. Given enough data points, a malicious
+          actor could reconstruct a precise timeline, or even your daily and
+          weekly routines.
         </p>
       </div>
     </div>
@@ -582,7 +610,9 @@ import Brand from "../components/Brand.astro";
                     </span>
                   </div>
                 </div>
-                <span class="text-[0.6rem] text-base-content/30 shrink-0">{size}</span>
+                <span class="text-[0.6rem] text-base-content/30 shrink-0">
+                  {size}
+                </span>
               </div>
             ))
           }
@@ -779,22 +809,22 @@ import Brand from "../components/Brand.astro";
       </p>
     </div>
 
-  <!-- CTA -->
-  <section
-    class="w-full rounded-2xl border border-base-300 p-8 flex flex-col items-center text-center gap-4"
-  >
-    <h2 class="text-2xl font-bold tracking-tight">
-      Ready to strip your photos?
-    </h2>
-    <p class="text-base-content/60 text-sm max-w-sm leading-relaxed">
-      No sign-up, no upload, no waiting. Drop your photos in and get clean files
-      back in seconds.
-    </p>
-    <a href="/" class="btn btn-brand">Use StripMeta →</a>
-    <p class="text-xs text-base-content/35">
-      Free, open-source, and private by design.
-    </p>
-  </section>
+    <!-- CTA -->
+    <section
+      class="w-full rounded-2xl border border-base-300 p-8 flex flex-col items-center text-center gap-4"
+    >
+      <h2 class="text-2xl font-bold tracking-tight">
+        Ready to strip your photos?
+      </h2>
+      <p class="text-base-content/60 text-sm max-w-sm leading-relaxed">
+        No sign-up, no upload, no waiting. Drop your photos in and get clean
+        files back in seconds.
+      </p>
+      <a href="/" class="btn btn-brand">Use StripMeta →</a>
+      <p class="text-xs text-base-content/35">
+        Free, open-source, and private by design.
+      </p>
+    </section>
 
     <!-- Step 5 -->
     <div class="flex flex-col gap-4">
@@ -809,27 +839,45 @@ import Brand from "../components/Brand.astro";
       </div>
       <p class="text-base-content/60 text-sm leading-relaxed pl-10">
         <Brand /> is written and maintained by one person, serves no ads, tracks nothing,
-        and costs nothing to use. That also means no ad revenue. If it saved you time or
-        protected your privacy, a small donation goes a long way. You can find the donation
-        links in the About panel — click
-        <strong>ℹ️ About</strong> or <strong>donate</strong> in the
-        footer at any time.
+        and costs nothing to use. That also means no ad revenue. If it saved you time
+        or protected your privacy, a small donation goes a long way. You can find
+        the donation links in the About panel — click
+        <strong>ℹ️ About</strong> or <strong>donate</strong> in the footer at any
+        time.
       </p>
-      <div class="flex flex-col items-center gap-1.5 text-base-content/60 text-sm pt-1">
+      <div
+        class="flex flex-col items-center gap-1.5 text-base-content/60 text-sm pt-1"
+      >
         <span>The Ko-fi and PayPal buttons are right below</span>
-        <svg class="w-5 h-5 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        <svg
+          class="w-5 h-5 animate-bounce"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19 9l-7 7-7-7"></path>
         </svg>
       </div>
     </div>
   </section>
-
 </Layout>
 
-
 <script>
-  const modal = document.getElementById('about-modal') as HTMLDialogElement | null;
-  function openAbout() { if (modal && !modal.open) modal.showModal(); }
-  document.getElementById('btn-about-footer')?.addEventListener('click', openAbout);
-  document.getElementById('btn-about-nav')?.addEventListener('click', openAbout);
+  const modal = document.getElementById(
+    "about-modal",
+  ) as HTMLDialogElement | null;
+  function openAbout() {
+    if (modal && !modal.open) modal.showModal();
+  }
+  document
+    .getElementById("btn-about-footer")
+    ?.addEventListener("click", openAbout);
+  document
+    .getElementById("btn-about-nav")
+    ?.addEventListener("click", openAbout);
 </script>
