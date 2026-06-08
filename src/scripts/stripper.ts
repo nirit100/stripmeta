@@ -1,4 +1,10 @@
 import { readMetadata, defaultStripperManager, paranoidStripperManager } from '../lib/stripMeta.ts';
+import { iconSvg } from '../lib/icons.ts';
+import { computeToProcess, collectBlobs } from '../lib/stripPlan.ts';
+import type { FileEntry } from '../lib/stripPlan.ts';
+import { buildTree, collectEntries, entriesUnder } from '../lib/fileTree.ts';
+import type { DirNode } from '../lib/fileTree.ts';
+import { StripState } from '../lib/stripState.ts';
 import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stripMeta.ts';
 import { formatBytes, formatGps } from '../lib/format.ts';
 import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
@@ -17,6 +23,7 @@ const fileList    = document.getElementById('file-list')!;
 const fileWarningBanner = document.getElementById('file-warning-banner')!;
 const actions     = document.getElementById('actions')!;
 const btnStrip    = document.getElementById('btn-strip') as HTMLButtonElement;
+const btnDownload = document.getElementById('btn-download') as HTMLButtonElement;
 const btnClear    = document.getElementById('btn-clear') as HTMLButtonElement;
 const dropZoneContent = document.getElementById('drop-zone-content')!;
 const scanStateEl   = document.getElementById('scan-state')!;
@@ -60,18 +67,6 @@ const WARNING_ORDER: Record<WarningLevel, number> = { unsupported: 0, lossy: 1, 
 
 // — Data model —
 
-interface FileEntry {
-  file: File;
-  path: string; // relative path e.g. "vacation/beach/photo.jpg" or just "photo.jpg"
-}
-
-interface DirNode {
-  name: string;
-  path: string;
-  subdirs: Map<string, DirNode>;
-  files: FileEntry[];
-}
-
 const sessionStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
 
 // Runs at most `limit` calls of `fn` concurrently, preserving result order.
@@ -98,14 +93,15 @@ let levelOf      = new Map<File, WarningLevel>();
 let metadataCache = new Map<File, MetadataPreview>();
 let heroCollapsed = false;
 let renderGen = 0;
-const stripErrorOf = new Set<File>();
-const stripDoneOf  = new Set<File>();
+const state = new StripState();
+let pendingBlobs: { path: string; blob: Blob }[] = [];
 
 // DOM tracking
-const rowOf       = new Map<File, HTMLElement>();
-const urlOf       = new Map<File, string>();
-const dirRowOf    = new Map<string, HTMLElement>();
-const dirCounters = new Map<string, () => void>(); // path → update fn for the stat label
+const rowOf          = new Map<File, HTMLElement>();
+const urlOf          = new Map<File, string>();
+const dirRowOf       = new Map<string, HTMLElement>();
+const dirCounters    = new Map<string, () => void>(); // path → update fn for the stat label
+const copyBtnOf      = new Map<File, HTMLButtonElement>();
 
 // — Directory breadcrumb
 
@@ -241,27 +237,6 @@ function expandHero() {
   anim.onfinish = () => { anim.cancel(); hero.style.overflow = ''; };
 }
 
-// — Tree building —
-
-function buildTree(allEntries: FileEntry[]): DirNode {
-  const root: DirNode = { name: '', path: '', subdirs: new Map(), files: [] };
-  for (const entry of allEntries) {
-    const parts = entry.path.split('/');
-    let node = root;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const seg = parts[i]!;
-      if (!node.subdirs.has(seg)) {
-        const p = node.path ? `${node.path}/${seg}` : seg;
-        node.subdirs.set(seg, { name: seg, path: p, subdirs: new Map(), files: [] });
-      }
-      node = node.subdirs.get(seg)!;
-    }
-    node.files.push(entry);
-  }
-  return root;
-}
-
-
 // — File removal —
 
 function detachEntry(entry: FileEntry) {
@@ -271,6 +246,8 @@ function detachEntry(entry: FileEntry) {
   metadataCache.delete(entry.file);
   levelOf.delete(entry.file);
   rowOf.delete(entry.file);
+  copyBtnOf.delete(entry.file);
+  state.remove(entry.file);
   entries = entries.filter(e => e !== entry);
 }
 
@@ -348,6 +325,7 @@ function getSkipReason(file: File) {
 }
 
 function applySkipStatus(file: File) {
+  if (state.done.has(file) || state.errored.has(file)) return;
   const row = rowOf.get(file);
   if (!row) return;
   const statusBadge = row.querySelector<HTMLElement>('.status-badge');
@@ -446,9 +424,70 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   }
 
   const statusBadge = document.createElement('span');
-  statusBadge.className = 'badge badge-outline badge-sm status-badge';
-  statusBadge.textContent = 'Ready';
+  if (state.done.has(file)) {
+    statusBadge.className = 'badge badge-success badge-sm status-badge';
+    statusBadge.textContent = 'Done';
+  } else if (state.errored.has(file)) {
+    statusBadge.className = 'badge badge-error badge-sm status-badge';
+    statusBadge.textContent = 'Error';
+  } else {
+    statusBadge.className = 'badge badge-outline badge-sm status-badge';
+    statusBadge.textContent = 'Ready';
+  }
   topRow.appendChild(statusBadge);
+
+  if (level !== 'unsupported' && navigator.clipboard?.write) {
+    const svgClip  = iconSvg('clipboard', 'w-3.5 h-3.5', '2');
+    const svgCheck = iconSvg('check',     'w-3.5 h-3.5', '2.5');
+    const svgX     = iconSvg('x-mark',   'w-3.5 h-3.5', '2.5');
+    const baseClass = 'btn btn-ghost btn-xs btn-circle text-base-content/65 hover:text-primary hover:bg-primary/10 tooltip tooltip-left transition-colors';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = baseClass;
+    const defaultTip = file.type === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
+    copyBtn.dataset.tip = defaultTip;
+    copyBtn.innerHTML = svgClip;
+    copyBtn.hidden = !state.done.has(file);
+    copyBtnOf.set(file, copyBtn);
+
+    let busy = false;
+    copyBtn.addEventListener('click', async () => {
+      if (busy) return;
+      const blob = state.blobs.get(file);
+      if (!blob) return;
+      busy = true;
+      copyBtn.disabled = true;
+      copyBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span>';
+      try {
+        let clipBlob = blob;
+        if (blob.type !== 'image/png') {
+          const bmp = await createImageBitmap(blob);
+          const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+          canvas.getContext('2d')!.drawImage(bmp, 0, 0);
+          bmp.close();
+          clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+        }
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
+        copyBtn.innerHTML = svgCheck;
+        copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-success tooltip tooltip-left transition-colors';
+        copyBtn.dataset.tip = 'Copied!';
+      } catch {
+        copyBtn.innerHTML = svgX;
+        copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-error tooltip tooltip-left transition-colors';
+        copyBtn.dataset.tip = 'Failed';
+      }
+      setTimeout(() => {
+        copyBtn.innerHTML = svgClip;
+        copyBtn.className = baseClass;
+        copyBtn.dataset.tip = defaultTip;
+        copyBtn.disabled = false;
+        busy = false;
+      }, 2000);
+    });
+
+    topRow.appendChild(copyBtn);
+  }
 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -584,15 +623,15 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
   statusDot.className = 'w-2 h-2 rounded-full shrink-0 hidden';
 
   function updateCount() {
-    const under = entriesUnder(node.path);
+    const under = entriesUnder(entries, node.path);
     const n = under.length;
     let incompatible = 0, clean = 0, stripErrors = 0, done = 0;
     for (const e of under) {
       const r = getSkipReason(e.file);
       if (r === 'unsupported' || r === 'lossy') incompatible++;
       else if (r === 'no-metadata') clean++;
-      if (stripErrorOf.has(e.file)) stripErrors++;
-      if (stripDoneOf.has(e.file))  done++;
+      if (state.errored.has(e.file)) stripErrors++;
+      if (state.done.has(e.file))   done++;
     }
     const skipped = incompatible + clean;
     const ready = n - skipped;
@@ -694,17 +733,7 @@ function removeDirNode(node: DirNode) {
   afterRemove();
 }
 
-function collectEntries(node: DirNode): FileEntry[] {
-  const result: FileEntry[] = [...node.files];
-  for (const sub of node.subdirs.values()) result.push(...collectEntries(sub));
-  return result;
-}
-
 // — Directory counts —
-
-function entriesUnder(path: string): FileEntry[] {
-  return entries.filter(e => e.path.startsWith(path + '/'));
-}
 
 function updateAllDirCounts() {
   for (const update of dirCounters.values()) update();
@@ -765,6 +794,7 @@ async function render() {
   rowOf.clear();
   dirRowOf.clear();
   dirCounters.clear();
+  copyBtnOf.clear();
 
   const visible = entries.length > 0;
   fileList.classList.toggle('hidden', !visible);
@@ -798,8 +828,10 @@ async function render() {
   }
 
   renderBanner();
+  btnDownload.hidden = true;
+  btnStrip.hidden = false;
   btnStrip.disabled = false;
-  btnStrip.textContent = 'Strip metadata & download';
+  btnStrip.textContent = 'Strip metadata';
 }
 
 // — Adding files —
@@ -843,70 +875,76 @@ function fromFileList(fileList: FileList | File[], getPath: (f: File) => string)
 async function stripAndDownload() {
   if (!entries.length) return;
   collapseSettings();
-  stripErrorOf.clear();
-  stripDoneOf.clear();
+
+  // Preserve done state; clear only errors so they get retried.
+  state.resetErrors();
   clearErroredFiles();
-  btnStrip.disabled = true;
-  btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Processing…';
+  pendingBlobs = [];
+  btnDownload.hidden = true;
 
-  const blobs: { path: string; blob: Blob }[] = [];
+  const toProcess = computeToProcess(entries, getSkipReason, state.done);
+
   let hadErrors = false;
-  const total = entries.filter(e => getSkipReason(e.file) === null).length;
-  let doneCount = 0;
-  stripProgressEl.classList.remove('hidden');
 
-  await pooled(entries, 3, async entry => {
-    const { file, path } = entry;
-    const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
-
-    if (getSkipReason(file) !== null) {
-      if (settings.includeSkipped) {
-        blobs.push({ path, blob: file });
-        if (statusBadge) { statusBadge.textContent = 'Copied'; statusBadge.className = 'badge badge-outline badge-sm status-badge'; }
-      } else {
-        if (statusBadge) { statusBadge.textContent = 'Skipped'; statusBadge.className = 'badge badge-outline badge-sm status-badge'; }
-      }
-      return;
-    }
-
-    try {
-      stripProgressEl.textContent = `${++doneCount} / ${total} — ${file.name}`;
-      const blob = await activeManager().strip(file);
-      blobs.push({ path, blob });
-      sessionStats.filesProcessed++;
-      const preview = metadataCache.get(file);
-      if (preview?.gps)      sessionStats.gpsRemoved++;
-      if (preview?.dateTime) sessionStats.datesRemoved++;
-      sessionStats.bytesStripped += Math.max(0, file.size - blob.size);
-      stripDoneOf.add(file);
-      if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
-    } catch (err) {
-      hadErrors = true;
-      stripErrorOf.add(file);
-      registerErroredFile(file, path);
-      if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
-      logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
-    }
-  });
-
-  if (blobs.length === 1) {
-    download(URL.createObjectURL(blobs[0]!.blob), blobs[0]!.path.split('/').at(-1) ?? blobs[0]!.path);
-  } else if (blobs.length > 1) {
+  if (toProcess.length > 0) {
+    btnStrip.disabled = true;
+    btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Processing…';
     stripProgressEl.classList.remove('hidden');
-    stripProgressEl.textContent = 'Building ZIP…';
-    const { default: JSZip } = await import('jszip');
-    const zip = new JSZip();
-    for (const { path, blob } of blobs) zip.file(path, blob);
-    const zipBlob = await zip.generateAsync({ type: 'blob' }, ({ percent }) => {
-      stripProgressEl.textContent = `Building ZIP… ${Math.round(percent)}%`;
+    let doneCount = 0;
+
+    await pooled(toProcess, 3, async entry => {
+      const { file, path } = entry;
+      const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
+      try {
+        stripProgressEl.textContent = `${++doneCount} / ${toProcess.length} — ${file.name}`;
+        const blob = await activeManager().strip(file);
+        sessionStats.filesProcessed++;
+        const preview = metadataCache.get(file);
+        if (preview?.gps)      sessionStats.gpsRemoved++;
+        if (preview?.dateTime) sessionStats.datesRemoved++;
+        sessionStats.bytesStripped += Math.max(0, file.size - blob.size);
+        state.markDone(file, blob);
+        const copyBtn = copyBtnOf.get(file);
+        if (copyBtn) copyBtn.hidden = false;
+        if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
+      } catch (err) {
+        hadErrors = true;
+        state.markError(file);
+        registerErroredFile(file, path);
+        if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
+        logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
+      }
     });
-    download(URL.createObjectURL(zipBlob), 'stripped-photos.zip');
+  }
+
+  // Collect blobs: done files + optionally skipped.
+  const blobs = collectBlobs(entries, getSkipReason, state.done, state.blobs, settings.includeSkipped);
+
+  // Update skip badges (done/error badges are already set above).
+  for (const { file } of entries) {
+    if (!state.done.has(file) && getSkipReason(file) !== null) {
+      const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
+      if (statusBadge) {
+        if (settings.includeSkipped) {
+          statusBadge.textContent = 'Copied'; statusBadge.className = 'badge badge-outline badge-sm status-badge';
+        } else {
+          statusBadge.textContent = 'Skipped'; statusBadge.className = 'badge badge-outline badge-sm status-badge';
+        }
+      }
+    }
+  }
+
+  pendingBlobs = blobs;
+  if (blobs.length >= 1) {
+    btnDownload.textContent = blobs.length === 1 ? 'Download' : 'Download ZIP';
+    btnDownload.hidden = false;
+    btnStrip.hidden = true;
   }
 
   stripProgressEl.classList.add('hidden');
   stripProgressEl.textContent = '';
   btnStrip.disabled = false;
-  btnStrip.textContent = 'Strip metadata & download';
+  btnStrip.textContent = 'Strip metadata';
   updateAllDirCounts();
 
   if (blobs.length > 0) {
@@ -1004,6 +1042,10 @@ btnClear.addEventListener('click', () => {
   metadataCache.clear();
   dirRowOf.clear();
   dirCounters.clear();
+  copyBtnOf.clear();
+  state.invalidate();
+  pendingBlobs = [];
+  btnDownload.hidden = true;
   clearLog();
   render();
 });
@@ -1019,9 +1061,43 @@ btnClearLog.addEventListener('click', () => {
 
 btnStrip.addEventListener('click', stripAndDownload);
 
-onSettingChange('paranoid',        () => render());
-onSettingChange('skipClean',       () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); });
-onSettingChange('skipUnsupported', () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); });
+btnDownload.addEventListener('click', async () => {
+  if (!pendingBlobs.length) return;
+  if (pendingBlobs.length === 1) {
+    const { path, blob } = pendingBlobs[0]!;
+    download(URL.createObjectURL(blob), path.split('/').at(-1) ?? path);
+  } else {
+    btnDownload.disabled = true;
+    btnDownload.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Building ZIP…';
+    const { default: JSZip } = await import('jszip');
+    const zip = new JSZip();
+    for (const { path, blob } of pendingBlobs) zip.file(path, blob);
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    download(URL.createObjectURL(zipBlob), 'stripped-photos.zip');
+    btnDownload.disabled = false;
+    btnDownload.textContent = 'Download ZIP';
+  }
+});
+
+onSettingChange('paranoid', () => {
+  // Strip algorithm changed — cached blobs are stale.
+  state.invalidate();
+  pendingBlobs = [];
+  for (const btn of copyBtnOf.values()) btn.hidden = true;
+  render();
+});
+
+function maybeRestoreStripButton() {
+  const hasUndone = entries.some(e => getSkipReason(e.file) === null && !state.done.has(e.file));
+  if (hasUndone && !btnDownload.hidden) {
+    btnDownload.hidden = true;
+    btnStrip.hidden = false;
+    pendingBlobs = [];
+  }
+}
+
+onSettingChange('skipClean',       () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
+onSettingChange('skipUnsupported', () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
 
 window.addEventListener('beforeunload', e => {
   if (settings.warnUnload && entries.length > 0) e.preventDefault();
