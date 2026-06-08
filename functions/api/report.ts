@@ -1,5 +1,3 @@
-/// <reference path="../../worker-configuration.d.ts" />
-
 import { sendBugReport } from '../lib/email.ts';
 
 interface Payload {

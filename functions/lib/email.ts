@@ -39,7 +39,18 @@ export async function sendBugReport(
     }
   );
 
-  if (!res.ok) {
-    throw new Error(`Email delivery failed: ${res.status} ${await res.text().catch(() => '')}`);
+  const json = await res.json() as {
+    success: boolean;
+    errors: { code: number; message: string }[];
+    result: { delivered: string[]; permanent_bounces: string[]; queued: string[] } | null;
+  };
+
+  if (!res.ok || !json.success) {
+    const detail = json.errors?.map(e => `${e.code}: ${e.message}`).join(', ') ?? res.status;
+    throw new Error(`Email delivery failed: ${detail}`);
+  }
+
+  if (json.result?.permanent_bounces?.length) {
+    throw new Error(`Email permanently bounced for: ${json.result.permanent_bounces.join(', ')}`);
   }
 }
