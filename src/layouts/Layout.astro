@@ -37,9 +37,15 @@ const appVersion: string = __APP_VERSION__;
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0d9488" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
+    <link rel="apple-touch-icon" href="/icons/apple-touch.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="StripMeta" />
     <title>{title}</title>
     <script is:inline>
       (function () {
@@ -135,5 +141,12 @@ const appVersion: string = __APP_VERSION__;
       import '../scripts/bugReport.ts';
       import '../scripts/about.ts';
     </script>
+    {!import.meta.env.DEV && (
+      <script is:inline>
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+      </script>
+    )}
   </body>
 </html>
