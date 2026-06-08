@@ -91,6 +91,16 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
           )}
         </div>
         <div class="flex items-center gap-2">
+          {bugReportEnabled && <button class="btn btn-xs btn-ghost js-open-bug-report">🐛 Report a bug</button>}
+          <div class="relative inline-flex">
+            <span id="about-badge" class="hidden absolute -top-1 -right-1 z-10 pointer-events-none">
+              <span class="relative flex h-2.5 w-2.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+              </span>
+            </span>
+            <button id="btn-about-footer" class="btn btn-xs btn-ghost"><Icon name="information-circle" class="w-3.5 h-3.5" />About</button>
+          </div>
           {kofiUrl && <a
             class="btn btn-xs btn-outline overflow-hidden footer-donate-btn hover:bg-[#FF5E78] hover:text-white hover:border-[#FF5E78]"
             href={kofiUrl}
@@ -107,16 +117,6 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
             aria-label="Donate via PayPal">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={siPaypal.path}/></svg>
             PayPal</a>}
-          {bugReportEnabled && <button class="btn btn-xs btn-ghost js-open-bug-report">🐛 Report a bug</button>}
-          <div class="relative inline-flex">
-            <span id="about-badge" class="hidden absolute -top-1 -right-1 z-10 pointer-events-none">
-              <span class="relative flex h-2.5 w-2.5">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-              </span>
-            </span>
-            <button id="btn-about-footer" class="btn btn-xs btn-ghost"><Icon name="information-circle" class="w-3.5 h-3.5" />About</button>
-          </div>
         </div>
       </div>
     </footer>
