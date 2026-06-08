@@ -1,9 +1,11 @@
 ---
 import "../styles/global.css";
 import Brand from '../components/Brand.astro';
+import Icon from '../components/Icon.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
 import AboutModal from '../components/AboutModal.astro';
 import BugReportModal from '../components/BugReportModal.astro';
+import { siKofi, siPaypal } from 'simple-icons';
 
 interface Props {
   title: string;
@@ -57,7 +59,7 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
       </div>
       <div class="flex items-center gap-0.5 mr-2">
         <a href="/how-it-works" class="btn btn-ghost btn-sm text-xs text-base-content/55">How it works</a>
-        <button id="btn-about-nav" type="button" class="btn btn-ghost btn-sm text-xs text-base-content/55 hidden sm:flex">About</button>
+        <button id="btn-about-nav" type="button" class="btn btn-ghost btn-sm text-xs text-base-content/55 hidden sm:flex"><Icon name="information-circle" class="w-3.5 h-3.5" />About</button>
       </div>
       <ThemeToggle />
     </header>
@@ -94,13 +96,17 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
             href={kofiUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Buy me a coffee on Ko-fi">☕ Ko-fi</a>}
+            aria-label="Buy me a coffee on Ko-fi">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={siKofi.path}/></svg>
+            Ko-fi</a>}
           {paypalUrl && <a
             class="btn btn-xs btn-outline overflow-hidden footer-donate-btn hover:bg-[#0070ba] hover:text-white hover:border-[#0070ba]"
             href={paypalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Donate via PayPal">💸 PayPal</a>}
+            aria-label="Donate via PayPal">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={siPaypal.path}/></svg>
+            PayPal</a>}
           {bugReportEnabled && <button class="btn btn-xs btn-ghost js-open-bug-report">🐛 Report a bug</button>}
           <div class="relative inline-flex">
             <span id="about-badge" class="hidden absolute -top-1 -right-1 z-10 pointer-events-none">
@@ -109,7 +115,7 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
                 <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
               </span>
             </span>
-            <button id="btn-about-footer" class="btn btn-xs btn-ghost">ℹ️ About</button>
+            <button id="btn-about-footer" class="btn btn-xs btn-ghost"><Icon name="information-circle" class="w-3.5 h-3.5" />About</button>
           </div>
         </div>
       </div>
