@@ -74,11 +74,17 @@ function populate() {
 }
 
 async function submit() {
+  const entries = getLog();
+  if (entries.length === 0 && !messageInput.value.trim()) {
+    submitStatus.textContent = 'Please describe the issue — no error log is available.';
+    submitStatus.className = 'text-xs text-error';
+    messageInput.focus();
+    return;
+  }
+
   submitBtn.disabled = true;
   submitBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Sending…';
   submitStatus.textContent = '';
-
-  const entries = getLog();
   const includeFiles = filesCheckbox.checked;
   const anonMap = buildAnonMap(entries);
   const logText = entries
