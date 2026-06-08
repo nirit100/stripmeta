@@ -49,6 +49,10 @@ npm run build     # production build → dist/
 
 Feel free to modify and host your own flavour, although I would prefer contributions.
 
+### Configuration
+
+See [docs/environment-variables.md](docs/environment-variables.md) for a full list of environment variables and their descriptions.
+
 ### On Donations
 
 The donation links are in the app to help cover hosting costs. They are constants injected at deployment time.
