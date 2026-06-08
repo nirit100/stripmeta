@@ -1,6 +1,7 @@
 import { getLog } from './logger.ts';
 import { getErroredFiles } from '../lib/erroredFiles.ts';
 import { buildAnonMap } from '../lib/anonMap.ts';
+import { settings } from './settings.ts';
 
 const modal = document.getElementById('bug-report-modal') as HTMLDialogElement | null;
 const logPreview = document.getElementById('bug-log-preview') as HTMLElement;
@@ -14,9 +15,43 @@ const emailInput = document.getElementById('bug-email') as HTMLInputElement;
 const submitBtn = document.getElementById('btn-bug-submit') as HTMLButtonElement;
 const submitStatus = document.getElementById('bug-submit-status') as HTMLElement;
 const messageOptional = document.getElementById('bug-message-optional') as HTMLElement;
+const settingsPreview = document.getElementById('bug-settings-preview') as HTMLElement;
 
 function escHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function getSettingsAndStats(): string {
+  const on = (v: boolean) => v ? 'on' : 'off';
+  const lines = [
+    '— Settings —',
+    `Paranoid mode: ${on(settings.paranoid)}`,
+    `Process clean files: ${on(!settings.skipClean)}`,
+    `Try unsupported files: ${on(!settings.skipUnsupported)}`,
+    `Include skipped in output: ${on(settings.includeSkipped)}`,
+    `Warn on unload: ${on(settings.warnUnload)}`,
+    `Auto-show results: ${on(settings.autoAbout)}`,
+    `Persist settings: ${on(settings.persist)}`,
+  ];
+  const raw = localStorage.getItem('stripmeta:stats_v1');
+  if (raw) {
+    try {
+      const s = JSON.parse(raw) as Record<string, unknown>;
+      lines.push('', '— Stats —');
+      if (s.filesProcessed) lines.push(`Files processed: ${s.filesProcessed}`);
+      if (s.gpsRemoved)     lines.push(`GPS removed: ${s.gpsRemoved}`);
+      if (s.datesRemoved)   lines.push(`Timestamps removed: ${s.datesRemoved}`);
+      if (s.bytesStripped)  lines.push(`Data stripped: ${fmtBytes(Number(s.bytesStripped))}`);
+      if (s.date)           lines.push(`Last run: ${new Date(s.date as string).toLocaleDateString()}`);
+    } catch { /* no stats */ }
+  }
+  return lines.join('\n');
 }
 
 function getPlatformInfo(): string {
@@ -51,6 +86,7 @@ function populate() {
     }
   }
 
+  settingsPreview.textContent = getSettingsAndStats();
   platformPreview.textContent = getPlatformInfo();
   platformPreview.style.display = '';
 
@@ -99,6 +135,7 @@ async function submit() {
 
   const basePayload = {
     log: logText,
+    settingsAndStats: getSettingsAndStats(),
     platform: platformCheckbox.checked ? getPlatformInfo() : undefined,
     message: messageInput.value.trim() || undefined,
     email: emailInput.value.trim() || undefined,

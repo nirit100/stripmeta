@@ -18,6 +18,7 @@ export const settings = {
   get includeSkipped()  { return toggleIncludeSkipped.checked; },
   get warnUnload()      { return toggleWarnUnload.checked; },
   get autoAbout()       { return toggleAutoAbout.checked; },
+  get persist()         { return togglePersist.checked; },
 };
 
 // — Change subscriptions —
