@@ -18,6 +18,8 @@ Set these in your Cloudflare Pages dashboard (or `.env` for local development). 
 
 Set these in the Cloudflare Pages dashboard under **Settings → Variables and Secrets**. They are available to Pages Functions at request time and are never included in the static build output.
 
+If you're making your own version of this you probably want to replace the whole bug reporter backend anyways.
+
 | Variable | Type | Description |
 |---|---|---|
 | `BUG_REPORT_FROM` | Plaintext | Sender address for bug report emails. Must be on a domain onboarded in Cloudflare Email Service. |
