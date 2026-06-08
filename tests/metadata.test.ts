@@ -126,12 +126,14 @@ describe('readMetadata', () => {
 describe('readRichMetadata', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns empty array when exifr returns null and file is not PNG', async () => {
+  it('returns empty sections and no parseError when exifr returns null', async () => {
     const exifr = await import('exifr');
     vi.mocked(exifr.default.parse).mockResolvedValue(null);
 
     const { readRichMetadata } = await importFresh();
-    expect(await readRichMetadata(makeFile())).toEqual([]);
+    const result = await readRichMetadata(makeFile());
+    expect(result.sections).toEqual([]);
+    expect(result.parseError).toBeUndefined();
   });
 
   it('returns EXIF section with entries', async () => {
@@ -139,7 +141,7 @@ describe('readRichMetadata', () => {
     vi.mocked(exifr.default.parse).mockResolvedValue({ Make: 'Apple', Model: 'iPhone 15' });
 
     const { readRichMetadata } = await importFresh();
-    const sections = await readRichMetadata(makeFile());
+    const { sections } = await readRichMetadata(makeFile());
 
     expect(sections).toHaveLength(1);
     expect(sections[0].name).toBe('EXIF / XMP / IPTC');
@@ -156,8 +158,8 @@ describe('readRichMetadata', () => {
     });
 
     const { readRichMetadata } = await importFresh();
-    const [section] = await readRichMetadata(makeFile());
-    const keys = section.entries.map(e => e.key);
+    const { sections } = await readRichMetadata(makeFile());
+    const keys = sections[0].entries.map(e => e.key);
     expect(keys).toContain('Make');
     expect(keys).not.toContain('MakerNote');
     expect(keys).not.toContain('NestedObj');
@@ -168,19 +170,79 @@ describe('readRichMetadata', () => {
     vi.mocked(exifr.default.parse).mockResolvedValue({ DateTimeOriginal: new Date('2024-03-15T14:32:00Z') });
 
     const { readRichMetadata } = await importFresh();
-    const [section] = await readRichMetadata(makeFile());
-    const entry = section.entries.find(e => e.key === 'DateTimeOriginal');
+    const { sections } = await readRichMetadata(makeFile());
+    const entry = sections[0].entries.find(e => e.key === 'DateTimeOriginal');
     expect(entry?.value).toBe('2024-03-15 14:32:00');
   });
 
   it('includes PNG text chunk section for PNG files', async () => {
-    vi.restoreAllMocks();
+    const exifr = await import('exifr');
+    vi.mocked(exifr.default.parse).mockResolvedValue(null);
+
     const { readRichMetadata } = await importFresh();
     const file = fixtureFile('test.png', 'image/png');
-    const sections = await readRichMetadata(file);
+    const { sections } = await readRichMetadata(file);
 
     const pngSection = sections.find(s => s.name === 'Text');
     expect(pngSection).toBeDefined();
     expect(pngSection!.entries.length).toBeGreaterThan(0);
+  });
+
+  it('sets parseError when exifr throws', async () => {
+    const exifr = await import('exifr');
+    const err = new Error('Unknown file format');
+    vi.mocked(exifr.default.parse).mockRejectedValue(err);
+
+    const { readRichMetadata } = await importFresh();
+    const { sections, parseError } = await readRichMetadata(makeFile());
+    expect(sections).toEqual([]);
+    expect(parseError).toBe(err);
+  });
+
+  it('sets parseError when exifr returns an errors array', async () => {
+    const exifr = await import('exifr');
+    const err = new Error('IFD0 offset points to outside of file');
+    vi.mocked(exifr.default.parse).mockResolvedValue({ errors: [err] });
+
+    const { readRichMetadata } = await importFresh();
+    const { sections, parseError } = await readRichMetadata(makeFile());
+    expect(parseError).toBe(err);
+    expect(sections).toEqual([]);
+  });
+
+  it('does not include the errors key as an EXIF entry', async () => {
+    const exifr = await import('exifr');
+    vi.mocked(exifr.default.parse).mockResolvedValue({
+      Make: 'Canon',
+      errors: [new Error('something went wrong')],
+    });
+
+    const { readRichMetadata } = await importFresh();
+    const { sections } = await readRichMetadata(makeFile());
+    const section = sections.find(s => s.name === 'EXIF / XMP / IPTC');
+    expect(section).toBeDefined();
+    expect(section!.entries.map(e => e.key)).not.toContain('errors');
+  });
+
+  it('sets parseError for corrupt-exif.jpg fixture (real exifr)', async () => {
+    vi.doUnmock('exifr');
+    vi.resetModules();
+    const { readRichMetadata } = await import('../src/lib/stripMeta');
+    const file = fixtureFile('corrupt-exif.jpg', 'image/jpeg');
+    const { sections, parseError } = await readRichMetadata(file);
+    expect(parseError).toBeInstanceOf(Error);
+    expect(sections).toEqual([]);
+  });
+
+  it('returns rich metadata sections for rich-metadata.jpg fixture (real exifr)', async () => {
+    vi.doUnmock('exifr');
+    vi.resetModules();
+    const { readRichMetadata } = await import('../src/lib/stripMeta');
+    const file = fixtureFile('rich-metadata.jpg', 'image/jpeg');
+    const { sections, parseError } = await readRichMetadata(file);
+    expect(parseError).toBeUndefined();
+    const exifSection = sections.find(s => s.name === 'EXIF / XMP / IPTC');
+    expect(exifSection).toBeDefined();
+    expect(exifSection!.entries.length).toBeGreaterThan(0);
   });
 });

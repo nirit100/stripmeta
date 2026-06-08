@@ -1,5 +1,6 @@
 import { readRichMetadata } from '../lib/stripMeta.ts';
 import type { StripperManager } from '../lib/stripMeta.ts';
+import { logEntry, humanizeError } from './logger.ts';
 
 // Matches EXIF/PNG text keys that commonly carry personally identifiable data.
 // Strips punctuation/spaces before testing so "Creation Time", "By-Line", etc. all match.
@@ -26,12 +27,21 @@ export function openMetadataModal(file: File, manager: StripperManager): void {
     modalHandler.classList.remove('hidden');
   }).catch(() => {});
 
-  readRichMetadata(file).then(sections => {
+  readRichMetadata(file).then(({ sections, parseError, hasUnreadableData }) => {
     modalContent.innerHTML = '';
+
+    if (parseError) {
+      logEntry({ level: 'warning', fileName: file.name, filePath: file.name, message: 'Could not read metadata: ' + humanizeError(parseError) });
+    }
+
     if (!sections.length) {
       const msg = document.createElement('p');
       msg.className = 'text-sm text-base-content/50 py-10 text-center';
-      msg.textContent = 'No metadata found in this file.';
+      msg.textContent = parseError
+        ? 'Could not read metadata from this file.'
+        : hasUnreadableData
+          ? 'Metadata was found but could not be displayed (binary or proprietary format).'
+          : 'No metadata found in this file.';
       modalContent.appendChild(msg);
       return;
     }
@@ -108,6 +118,18 @@ export function openMetadataModal(file: File, manager: StripperManager): void {
         });
       }
     });
+
+    if (parseError) {
+      const notice = document.createElement('p');
+      notice.className = 'mt-4 text-[0.65rem] text-warning/70 leading-relaxed';
+      notice.textContent = 'Some metadata could not be parsed and may not be shown above.';
+      modalContent.appendChild(notice);
+    } else if (hasUnreadableData) {
+      const notice = document.createElement('p');
+      notice.className = 'mt-4 text-[0.65rem] text-base-content/35 leading-relaxed';
+      notice.textContent = 'Some metadata fields could not be displayed (binary or proprietary data).';
+      modalContent.appendChild(notice);
+    }
 
     const disclaimer = document.createElement('p');
     disclaimer.className = 'mt-5 text-[0.65rem] text-base-content/35 leading-relaxed';

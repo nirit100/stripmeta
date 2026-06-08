@@ -124,14 +124,23 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
   };
 }
 
-export async function readRichMetadata(file: File): Promise<MetadataSection[]> {
+export async function readRichMetadata(file: File): Promise<{ sections: MetadataSection[]; parseError?: unknown; hasUnreadableData?: true }> {
   const sections: MetadataSection[] = [];
+  let parseError: unknown;
+  let hasUnreadableData: true | undefined;
 
-  const raw = await exifr.parse(file, true).catch(() => null) as Record<string, unknown> | null;
+  const raw = await exifr.parse(file, true)
+    .catch((err: unknown) => { parseError = err; return null; }) as Record<string, unknown> | null;
   if (raw) {
-    const entries = Object.entries(raw)
-      .map(([key, value]) => ({ key, value: formatExifrValue(value) }))
+    // exifr surfaces parsing failures as a returned `errors` array rather than throwing.
+    if (Array.isArray(raw.errors) && (raw.errors as unknown[]).length > 0) {
+      parseError = (raw.errors as Error[])[0];
+    }
+    const allKeys = Object.keys(raw).filter(k => k !== 'errors');
+    const entries = allKeys
+      .map(key => ({ key, value: formatExifrValue(raw[key]) }))
       .filter((e): e is { key: string; value: string } => e.value !== null);
+    if (entries.length < allKeys.length) hasUnreadableData = true;
     if (entries.length) sections.push({ name: 'EXIF / XMP / IPTC', entries });
   }
 
@@ -147,7 +156,7 @@ export async function readRichMetadata(file: File): Promise<MetadataSection[]> {
     }
   }
 
-  return sections;
+  return { sections, parseError, hasUnreadableData };
 }
 
 export function stripMetadata(file: File): Promise<Blob> {
