@@ -1,5 +1,6 @@
 import { getLog } from './logger.ts';
 import { getErroredFiles } from '../lib/erroredFiles.ts';
+import { buildAnonMap } from '../lib/anonMap.ts';
 
 const modal = document.getElementById('bug-report-modal') as HTMLDialogElement | null;
 const logPreview = document.getElementById('bug-log-preview') as HTMLElement;
@@ -25,7 +26,7 @@ function getPlatformInfo(): string {
     `Language: ${navigator.language}`,
     `Cores: ${navigator.hardwareConcurrency}`,
   ];
-  const mem = (navigator as Record<string, unknown>).deviceMemory;
+  const mem = (navigator as unknown as Record<string, unknown>).deviceMemory;
   if (mem) lines.push(`Memory: ${mem} GB`);
   return lines.join('\n');
 }
@@ -39,10 +40,12 @@ function populate() {
     li.textContent = 'No errors logged.';
     logPreview.appendChild(li);
   } else {
+    const anonMap = buildAnonMap(entries);
     for (const e of entries) {
       const li = document.createElement('li');
       li.className = e.level === 'error' ? 'text-error/70' : 'text-warning/70';
-      li.innerHTML = `<span class="shrink-0 mr-1.5">${e.level === 'error' ? '✗' : '⚠'}</span><span class="break-all">${escHtml(e.filePath || e.fileName)}: ${escHtml(e.message)}</span>`;
+      const name = anonMap.get(e.filePath || e.fileName) ?? e.fileName;
+      li.innerHTML = `<span class="shrink-0 mr-1.5">${e.level === 'error' ? '✗' : '⚠'}</span><span class="break-all">${escHtml(name)}: ${escHtml(e.message)}</span>`;
       logPreview.appendChild(li);
     }
   }
@@ -77,11 +80,10 @@ async function submit() {
 
   const entries = getLog();
   const includeFiles = filesCheckbox.checked;
+  const anonMap = buildAnonMap(entries);
   const logText = entries
     .map(e => {
-      const name = includeFiles
-        ? (e.filePath || e.fileName)
-        : (e.filePath || e.fileName).split(/[\\/]/).pop() ?? e.fileName;
+      const name = anonMap.get(e.filePath || e.fileName) ?? e.fileName;
       return `[${e.level.toUpperCase()}] ${name}: ${e.message}`;
     })
     .join('\n');
