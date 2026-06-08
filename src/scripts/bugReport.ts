@@ -116,9 +116,13 @@ async function submit() {
       submitStatus.textContent = 'Report sent — thank you!';
       submitStatus.className = 'text-xs text-success';
       submitBtn.textContent = 'Sent ✓';
+    } else if (res.status === 429) {
+      submitStatus.textContent = 'Too many requests — please wait a moment and try again.';
+      submitStatus.className = 'text-xs text-error';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send report';
     } else {
-      const text = await res.text().catch(() => '');
-      submitStatus.textContent = `Failed (${res.status}${text ? ': ' + text : ''}).`;
+      submitStatus.textContent = `Failed (${res.status}).`;
       submitStatus.className = 'text-xs text-error';
       submitBtn.disabled = false;
       submitBtn.textContent = 'Send report';
