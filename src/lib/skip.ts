@@ -22,8 +22,7 @@ export function getSkipReason(
   }
   if (settings.skipClean) {
     const meta = metadataCache.get(file);
-    if (meta && !meta.gps && !meta.make && !meta.model && !meta.serialNumber
-        && !meta.dateTime && !meta.software && !meta.artist && !meta.userComment) {
+    if (meta && !meta.hasAnyMetadata) {
       return 'no-metadata';
     }
   }

@@ -85,13 +85,13 @@ export interface MetadataPreview {
   dateTime: Date | string | null;
   artist: string | null;
   userComment: string | null;
+  hasAnyMetadata: boolean;
 }
 
 export async function readMetadata(file: File): Promise<MetadataPreview> {
   const [exifRaw, gpsResult, pngText] = await Promise.all([
-    exifr.parse(file, {
-      pick: ['Make', 'Model', 'SerialNumber', 'Software', 'DateTimeOriginal', 'DateTime', 'Artist', 'UserComment'],
-    }).catch(() => null),
+    // Full parse (not just picked fields) so hasAnyMetadata covers the complete EXIF/XMP/IPTC scope.
+    exifr.parse(file, true).catch(() => null),
     exifr.gps(file).catch(() => null),
     file.type === 'image/png'
       ? file.arrayBuffer().then(b => decodePngTextChunks(new Uint8Array(b))).catch(() => null)
@@ -112,6 +112,12 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
         .replace(/\0/g, '').trim() || null
     : null;
 
+  // True if exifr found any data (even binary blobs, errors, or non-preview fields) or PNG has text chunks.
+  const exifKeys = exifRaw ? Object.keys(exifRaw).filter(k => k !== 'errors') : [];
+  const hasAnyMetadata = exifKeys.length > 0
+    || (Array.isArray(exifRaw?.errors) && (exifRaw!.errors as unknown[]).length > 0)
+    || (pngText !== null && pngText.entries.length > 0);
+
   return {
     gps,
     make: exifRaw?.Make ?? null,
@@ -121,6 +127,7 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
     dateTime: exifRaw?.DateTimeOriginal ?? exifRaw?.DateTime ?? textMap['Creation Time'] ?? null,
     artist: exifRaw?.Artist ?? null,
     userComment,
+    hasAnyMetadata,
   };
 }
 

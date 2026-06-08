@@ -11,6 +11,7 @@ function makeFile(name = 'photo.jpg'): File {
 const emptyMeta: MetadataPreview = {
   gps: null, make: null, model: null, serialNumber: null,
   software: null, dateTime: null, artist: null, userComment: null,
+  hasAnyMetadata: false,
 };
 
 const allOn: SkipSettings = { paranoid: false, skipUnsupported: true, skipClean: true };
@@ -59,21 +60,21 @@ describe('getSkipReason', () => {
 
     it('does not skip when metadata has GPS', () => {
       const file = makeFile();
-      const meta: MetadataPreview = { ...emptyMeta, gps: { latitude: 1, longitude: 2 } };
+      const meta: MetadataPreview = { ...emptyMeta, gps: { latitude: 1, longitude: 2 }, hasAnyMetadata: true };
       const cache = new Map<File, MetadataPreview>([[file, meta]]);
       expect(getSkipReason(file, allOn, new Map(), cache)).toBeNull();
     });
 
     it('does not skip when metadata has artist', () => {
       const file = makeFile();
-      const meta: MetadataPreview = { ...emptyMeta, artist: 'Jane Doe' };
+      const meta: MetadataPreview = { ...emptyMeta, artist: 'Jane Doe', hasAnyMetadata: true };
       const cache = new Map<File, MetadataPreview>([[file, meta]]);
       expect(getSkipReason(file, allOn, new Map(), cache)).toBeNull();
     });
 
     it('does not skip when metadata has userComment', () => {
       const file = makeFile();
-      const meta: MetadataPreview = { ...emptyMeta, userComment: 'Hello' };
+      const meta: MetadataPreview = { ...emptyMeta, userComment: 'Hello', hasAnyMetadata: true };
       const cache = new Map<File, MetadataPreview>([[file, meta]]);
       expect(getSkipReason(file, allOn, new Map(), cache)).toBeNull();
     });

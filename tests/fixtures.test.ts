@@ -54,7 +54,7 @@ describe('readRichMetadata — JPEG misnamed as PNG (regression)', () => {
   });
 
   it('returns EXIF section with entries', async () => {
-    const sections = await readRichMetadata(file());
+    const { sections } = await readRichMetadata(file());
     const exifSection = sections.find(s => s.name === 'EXIF / XMP / IPTC');
     expect(exifSection).toBeDefined();
     expect(exifSection!.entries.length).toBeGreaterThan(0);

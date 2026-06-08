@@ -24,7 +24,7 @@ function fixtureFile(filename: string, type: string): File {
 describe('readMetadata', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns all nulls when exifr returns null', async () => {
+  it('returns all nulls and hasAnyMetadata=false when exifr returns null', async () => {
     const exifr = await import('exifr');
     vi.mocked(exifr.default.parse).mockResolvedValue(null);
     vi.mocked(exifr.default.gps).mockResolvedValue(undefined as never);
@@ -33,10 +33,11 @@ describe('readMetadata', () => {
     expect(await readMetadata(makeFile())).toEqual<MetadataPreview>({
       gps: null, make: null, model: null, serialNumber: null,
       software: null, dateTime: null, artist: null, userComment: null,
+      hasAnyMetadata: false,
     });
   });
 
-  it('returns all nulls when exifr throws', async () => {
+  it('returns all nulls and hasAnyMetadata=false when exifr throws', async () => {
     const exifr = await import('exifr');
     vi.mocked(exifr.default.parse).mockRejectedValue(new Error('parse error'));
     vi.mocked(exifr.default.gps).mockRejectedValue(new Error('gps error'));
@@ -45,6 +46,36 @@ describe('readMetadata', () => {
     const result = await readMetadata(makeFile());
     expect(result.gps).toBeNull();
     expect(result.make).toBeNull();
+    expect(result.hasAnyMetadata).toBe(false);
+  });
+
+  it('sets hasAnyMetadata=true when exifr returns data outside preview fields', async () => {
+    const exifr = await import('exifr');
+    vi.mocked(exifr.default.parse).mockResolvedValue({ Copyright: '(c) 2024 Studio' });
+    vi.mocked(exifr.default.gps).mockResolvedValue(undefined as never);
+
+    const { readMetadata } = await importFresh();
+    const result = await readMetadata(makeFile());
+    expect(result.hasAnyMetadata).toBe(true);
+    expect(result.make).toBeNull(); // not in preview fields
+  });
+
+  it('sets hasAnyMetadata=true when exifr returns only binary blobs', async () => {
+    const exifr = await import('exifr');
+    vi.mocked(exifr.default.parse).mockResolvedValue({ MakerNote: new Uint8Array([1, 2, 3]) });
+    vi.mocked(exifr.default.gps).mockResolvedValue(undefined as never);
+
+    const { readMetadata } = await importFresh();
+    expect((await readMetadata(makeFile())).hasAnyMetadata).toBe(true);
+  });
+
+  it('sets hasAnyMetadata=true when exifr returns an errors array (corrupt file)', async () => {
+    const exifr = await import('exifr');
+    vi.mocked(exifr.default.parse).mockResolvedValue({ errors: [new Error('IFD0 offset error')] });
+    vi.mocked(exifr.default.gps).mockResolvedValue(undefined as never);
+
+    const { readMetadata } = await importFresh();
+    expect((await readMetadata(makeFile())).hasAnyMetadata).toBe(true);
   });
 
   it('maps GPS, make, model, serial, software, dateTime from EXIF', async () => {

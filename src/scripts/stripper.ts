@@ -649,9 +649,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
 
         metadataCache.set(file, preview);
 
-        const hasMetadata = !!(preview.gps || preview.make || preview.model || preview.serialNumber
-          || preview.dateTime || preview.software || preview.artist || preview.userComment);
-        if (!hasMetadata) detailsBtn.textContent = 'no metadata';
+        if (!preview.hasAnyMetadata) detailsBtn.textContent = 'no metadata';
 
         applySkipStatus(file);
         syncFlatList();
