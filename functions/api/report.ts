@@ -1,5 +1,7 @@
 /// <reference path="../../worker-configuration.d.ts" />
 
+import { sendBugReport } from '../lib/email.ts';
+
 interface Payload {
   log?: string;
   platform?: string;
@@ -13,16 +15,26 @@ function sanitizeFilename(name: string): string {
   return clean || 'file';
 }
 
+function bufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 8192;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 export async function onRequestPost(ctx: { request: Request; env: Env }): Promise<Response> {
   const { request, env } = ctx;
 
-  if (!env.EMAIL || !env.BUG_REPORT_TO || !env.BUG_REPORT_FROM) {
+  if (!env.EMAIL_CF_API_TOKEN || !env.EMAIL_CF_ACCOUNT_ID || !env.BUG_REPORT_TO || !env.BUG_REPORT_FROM) {
     return new Response('Not configured', { status: 503 });
   }
 
   const contentType = request.headers.get('content-type') ?? '';
   let payload: Payload;
-  const attachments: NonNullable<Parameters<SendEmail['send']>[0]['attachments']> = [];
+  const attachments: { filename: string; content: string; type: string }[] = [];
 
   if (contentType.includes('multipart/form-data')) {
     let fd: FormData;
@@ -41,10 +53,9 @@ export async function onRequestPost(ctx: { request: Request; env: Env }): Promis
     for (const [key, val] of fd.entries()) {
       if (key === 'files' && val instanceof File) {
         attachments.push({
-          content: await val.arrayBuffer(),
+          content: bufferToBase64(await val.arrayBuffer()),
           filename: sanitizeFilename(val.name),
           type: val.type || 'application/octet-stream',
-          disposition: 'attachment',
         });
       }
     }
@@ -62,19 +73,13 @@ export async function onRequestPost(ctx: { request: Request; env: Env }): Promis
   if (payload.platform) sections.push(`Platform:\n${payload.platform}`);
   if (attachments.length > 0) sections.push(`Attached files: ${attachments.map(a => a.filename).join(', ')}`);
 
-  const text = sections.join('\n\n---\n\n');
-
   try {
-    await env.EMAIL.send({
-      to: env.BUG_REPORT_TO,
-      from: { email: env.BUG_REPORT_FROM, name: 'StripMeta Bug Reports' },
-      ...(payload.email ? { replyTo: payload.email } : {}),
-      subject: 'StripMeta Bug Report',
-      text,
-      ...(attachments.length > 0 ? { attachments } : {}),
-    });
+    await sendBugReport(
+      { text: sections.join('\n\n---\n\n'), replyTo: payload.email, attachments },
+      env
+    );
   } catch (err) {
-    console.error('Email send failed:', err);
+    console.error(err);
     return new Response('Delivery failed', { status: 502 });
   }
 
