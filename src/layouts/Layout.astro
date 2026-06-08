@@ -3,6 +3,7 @@ import "../styles/global.css";
 import Brand from '../components/Brand.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
 import AboutModal from '../components/AboutModal.astro';
+import BugReportModal from '../components/BugReportModal.astro';
 
 interface Props {
   title: string;
@@ -14,8 +15,10 @@ const {
   description = "Remove EXIF metadata from your photos privately. Everything happens in your browser — nothing is ever uploaded.",
 } = Astro.props;
 
-const kofiUrl   = import.meta.env.PUBLIC_KOFI_URL   as string;
-const paypalUrl = import.meta.env.PUBLIC_PAYPAL_URL as string;
+const kofiUrl      = import.meta.env.PUBLIC_KOFI_URL      as string;
+const paypalUrl    = import.meta.env.PUBLIC_PAYPAL_URL    as string;
+const privacyUrl   = import.meta.env.PUBLIC_PRIVACY_URL   as string;
+const impressumUrl = import.meta.env.PUBLIC_IMPRESSUM_URL as string;
 ---
 
 <html lang="en">
@@ -63,10 +66,18 @@ const paypalUrl = import.meta.env.PUBLIC_PAYPAL_URL as string;
       <div
         class="w-full max-w-3xl mx-auto flex flex-col sm:flex-row items-center sm:justify-between gap-3 px-4"
       >
-        <p class="m-0 text-center sm:text-left">
-          Everything runs in your browser. Nothing ever leaves your device.
-          <span class="text-base-content/25 mx-1">·</span><a href="/how-it-works" class="text-base-content/40 hover:text-base-content/70 transition-colors underline underline-offset-2 whitespace-nowrap">How it works</a>
-        </p>
+        <div class="flex flex-col gap-1 text-center sm:text-left">
+          <p class="m-0">
+            Everything runs locally. Nothing leaves your device.
+             <span class="mx-1">·</span>
+            <a href="/how-it-works" class="text-base-content/40 hover:text-base-content/70 transition-colors underline underline-offset-2 whitespace-nowrap">How it works</a>
+          </p>
+          <p class="m-0 text-[0.65rem] text-base-content/30">
+            <a href={privacyUrl} class="hover:text-base-content/60 transition-colors underline underline-offset-2 whitespace-nowrap">Privacy</a>
+            <span class="mx-1">·</span>
+            <a href={impressumUrl} class="hover:text-base-content/60 transition-colors underline underline-offset-2 whitespace-nowrap">Impressum</a>
+          </p>
+        </div>
         <div class="flex items-center gap-2">
           <a
             class="btn btn-xs btn-outline overflow-hidden footer-donate-btn hover:bg-[#FF5E78] hover:text-white hover:border-[#FF5E78]"
@@ -82,6 +93,7 @@ const paypalUrl = import.meta.env.PUBLIC_PAYPAL_URL as string;
             rel="noopener noreferrer"
             aria-label="Donate via PayPal">💸 PayPal</a
           >
+          <button class="btn btn-xs btn-ghost js-open-bug-report">🐛 Report a bug</button>
           <div class="relative inline-flex">
             <span id="about-badge" class="hidden absolute -top-1 -right-1 z-10 pointer-events-none">
               <span class="relative flex h-2.5 w-2.5">
@@ -96,8 +108,10 @@ const paypalUrl = import.meta.env.PUBLIC_PAYPAL_URL as string;
     </footer>
 
     <AboutModal />
+    <BugReportModal />
     <script>
       import '../scripts/footer.ts';
+      import '../scripts/bugReport.ts';
     </script>
   </body>
 </html>

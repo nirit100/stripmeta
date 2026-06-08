@@ -86,7 +86,8 @@ import Settings from '../components/Settings.astro';
     </button>
     <div id="log-panel" class="hidden mt-1 rounded-xl border border-base-300 overflow-hidden">
       <ul id="log-entries" class="divide-y divide-base-300 max-h-60 overflow-y-auto"></ul>
-      <div class="flex justify-end px-4 py-2 border-t border-base-300">
+      <div class="flex items-center justify-between px-4 py-2 border-t border-base-300">
+        <button type="button" class="btn btn-xs btn-ghost text-base-content/40 js-open-bug-report">Report a bug</button>
         <button id="btn-clear-log" type="button" class="btn btn-xs btn-ghost text-base-content/40">Clear log</button>
       </div>
     </div>

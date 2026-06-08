@@ -5,6 +5,7 @@ import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
 import { openMetadataModal } from './modal.ts';
 import { settings, onSettingChange, collapseSettings, initSettings } from './settings.ts';
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
+import { registerErroredFile, clearErroredFiles } from '../lib/erroredFiles.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -821,6 +822,7 @@ async function stripAndDownload() {
   collapseSettings();
   stripErrorOf.clear();
   stripDoneOf.clear();
+  clearErroredFiles();
   btnStrip.disabled = true;
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Processing…';
 
@@ -858,6 +860,7 @@ async function stripAndDownload() {
     } catch (err) {
       hadErrors = true;
       stripErrorOf.add(file);
+      registerErroredFile(file, path);
       if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
       logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
     }

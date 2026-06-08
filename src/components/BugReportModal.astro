@@ -1,0 +1,85 @@
+---
+const privacyUrl = import.meta.env.PUBLIC_PRIVACY_URL as string;
+---
+<dialog id="bug-report-modal" class="modal">
+  <div class="modal-box w-full max-w-lg p-0 overflow-hidden bg-transparent">
+
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300/60 shrink-0 bg-base-100/75 backdrop-blur-xl backdrop-brightness-125 glass-elem">
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold text-base">Report a bug</h3>
+        <p class="text-xs text-base-content/45 mt-0.5">Only what you see below is sent — nothing else.</p>
+      </div>
+      <form method="dialog">
+        <button class="btn btn-ghost btn-sm btn-circle text-base-content/50">✕</button>
+      </form>
+    </div>
+
+    <div class="overflow-y-auto max-h-[70vh] flex flex-col divide-y divide-base-300/60 bg-base-100">
+
+      <!-- Always included: error log -->
+      <div class="px-5 py-4 flex flex-col gap-2">
+        <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">Error log — always included</p>
+        <ul id="bug-log-preview" class="flex flex-col gap-1 text-xs font-mono bg-base-200/50 rounded-lg px-3 py-2.5 max-h-36 overflow-y-auto leading-relaxed">
+        </ul>
+      </div>
+
+      <!-- Opt-out: platform info -->
+      <div class="px-5 py-4 flex flex-col gap-2.5">
+        <label class="flex items-center gap-2.5 cursor-pointer select-none">
+          <input type="checkbox" id="bug-include-platform" class="checkbox checkbox-sm" checked />
+          <span class="text-sm font-medium">Include platform information</span>
+        </label>
+        <pre id="bug-platform-preview" class="text-[0.7rem] text-base-content/50 bg-base-200/50 rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-all font-mono"></pre>
+      </div>
+
+      <!-- Opt-in: errored files (hidden if none) -->
+      <div id="bug-files-section" class="px-5 py-4 flex flex-col gap-2.5 hidden">
+        <label class="flex items-start gap-2.5 cursor-pointer select-none">
+          <input type="checkbox" id="bug-include-files" class="checkbox checkbox-sm mt-0.5" />
+          <div>
+            <span class="text-sm font-medium">Attach failed files</span>
+            <p id="bug-files-info" class="text-[0.7rem] text-base-content/40 font-mono mt-0.5"></p>
+            <p class="text-xs text-base-content/45 mt-1">Files are not stripped of metadata before sending. Run them through StripMeta first if you want to remove it.</p>
+          </div>
+        </label>
+      </div>
+
+      <!-- Optional: message -->
+      <div class="px-5 py-4 flex flex-col gap-2">
+        <label for="bug-message" class="text-sm font-medium">
+          Your message
+          <span class="text-[0.7rem] text-base-content/40 font-normal ml-1">optional</span>
+        </label>
+        <textarea id="bug-message" rows="3"
+          class="textarea textarea-bordered textarea-sm w-full resize-none text-sm font-sans"
+          placeholder="What were you doing when the error occurred?"></textarea>
+      </div>
+
+      <!-- Optional: email -->
+      <div class="px-5 py-4 flex flex-col gap-2">
+        <label for="bug-email" class="text-sm font-medium">
+          Email for follow-up
+          <span class="text-[0.7rem] text-base-content/40 font-normal ml-1">optional</span>
+        </label>
+        <input type="email" id="bug-email"
+          class="input input-bordered input-sm w-full text-sm"
+          placeholder="your@email.com" />
+      </div>
+
+      <div>
+        <p class="text-xs text-base-content/40 px-5 py-3">
+          By submitting, you confirm that you have the right to share the included information and files, and that you understand it will be used solely for debugging purposes by the developer.
+          <span> See the <a href={privacyUrl} target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-base-content/70 transition-colors">privacy policy</a>.</span>
+        </p>
+      </div>
+
+      <!-- Submit -->
+      <div class="px-5 py-4 flex items-center justify-between gap-4">
+        <p id="bug-submit-status" class="text-xs"></p>
+        <button id="btn-bug-submit" type="button" class="btn btn-sm btn-brand shrink-0">Send report</button>
+      </div>
+
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>

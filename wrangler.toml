@@ -1,0 +1,7 @@
+name = "stripmeta"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-06-08"
+
+[[send_email]]
+name = "EMAIL"
+allowed_destination_addresses = ["bugreport@stripmeta.info"]
