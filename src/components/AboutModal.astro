@@ -1,15 +1,25 @@
 ---
 import Brand from './Brand.astro';
 import Icon from './Icon.astro';
+import { siAstro, siTailwindcss, siDaisyui, siGithub, siPaypal } from 'simple-icons';
 
 const kofiId      = import.meta.env.PUBLIC_KOFI_ID    as string;
 const paypalUrl   = import.meta.env.PUBLIC_PAYPAL_URL as string;
 const githubUrl   = import.meta.env.PUBLIC_GITHUB_URL as string;
+const bothDonations = !!kofiId && !!paypalUrl;
+
+const libs = [
+  { name: 'exifr',      href: 'https://github.com/MikeKovarik/exifr',        title: 'EXIF reader'   },
+  { name: 'piexifjs',   href: 'https://github.com/hMatoba/piexifjs',          title: 'JPEG stripper' },
+  { name: 'png-chunks', href: 'https://github.com/hughsk/png-chunks-extract', title: 'PNG stripper'  },
+  { name: 'JSZip',      href: 'https://stuk.github.io/jszip/',                title: 'ZIP builder'   },
+];
 ---
 
 <dialog id="about-modal" class="modal">
-  <div class="modal-box max-w-xlg p-0 overflow-hidden bg-transparent">
-    <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300/60 bg-base-100/75 backdrop-blur-xl backdrop-brightness-125 glass-elem">
+  <div class="modal-box max-w-xlg p-0 overflow-hidden bg-transparent flex flex-col max-h-[90vh]">
+
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300/60 shrink-0 bg-base-100/75 backdrop-blur-xl backdrop-brightness-125 glass-elem">
       <div class="flex-1 min-w-0">
         <h3 class="font-bold text-lg">About <Brand /></h3>
       </div>
@@ -18,60 +28,104 @@ const githubUrl   = import.meta.env.PUBLIC_GITHUB_URL as string;
       </form>
     </div>
 
-    <div id="about-stats" class="hidden border-b border-base-300/60 bg-base-100 px-5 pt-5 pb-4">
-      <div class="flex items-center justify-between mb-4">
-        <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">What we did for you</p>
-        <div class="flex items-center gap-2">
-          <p id="stats-date" class="text-[0.65rem] text-base-content/30 italic"></p>
-          <button id="btn-clear-stats" type="button" class="btn btn-ghost btn-xs text-base-content/25 hover:text-error p-0.5 min-h-0 h-auto" title="Clear stats">
-            <Icon name="trash" class="w-3 h-3" />
-          </button>
-        </div>
-      </div>
-      <div class="flex flex-wrap justify-around gap-x-4 gap-y-3 text-center">
-        <div class="flex flex-col items-center gap-0.5 min-w-[4rem]">
-          <span class="text-3xl font-bold brand-name tabular-nums" id="stat-files">0</span>
-          <span class="text-xs text-base-content/45 mt-1">🖼️ files cleaned</span>
-        </div>
-        <div id="stat-gps-wrap" class="flex flex-col items-center gap-0.5 min-w-[4rem]">
-          <span class="text-3xl font-bold brand-name tabular-nums" id="stat-gps">0</span>
-          <span class="text-xs text-base-content/45 mt-1">📍 GPS removed</span>
-        </div>
-        <div id="stat-dates-wrap" class="flex flex-col items-center gap-0.5 min-w-[4rem]">
-          <span class="text-3xl font-bold brand-name tabular-nums" id="stat-dates">0</span>
-          <span class="text-xs text-base-content/45 mt-1">📅 timestamps</span>
-        </div>
-        <div id="stat-kb-wrap" class="flex flex-col items-center gap-0.5 min-w-[4rem]">
-          <span class="text-3xl font-bold brand-name tabular-nums" id="stat-kb">—</span>
-          <span class="text-xs text-base-content/45 mt-1">💾 data stripped</span>
-        </div>
-      </div>
-    </div>
+    <div class="overflow-y-auto flex-1 flex flex-col divide-y divide-base-300/60 bg-base-100">
 
-    <div class="space-y-4 px-5 py-5 text-sm text-base-content/70 bg-base-100">
-      <p>
-        <strong class="font-semibold"><Brand /></strong> removes EXIF and other metadata right in your browser, so your images never leave your device and neither does any private information.
-      </p>
-      <p>
-        I'm building this solo, for free, and without ads because privacy matters. If you find this useful, even a small donation helps keep it going.
-      </p>
-    </div>
+      <div id="about-stats" class="hidden px-5 pt-5 pb-4">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">What we did for you</p>
+          <div class="flex items-center gap-2">
+            <p id="stats-date" class="text-[0.65rem] text-base-content/30 italic"></p>
+            <button id="btn-clear-stats" type="button" class="btn btn-ghost btn-xs text-base-content/25 hover:text-error p-0.5 min-h-0 h-auto" title="Clear stats">
+              <Icon name="trash" class="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+        <div class="flex flex-wrap justify-around gap-x-4 gap-y-3 text-center">
+          <div class="flex flex-col items-center gap-0.5 min-w-[4rem]">
+            <span class="text-3xl font-bold brand-name tabular-nums" id="stat-files">0</span>
+            <span class="text-xs text-base-content/45 mt-1">🖼️ files cleaned</span>
+          </div>
+          <div id="stat-gps-wrap" class="flex flex-col items-center gap-0.5 min-w-[4rem]">
+            <span class="text-3xl font-bold brand-name tabular-nums" id="stat-gps">0</span>
+            <span class="text-xs text-base-content/45 mt-1">📍 GPS removed</span>
+          </div>
+          <div id="stat-dates-wrap" class="flex flex-col items-center gap-0.5 min-w-[4rem]">
+            <span class="text-3xl font-bold brand-name tabular-nums" id="stat-dates">0</span>
+            <span class="text-xs text-base-content/45 mt-1">📅 timestamps</span>
+          </div>
+          <div id="stat-kb-wrap" class="flex flex-col items-center gap-0.5 min-w-[4rem]">
+            <span class="text-3xl font-bold brand-name tabular-nums" id="stat-kb">—</span>
+            <span class="text-xs text-base-content/45 mt-1">💾 data stripped</span>
+          </div>
+        </div>
+      </div>
 
-    <div class="flex flex-col items-center gap-3 border-t border-base-300 px-5 py-4 text-sm text-base-content/70 text-center bg-base-100">
-      <div class="flex flex-wrap items-center justify-center gap-2">
-        <div id="kofi-button-container"></div>
-        <script type="text/javascript" src="https://storage.ko-fi.com/cdn/widget/Widget_2.js"></script>
-        <script is:inline define:vars={{ kofiId }}>kofiwidget2.init("Buy me a Ko-fi", "#ff6b6b", kofiId);kofiwidget2.draw();</script>
-        <span>or</span>
-        <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 h-9 mx-1 rounded-md" href={paypalUrl} target="_blank" rel="noopener noreferrer">
-          <img class="w-4 h-4 shrink-0 object-contain" src="https://www.paypalobjects.com/paypal-ui/logos/svg/paypal-mark-monotone-transparent.svg" alt="PayPal logo" />
-          Donate via PayPal
-        </a>
+      <div class="space-y-4 px-5 py-5 text-sm text-base-content/70">
+        <p>
+          <strong class="font-semibold"><Brand /></strong> removes EXIF and other metadata right in your browser, so your images never leave your device and neither does any private information.
+        </p>
+        <p>
+          I'm building this solo, for free, and without ads because privacy matters. If you find this useful, even a small donation helps keep it going.
+        </p>
       </div>
-      <div class="flex items-center justify-center gap-3">
-        <p>This project is open-source:</p>
-        <a class="btn btn-sm btn-outline" href={githubUrl} target="_blank" rel="noopener noreferrer">🐙 Source</a>
+
+      <div class="flex flex-col items-center gap-3 px-5 py-4 text-sm text-base-content/70 text-center">
+        <div class="flex flex-wrap items-center justify-center gap-2">
+          <div id="kofi-button-container"></div>
+          <script is:inline type="text/javascript" src="https://storage.ko-fi.com/cdn/widget/Widget_2.js"></script>
+          <script is:inline define:vars={{ kofiId }}>kofiwidget2.init("Buy me a Ko-fi", "#ff6b6b", kofiId);kofiwidget2.draw();</script>
+          {bothDonations && <span class="hidden sm:inline">or</span>}
+          <a class="btn btn-sm text-white bg-[#0070ba] border-[#0070ba] hover:bg-[#005ea6] flex items-center gap-2 h-9 mx-1 rounded-md" href={paypalUrl} target="_blank" rel="noopener noreferrer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={siPaypal.path}/></svg>
+            Donate via PayPal
+          </a>
+        </div>
+        <div class="flex items-center justify-center gap-3">
+          <p>This project is open-source:</p>
+          <a class="btn btn-sm btn-outline" href={githubUrl} target="_blank" rel="noopener noreferrer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={siGithub.path}/></svg>
+            Source
+          </a>
+        </div>
       </div>
+
+      <div class="px-5 py-4">
+        <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35 mb-2.5">Built with</p>
+        <div class="flex flex-wrap justify-center gap-x-3 gap-y-2">
+
+          <!-- Astro -->
+          <a href="https://astro.build" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs border border-base-300 rounded-full px-2 py-0.5 text-base-content/70 hover:border-base-content/30 hover:text-base-content transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill={`#${siAstro.hex}`} aria-hidden="true"><path d={siAstro.path}/></svg>
+            Astro
+          </a>
+
+          <!-- Tailwind CSS -->
+          <a href="https://tailwindcss.com" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs border border-base-300 rounded-full px-2 py-0.5 text-base-content/70 hover:border-base-content/30 hover:text-base-content transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill={`#${siTailwindcss.hex}`} aria-hidden="true"><path d={siTailwindcss.path}/></svg>
+            Tailwind CSS
+          </a>
+
+          <!-- daisyUI -->
+          <a href="https://daisyui.com" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs border border-base-300 rounded-full px-2 py-0.5 text-base-content/70 hover:border-base-content/30 hover:text-base-content transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill={`#${siDaisyui.hex}`} aria-hidden="true"><path d={siDaisyui.path}/></svg>
+            daisyUI
+          </a>
+
+          <!-- Libraries without brand logos — cube icon -->
+          {libs.map(lib => (
+            <a href={lib.href} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs border border-base-300 rounded-full px-2 py-0.5 text-base-content/70 hover:border-base-content/30 hover:text-base-content transition-colors" title={lib.title}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
+              </svg>
+              {lib.name}
+            </a>
+          ))}
+
+          <span class="inline-flex items-center text-xs border border-base-300 rounded-full px-2 py-0.5 text-base-content/70">❤️</span>
+
+        </div>
+      </div>
+
     </div>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
