@@ -13,6 +13,7 @@ const messageInput = document.getElementById('bug-message') as HTMLTextAreaEleme
 const emailInput = document.getElementById('bug-email') as HTMLInputElement;
 const submitBtn = document.getElementById('btn-bug-submit') as HTMLButtonElement;
 const submitStatus = document.getElementById('bug-submit-status') as HTMLElement;
+const messageOptional = document.getElementById('bug-message-optional') as HTMLElement;
 
 function escHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -66,6 +67,8 @@ function populate() {
     filesSection.classList.add('hidden');
     filesCheckbox.checked = false;
   }
+
+  messageOptional.style.display = entries.length === 0 ? 'none' : '';
 
   submitStatus.textContent = '';
   submitStatus.className = 'text-xs';
