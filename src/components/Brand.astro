@@ -1,3 +1,10 @@
 ---
+interface Props {
+  logo?: boolean;
+}
+const { logo = true } = Astro.props;
 ---
-<span class="brand-name font-bold">StripMeta</span>
+<span class="whitespace-nowrap ml-0.5 mr-0.5">
+  {logo && <img src="/logo.svg" alt="" aria-hidden="true" class="inline-block h-[0.8em] w-auto align-middle -translate-y-px" />}
+  <span class="brand-name font-bold">StripMeta</span>
+</span>

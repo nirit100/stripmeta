@@ -47,19 +47,22 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
       })();
     </script>
   </head>
-  <body class="min-h-dvh flex flex-col bg-base-100 text-base-content">
+  <body class="min-h-dvh min-w-[340px] flex flex-col bg-base-100 text-base-content">
     <header class="navbar border-b border-base-200 px-6">
       <div class="flex-1 min-w-0 flex items-center">
-        <a href="/" class="text-xl font-bold tracking-tight shrink-0">
+        <a href="/" class="hidden min-[350px]:block min-[450px]:hidden shrink-0" aria-label="StripMeta">
+          <img src="/logo.svg" alt="StripMeta" class="h-7 w-auto" />
+        </a>
+        <a href="/" class="hidden min-[450px]:block text-xl font-bold tracking-tight shrink-0">
           <Brand />
         </a>
-        <span class="ml-3 text-sm text-base-content/50 hidden sm:block truncate"
+        <span class="ml-3 text-sm text-base-content/50 hidden min-[720px]:block truncate"
           >Remove photo metadata — privately.</span
         >
       </div>
       <div class="flex items-center gap-0.5 mr-2">
         <a href="/how-it-works" class="btn btn-ghost btn-sm text-xs text-base-content/55">How it works</a>
-        <button id="btn-about-nav" type="button" class="btn btn-ghost btn-sm text-xs text-base-content/55 hidden sm:flex"><Icon name="information-circle" class="w-3.5 h-3.5" />About</button>
+        <button id="btn-about-nav" type="button" class="btn btn-ghost btn-sm text-xs text-base-content/55 hidden min-[720px]:flex"><Icon name="information-circle" class="w-3.5 h-3.5" />About</button>
       </div>
       <ThemeToggle />
     </header>
@@ -74,9 +77,9 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
       class="footer footer-center py-6 text-xs text-base-content/50 border-t border-base-200"
     >
       <div
-        class="w-full max-w-3xl mx-auto flex flex-col sm:flex-row items-center sm:justify-between gap-3 px-4"
+        class="w-full max-w-3xl mx-auto flex flex-col min-[720px]:flex-row items-center min-[720px]:justify-between gap-3 px-4"
       >
-        <div class="flex flex-col gap-1 text-center sm:text-left">
+        <div class="flex flex-col gap-1 text-center min-[720px]:text-left">
           <p class="m-0">
             Everything runs locally. Nothing leaves your device.
              <span class="mx-1">·</span>
