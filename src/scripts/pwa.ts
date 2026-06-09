@@ -21,10 +21,21 @@ if (!isStandalone) {
 
   const installBtn    = document.getElementById('btn-pwa-install')    as HTMLButtonElement | null;
   const modal         = document.getElementById('pwa-install-modal')  as HTMLDialogElement | null;
+  const modalTitle    = document.getElementById('pwa-modal-title')    as HTMLElement       | null;
+  const modalIntro    = document.getElementById('pwa-modal-intro')    as HTMLElement       | null;
   const promptInstall = document.getElementById('pwa-prompt-install') as HTMLButtonElement | null;
   const promptDismiss = document.getElementById('pwa-prompt-dismiss') as HTMLButtonElement | null;
 
-  function openModal()  { modal?.showModal(); }
+  const modalText = {
+    auto:   { title: "Oh, it's you again 👀",   intro: "I noticed you've dropped by a couple of times now. I wasn't going to say anything, but since we're basically old friends at this point —" },
+    manual: { title: "Nice, let's do this 🙌",  intro: "Bold move. Here's the deal:" },
+  };
+
+  function openModal(trigger: 'auto' | 'manual' = 'auto') {
+    if (modalTitle) modalTitle.textContent = modalText[trigger].title;
+    if (modalIntro) modalIntro.textContent = modalText[trigger].intro;
+    modal?.showModal();
+  }
   function closeModal() { modal?.close(); }
 
   async function triggerInstall() {
@@ -44,7 +55,7 @@ if (!isStandalone) {
 
     const declined = localStorage.getItem(DECLINED_KEY) === '1';
     if (!declined && visits >= PROMPT_AFTER) {
-      setTimeout(openModal, 1500);
+      setTimeout(() => openModal('auto'), 1500);
     }
   }) as EventListener);
 
@@ -55,7 +66,7 @@ if (!isStandalone) {
   });
 
   // Navbar button opens the modal; the modal's Install button triggers the browser prompt.
-  installBtn?.addEventListener('click', openModal);
+  installBtn?.addEventListener('click', () => openModal('manual'));
   promptInstall?.addEventListener('click', triggerInstall);
   promptDismiss?.addEventListener('click', () => {
     closeModal();

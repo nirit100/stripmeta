@@ -154,7 +154,7 @@ const appVersion: string = __APP_VERSION__;
 
         <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300/60 shrink-0 bg-base-100/75 backdrop-blur-xl backdrop-brightness-125 glass-elem">
           <div class="flex-1 min-w-0">
-            <h3 class="font-bold text-lg">Oh, it's you again 👀</h3>
+            <h3 id="pwa-modal-title" class="font-bold text-lg">Oh, it's you again 👀</h3>
           </div>
           <form method="dialog">
             <button class="btn btn-ghost btn-sm btn-circle text-base-content/50">✕</button>
@@ -162,7 +162,7 @@ const appVersion: string = __APP_VERSION__;
         </div>
 
         <div class="px-5 py-5 flex flex-col gap-3 text-sm text-base-content/75 bg-base-100">
-          <p>I noticed you've dropped by a couple of times now. I wasn't going to say anything, but since we're basically old friends at this point —</p>
+          <p id="pwa-modal-intro">I noticed you've dropped by a couple of times now. I wasn't going to say anything, but since we're basically old friends at this point —</p>
           <p>Want to make this a little more permanent? <strong class="text-base-content">Installing <Brand /> adds it to your home screen like a real app</strong>: instant launch, full offline support, no app store.</p>
           <p class="text-xs text-base-content/45">Your photos still stay on your device. <br />That part doesn't change.</p>
         </div>
