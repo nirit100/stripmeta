@@ -3,8 +3,11 @@
  *
  * Specification references
  * ─────────────────────────
- * • ISO/IEC 14496-12 (ISOBMFF) — container format, box structure, iloc, iinf, infe
- *   https://www.iso.org/standard/83102.html  (paid; §4.2 boxes, §8.11 meta group)
+ * • ISO/IEC 14496-12:2026 (ISOBMFF, 8th edition) — container format, box structure, iloc, iinf, infe
+ *   https://www.iso.org/standard/85596.html  (paid; §4.2 boxes, §8.11 meta group)
+ *   The 2026 edition's primary new content is CMAF/DASH track-group signalling;
+ *   the meta/iloc/iinf/infe/iref box structures used here are unchanged from the
+ *   7th edition (2022, retracted: https://www.iso.org/standard/83102.html).
  *   Free overview: https://wiki.multimedia.cx/index.php/MPEG-4_Containers
  *
  * • ISO/IEC 23008-12 (HEIF/HEIC) — HEVC image items, grid images, Exif item type
@@ -88,7 +91,7 @@ function wN(d: Uint8Array, o: number, v: number, n: number): void {
 export interface Box {
   offset: number;      // file offset of the size field (first byte of the box)
   type: string;        // 4-character FourCC
-  headerSize: 8 | 16; // 8 for normal boxes, 16 for extended-size boxes
+  headerSize: 8 | 16;  // 8 for normal boxes, 16 for extended-size boxes
   size: number;        // total byte length including header
 }
 
