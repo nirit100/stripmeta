@@ -36,7 +36,10 @@ export const avifStripper: StripperHandler = {
   experimental: true,
 
   supports: async (file: File, _caps: PlatformCapabilities): Promise<boolean> => {
-    if (file.type !== 'image/avif') return false;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const mimeOk = file.type === 'image/avif';
+    const extOk  = ext === 'avif';
+    if (!mimeOk && !extOk) return false;
     const brand = await readBrand(file);
     return brand !== null && AVIF_BRANDS.has(brand);
   },

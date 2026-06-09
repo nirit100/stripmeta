@@ -38,13 +38,21 @@ export const heicStripper: StripperHandler = {
   experimental: true,
 
   supports: async (file: File, _caps: PlatformCapabilities): Promise<boolean> => {
-    if (!file.type.includes('heic') && !file.type.includes('heif')) return false;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const mimeOk = file.type.includes('heic') || file.type.includes('heif');
+    const extOk  = ext === 'heic' || ext === 'heif';
+    if (!mimeOk && !extOk) return false;
     const brand = await readBrand(file);
     return brand !== null && HEIC_BRANDS.has(brand);
   },
 
   strip: async (file: File): Promise<Blob> => {
     const data = new Uint8Array(await file.arrayBuffer());
-    return new Blob([stripExifItem(data).buffer as ArrayBuffer], { type: file.type });
+    // macOS/iOS assigns image/heic to both .heic and .heif files, so browsers
+    // may correct the download extension to .heic for a .heif input.
+    // Use the original extension to preserve the correct MIME type.
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const mimeType = ext === 'heif' ? 'image/heif' : (file.type || 'image/heic');
+    return new Blob([stripExifItem(data).buffer as ArrayBuffer], { type: mimeType });
   },
 };

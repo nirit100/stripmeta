@@ -41,6 +41,15 @@ function fullBoxWrap(type: string, version: number, content: Uint8Array): Uint8A
 function infeBox(itemId: number, itemType: string): Uint8Array {
   return fullBoxWrap('infe', 2, concat(u16be(itemId), u16be(0), str4(itemType), new Uint8Array([0])));
 }
+/** infe v2 for a 'mime' item: includes item_name(\0) + content_type(\0) */
+function mimeInfeBox(itemId: number, contentType: string): Uint8Array {
+  const ct = new TextEncoder().encode(contentType);
+  return fullBoxWrap('infe', 2, concat(
+    u16be(itemId), u16be(0), str4('mime'),
+    new Uint8Array([0]),  // item_name = ""
+    ct, new Uint8Array([0]), // content_type + null
+  ));
+}
 /** iinf v0: entry_count(u16) [infe...] */
 function iinfBox(infes: Uint8Array[]): Uint8Array {
   return fullBoxWrap('iinf', 0, concat(u16be(infes.length), ...infes));
@@ -64,6 +73,17 @@ function hdlrBox(): Uint8Array {
 function ftypBox(brand: string): Uint8Array {
   return boxWrap('ftyp', concat(str4(brand), u32be(0), str4(brand), str4('mif1')));
 }
+/**
+ * iref v0: contains SingleItemTypeReferenceBox children.
+ * Each entry is a plain Box (not FullBox) with type=refType, content=
+ *   from_item_ID(u16) + reference_count(u16) + to_item_ID[](u16)
+ */
+function irefBox(refs: { type: string; fromId: number; toIds: number[] }[]): Uint8Array {
+  const subBoxes = refs.map(({ type, fromId, toIds }) =>
+    boxWrap(type, concat(u16be(fromId), u16be(toIds.length), ...toIds.map(id => u16be(id)))),
+  );
+  return fullBoxWrap('iref', 0, concat(...subBoxes));
+}
 
 export interface BuildOpts {
   brand?: string;
@@ -71,39 +91,108 @@ export interface BuildOpts {
   imageData?: Uint8Array;
   /** Include an Exif item with this payload. Pass null/undefined for no Exif. */
   exifData?: Uint8Array | null;
+  /** Include a XMP 'mime' item (content_type=application/rdf+xml) with this payload. */
+  xmpData?: Uint8Array | null;
+  /**
+   * iref entries to include in the meta box.
+   * Defaults to a cdsc reference from exif -> image when exifData is provided.
+   * Pass an empty array [] to suppress the default cdsc reference.
+   * Pass entries explicitly to include custom references.
+   */
+  irefEntries?: { type: string; fromId: number; toIds: number[] }[] | null;
+  /**
+   * When true, emit mdat before meta (mdat-first layout).
+   * iloc offsets point into the mdat that precedes the meta box.
+   */
+  mdatFirst?: boolean;
 }
 
 /**
  * Returns a fully formed synthetic ISOBMFF file with correct iloc offsets.
  */
-export function buildIsobmffFile({ brand = 'heic', imageItemType = 'hvc1', imageData, exifData }: BuildOpts = {}): Uint8Array {
+export function buildIsobmffFile({
+  brand = 'heic',
+  imageItemType = 'hvc1',
+  imageData,
+  exifData,
+  xmpData,
+  irefEntries,
+  mdatFirst = false,
+}: BuildOpts = {}): Uint8Array {
   const img  = imageData ?? new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd]);
   const exif = exifData ?? null;
+  const xmp  = xmpData  ?? null;
 
-  const infes = [infeBox(1, imageItemType)];
-  if (exif) infes.push(infeBox(2, 'Exif'));
+  let nextId = 2;
+  const exifId = exif ? nextId++ : null;
+  const xmpId  = xmp  ? nextId++ : null;
+
+  const infes: Uint8Array[] = [infeBox(1, imageItemType)];
+  if (exif && exifId) infes.push(infeBox(exifId, 'Exif'));
+  if (xmp  && xmpId)  infes.push(mimeInfeBox(xmpId, 'application/rdf+xml'));
+
+  // Default iref: cdsc from exif item to image item (matches real HEIC files)
+  let resolvedIref: { type: string; fromId: number; toIds: number[] }[] | null = null;
+  if (irefEntries !== null) {
+    if (irefEntries !== undefined) {
+      resolvedIref = irefEntries;
+    } else if (exif && exifId) {
+      resolvedIref = [{ type: 'cdsc', fromId: exifId, toIds: [1] }];
+    }
+  }
 
   const ftyp  = ftypBox(brand);
   const hdlr  = hdlrBox();
   const iinfB = iinfBox(infes);
+  const irefB = resolvedIref && resolvedIref.length > 0 ? irefBox(resolvedIref) : null;
 
-  // Build a placeholder iloc to determine the meta box size before we know offsets.
+  if (mdatFirst) {
+    // Layout: ftyp + mdat + meta
+    // iloc offsets are absolute within the file, pointing into mdat (before meta).
+    const mdatContent = concat(img, ...(exif ? [exif] : []), ...(xmp ? [xmp] : []));
+    const mdatBoxBytes = boxWrap('mdat', mdatContent);
+    const mdatDataStart = ftyp.length + 8; // right after mdat box header
+
+    const ilocEntries: { itemId: number; offset: number; length: number }[] = [
+      { itemId: 1, offset: mdatDataStart, length: img.length },
+    ];
+    let off = mdatDataStart + img.length;
+    if (exif && exifId) { ilocEntries.push({ itemId: exifId, offset: off, length: exif.length }); off += exif.length; }
+    if (xmp  && xmpId)  { ilocEntries.push({ itemId: xmpId,  offset: off, length: xmp.length  });                    }
+
+    const metaParts = [hdlr, iinfB, ilocBox(ilocEntries)];
+    if (irefB) metaParts.push(irefB);
+    const metaFinal = fullBoxWrap('meta', 0, concat(...metaParts));
+
+    return concat(ftyp, mdatBoxBytes, metaFinal);
+  }
+
+  // Default layout: ftyp + meta + mdat
+
+  // Build a placeholder meta to determine its size before we know absolute offsets.
   const placeholderEntries: { itemId: number; offset: number; length: number }[] = [
     { itemId: 1, offset: 0, length: img.length },
   ];
-  if (exif) placeholderEntries.push({ itemId: 2, offset: 0, length: exif.length });
+  if (exif && exifId) placeholderEntries.push({ itemId: exifId, offset: 0, length: exif.length });
+  if (xmp  && xmpId)  placeholderEntries.push({ itemId: xmpId,  offset: 0, length: xmp.length  });
 
-  const metaSize = fullBoxWrap('meta', 0, concat(hdlr, iinfB, ilocBox(placeholderEntries))).length;
+  const placeholderParts = [hdlr, iinfB, ilocBox(placeholderEntries)];
+  if (irefB) placeholderParts.push(irefB);
+  const metaSize   = fullBoxWrap('meta', 0, concat(...placeholderParts)).length;
   const prefixSize = ftyp.length + metaSize + 8; // 8 = mdat box header
 
   // Rebuild iloc with correct absolute offsets.
   const patchedEntries: { itemId: number; offset: number; length: number }[] = [
     { itemId: 1, offset: prefixSize, length: img.length },
   ];
-  if (exif) patchedEntries.push({ itemId: 2, offset: prefixSize + img.length, length: exif.length });
+  let dataOff = prefixSize + img.length;
+  if (exif && exifId) { patchedEntries.push({ itemId: exifId, offset: dataOff, length: exif.length }); dataOff += exif.length; }
+  if (xmp  && xmpId)  { patchedEntries.push({ itemId: xmpId,  offset: dataOff, length: xmp.length  });                        }
 
-  const metaFinal   = fullBoxWrap('meta', 0, concat(hdlr, iinfB, ilocBox(patchedEntries)));
-  const mdatContent = exif ? concat(img, exif) : img;
+  const finalParts = [hdlr, iinfB, ilocBox(patchedEntries)];
+  if (irefB) finalParts.push(irefB);
+  const metaFinal   = fullBoxWrap('meta', 0, concat(...finalParts));
+  const mdatContent = concat(img, ...(exif ? [exif] : []), ...(xmp ? [xmp] : []));
 
   return concat(ftyp, metaFinal, boxWrap('mdat', mdatContent));
 }

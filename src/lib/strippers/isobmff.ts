@@ -18,7 +18,7 @@
  * ─────────────────────────────────────────────────
  *   Box:     [size:u32][type:4cc][...content]
  *   FullBox: [size:u32][type:4cc][version:u8][flags:u24][...content]
- *   Extended size: size field == 1 → next 8 bytes hold the real u64 size.
+ *   Extended size: size field == 1 -> next 8 bytes hold the real u64 size.
  *
  * Relevant boxes inside `meta` (ISO 14496-12 §8.11)
  * ───────────────────────────────────────────────────
@@ -138,6 +138,8 @@ interface InfeInfo {
   itemId: number;
   /** FourCC item_type, e.g. 'Exif', 'hvc1', 'av01', 'mime'. Empty for infe v0/v1. */
   itemType: string;
+  /** For 'mime' items: the null-terminated content_type string (e.g. 'application/rdf+xml'). */
+  mimeContentType: string | null;
 }
 
 /**
@@ -147,11 +149,14 @@ interface InfeInfo {
  *   version 0/1: item_ID u16, item_protection_index u16, item_name, …  (no item_type FourCC)
  *   version 2:   item_ID u16, item_protection_index u16, item_type u32, item_name, …
  *   version 3:   item_ID u32, item_protection_index u16, item_type u32, item_name, …
+ *
+ * For 'mime' items (v2+): after item_type comes item_name (null-terminated) then
+ * content_type (null-terminated) — ISO 14496-12 §8.11.6.2.
  */
 function parseIinf(data: Uint8Array, iinf: Box): InfeInfo[] {
   const iinfVersion = r8(data, iinf.offset + iinf.headerSize);
   // ISO 14496-12 §8.11.6.1 — ItemInfoBox entry_count:
-  //   version 0 → u16, version 1+ → u32
+  //   version 0 -> u16, version 1+ -> u32
   const entryCountSize = iinfVersion === 0 ? 2 : 4;
   const infeStart = fc(iinf) + entryCountSize;
   const results: InfeInfo[] = [];
@@ -168,7 +173,20 @@ function parseIinf(data: Uint8Array, iinf: Box): InfeInfo[] {
 
     // item_type FourCC only present from version 2 onwards
     const itemType = infeVersion >= 2 ? fourcc(data, o) : '';
-    results.push({ boxOffset: infe.offset, boxSize: infe.size, itemId, itemType });
+
+    let mimeContentType: string | null = null;
+    if (itemType === 'mime' && infeVersion >= 2) {
+      let p = o + 4; // skip item_type
+      // Skip item_name (null-terminated string)
+      while (p < infe.offset + infe.size && data[p] !== 0) p++;
+      p++; // skip null terminator
+      // Read content_type (null-terminated string)
+      const ctStart = p;
+      while (p < infe.offset + infe.size && data[p] !== 0) p++;
+      mimeContentType = new TextDecoder('utf-8').decode(data.subarray(ctStart, p));
+    }
+
+    results.push({ boxOffset: infe.offset, boxSize: infe.size, itemId, itemType, mimeContentType });
   }
   return results;
 }
@@ -271,11 +289,17 @@ function parseIlocItems(data: Uint8Array, lay: IlocLayout): IlocItem[] {
 
 // ── Reassembly ────────────────────────────────────────────────────────────────
 
-/** Re-serialises one `iloc` entry with an adjusted base/extent offset. */
+/**
+ * Re-serialises one `iloc` entry, adjusting offsets for the shrinkage of the
+ * `meta` box.  Only offsets that fall at or after `metaEnd` (i.e. data that
+ * lives *after* the meta box in the file) are adjusted; offsets before meta
+ * (mdat-first layout) are left unchanged.
+ */
 function rewriteIlocEntry(
   item: IlocItem,
   lay: IlocLayout,
   offsetDelta: number,
+  metaEnd: number,
 ): Uint8Array {
   const { version, offsetSize, lengthSize, baseOffsetSize, indexSize } = lay;
   const buf = new Uint8Array(item.entryEnd - item.entryStart);
@@ -286,11 +310,13 @@ function rewriteIlocEntry(
   if (version >= 1) { wN(buf, o, item.constructionMethod, 2); o += 2; }
   wN(buf, o, 0, 2); o += 2; // data_reference_index
 
-  // Adjust base_offset for construction_method 0 (file-absolute extents).
-  // ISO 14496-12 §8.11.3.3: construction_method 0 means extents are in the file;
-  // methods 1 and 2 are relative to idat/item — not adjusted.
+  // ISO 14496-12 §8.11.3.3: construction_method 0 means extents are file-absolute.
+  // Only adjust if the base points into the post-meta region of the file.
+  // Methods 1 (idat) and 2 (item) are relative offsets — never adjusted.
   let newBase = item.baseOffset;
-  if (item.constructionMethod === 0 && baseOffsetSize > 0) newBase -= offsetDelta;
+  if (item.constructionMethod === 0 && baseOffsetSize > 0) {
+    if (item.baseOffset >= metaEnd) newBase -= offsetDelta;
+  }
   wN(buf, o, newBase, baseOffsetSize); o += baseOffsetSize;
 
   wN(buf, o, item.extents.length, 2); o += 2;
@@ -300,13 +326,15 @@ function rewriteIlocEntry(
 
     let extOff: number;
     if (item.constructionMethod !== 0) {
-      // Non-file offsets: store as-is (relative to idat or another item)
+      // Relative to idat or another item — store as-is.
       extOff = ext.offset - item.baseOffset;
     } else if (baseOffsetSize === 0) {
-      // No base_offset field: extent_offset IS the absolute file offset → adjust it.
-      extOff = ext.offset - offsetDelta;
+      // No base_offset field: extent_offset IS the absolute file offset.
+      // Only adjust if the extent lies after meta.
+      extOff = ext.offset >= metaEnd ? ext.offset - offsetDelta : ext.offset;
     } else {
-      // base_offset carries the base; extent_offset is a relative displacement.
+      // base_offset carries the absolute base (already adjusted above);
+      // extent_offset is a relative displacement — unchanged.
       extOff = ext.offset - item.baseOffset;
     }
 
@@ -316,20 +344,98 @@ function rewriteIlocEntry(
   return buf;
 }
 
+// ── iref cleanup (ISO 14496-12 §8.11.12) ─────────────────────────────────────
+
+/**
+ * Rebuilds the `iref` FullBox, removing all `SingleItemTypeReferenceBox`
+ * sub-boxes whose `from_item_ID` is in `removedIds`, and filtering out any
+ * individual `to_item_ID` values that are in `removedIds`.  Sub-boxes with
+ * no remaining to-item references are dropped entirely.
+ *
+ * Returns null if nothing in the box needs changing, so the caller can skip it.
+ *
+ * ISO 14496-12 §8.11.12: the `iref` FullBox contains plain Box children whose
+ * FourCC is the reference type (e.g. 'cdsc', 'thmb', 'dimg').  Each child's
+ * content is: from_item_ID (u16/u32) + reference_count (u16) + to_item_ID[].
+ * The item-ID width (u16 vs u32) is determined by the `iref` FullBox version.
+ */
+function rebuildIref(
+  data: Uint8Array,
+  iref: Box,
+  removedIds: Set<number>,
+): { newBytes: Uint8Array; delta: number } | null {
+  const version = r8(data, iref.offset + iref.headerSize);
+  const idSize = version >= 1 ? 4 : 2;
+  const bodyStart = iref.offset + iref.headerSize + 4; // past version+flags
+  const bodyEnd   = iref.offset + iref.size;
+
+  const kept: Uint8Array[] = [];
+  let changed = false;
+
+  for (const sub of iterBoxes(data, bodyStart, bodyEnd)) {
+    const c = sub.offset + sub.headerSize; // content start (plain Box, no version/flags)
+    const fromId   = idSize === 4 ? r32(data, c) : r16(data, c);
+    const refCount = r16(data, c + idSize);
+
+    if (removedIds.has(fromId)) { changed = true; continue; }
+
+    const toIds: number[] = [];
+    for (let j = 0; j < refCount; j++) {
+      const toId = idSize === 4
+        ? r32(data, c + idSize + 2 + j * idSize)
+        : r16(data, c + idSize + 2 + j * idSize);
+      if (!removedIds.has(toId)) toIds.push(toId);
+    }
+
+    if (toIds.length === 0) { changed = true; continue; }
+
+    if (toIds.length < refCount) {
+      changed = true;
+      const contentLen = idSize + 2 + toIds.length * idSize;
+      const newSub = new Uint8Array(8 + contentLen);
+      w32(newSub, 0, 8 + contentLen);
+      for (let i = 0; i < 4; i++) newSub[4 + i] = sub.type.charCodeAt(i);
+      wN(newSub, 8, fromId, idSize);
+      w16(newSub, 8 + idSize, toIds.length);
+      for (let j = 0; j < toIds.length; j++) wN(newSub, 8 + idSize + 2 + j * idSize, toIds[j]!, idSize);
+      kept.push(newSub);
+    } else {
+      kept.push(data.subarray(sub.offset, sub.offset + sub.size));
+    }
+  }
+
+  if (!changed) return null;
+
+  const newBodyLen  = kept.reduce((s, b) => s + b.length, 0);
+  const newIrefSize = iref.headerSize + 4 + newBodyLen;
+  const out = new Uint8Array(newIrefSize);
+  out.set(data.subarray(iref.offset, iref.offset + iref.headerSize + 4));
+  w32(out, 0, newIrefSize);
+  let pos = iref.headerSize + 4;
+  for (const b of kept) { out.set(b, pos); pos += b.length; }
+
+  return { newBytes: out, delta: iref.size - newIrefSize };
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Removes all 'Exif' items from an ISOBMFF file (HEIC or AVIF) without
- * decoding the image.  The `meta` box is rebuilt in-place; all `iloc` offsets
- * for the remaining items are adjusted to compensate for the size reduction.
- * The raw bytes at the former EXIF extents are zeroed in the output.
+ * Removes all privacy-bearing metadata items from an ISOBMFF file (HEIC or
+ * AVIF) without decoding the image.  Stripped item types:
+ *   • 'Exif'  — EXIF/TIFF metadata (ISO 23008-12 §6.6.1)
+ *   • 'mime'  — XMP metadata (content_type 'application/rdf+xml')
  *
- * Returns the original input array unchanged if no Exif item is found.
+ * The `meta` box is rebuilt in-place.  `iloc` offsets for remaining items are
+ * adjusted to compensate for the shrinkage.  `iref` sub-boxes that referenced
+ * removed items are cleaned up so no dangling references remain.  The raw
+ * bytes at the former metadata extents are zeroed in the output.
+ *
+ * Returns the original input array unchanged if no removable items are found.
  *
  * Limitations (throws `Error` rather than silently corrupting):
  *   • `meta` must be at the top level (not inside `moov`)
  *   • `iloc` construction_method 1 (idat-relative) and 2 (item-relative)
- *     are supported for non-Exif items but Exif items must use method 0.
+ *     are supported for non-metadata items but removed items must use method 0.
  *   • Box sizes > 2^32 are rejected.
  */
 export function stripExifItem(input: Uint8Array): Uint8Array {
@@ -349,45 +455,57 @@ export function stripExifItem(input: Uint8Array): Uint8Array {
   const iloc = findBox(input, 'iloc', metaBodyStart, metaEnd);
   if (!iloc) return input;
 
-  // ── 3. Identify Exif items ───────────────────────────────────────────────
-  const infeList = parseIinf(input, iinf);
-  const exifIds  = new Set(infeList.filter(e => e.itemType === 'Exif').map(e => e.itemId));
-  if (exifIds.size === 0) return input;
+  // ── 3. Identify items to remove (Exif + XMP) ────────────────────────────
+  const infeList  = parseIinf(input, iinf);
+  const removeIds = new Set(infeList.filter(e =>
+    e.itemType === 'Exif' ||
+    (e.itemType === 'mime' && e.mimeContentType === 'application/rdf+xml'),
+  ).map(e => e.itemId));
+  if (removeIds.size === 0) return input;
 
-  const ilocLay   = parseIlocLayout(input, iloc);
-  const ilocItems = parseIlocItems(input, ilocLay);
-  const exifItems = ilocItems.filter(it => exifIds.has(it.itemId));
-  const keepItems = ilocItems.filter(it => !exifIds.has(it.itemId));
+  const ilocLay     = parseIlocLayout(input, iloc);
+  const ilocItems   = parseIlocItems(input, ilocLay);
+  const removeItems = ilocItems.filter(it =>  removeIds.has(it.itemId));
+  const keepItems   = ilocItems.filter(it => !removeIds.has(it.itemId));
 
-  // Exif items must use construction_method 0 (file-absolute) for us to zero
-  // out the data safely.  method 1/2 would require parsing the idat box.
-  for (const it of exifItems) {
+  // Removed items must use construction_method 0 (file-absolute extents).
+  // methods 1/2 would require parsing idat/item data — not supported.
+  for (const it of removeItems) {
     if (it.constructionMethod !== 0) {
-      throw new Error(`isobmff: Exif item ${it.itemId} uses construction_method ${it.constructionMethod} — unsupported`);
+      throw new Error(`isobmff: item ${it.itemId} uses construction_method ${it.constructionMethod} — unsupported`);
     }
   }
 
-  const exifExtents = exifItems.flatMap(it => it.extents);
+  const removedExtents = removeItems.flatMap(it => it.extents);
 
-  // ── 4. Compute size delta ────────────────────────────────────────────────
+  // ── 4. Compute iref changes ──────────────────────────────────────────────
+  // ISO 14496-12 §8.11.12: iref contains cdsc/thmb/dimg references between items.
+  // After removing items, any reference whose from- or to-item ID is gone must
+  // be cleaned up, otherwise parsers will encounter dangling item references.
+  const iref       = findBox(input, 'iref', metaBodyStart, metaEnd);
+  const irefResult = iref ? rebuildIref(input, iref, removeIds) : null;
+
+  // ── 5. Compute size delta ────────────────────────────────────────────────
   const removedInfeSize  = infeList
-    .filter(e => exifIds.has(e.itemId))
+    .filter(e => removeIds.has(e.itemId))
     .reduce((s, e) => s + e.boxSize, 0);
 
-  const removedIlocBytes = exifItems
+  const removedIlocBytes = removeItems
     .reduce((s, it) => s + (it.entryEnd - it.entryStart), 0);
 
-  // meta shrinks by exactly this many bytes
-  const metaDelta = removedInfeSize + removedIlocBytes;
+  const irefDelta = irefResult?.delta ?? 0;
 
-  // ── 5. Rebuild ───────────────────────────────────────────────────────────
+  // Total shrinkage of the meta box
+  const metaDelta = removedInfeSize + removedIlocBytes + irefDelta;
 
-  // 5a. New iinf content
+  // ── 6. Rebuild ───────────────────────────────────────────────────────────
+
+  // 6a. New iinf content
   const { version: iinfVersion } = { version: r8(input, iinf.offset + iinf.headerSize) };
   const entryCountSize = iinfVersion === 0 ? 2 : 4;
   const oldEntryCount  = entryCountSize === 2
     ? r16(input, fc(iinf)) : r32(input, fc(iinf));
-  const newEntryCount  = oldEntryCount - exifIds.size;
+  const newEntryCount  = oldEntryCount - removeIds.size;
   const newIinfSize    = iinf.size - removedInfeSize;
 
   const iinfHdrLen = iinf.headerSize + 4 + entryCountSize;
@@ -396,7 +514,7 @@ export function stripExifItem(input: Uint8Array): Uint8Array {
   if (entryCountSize === 2) w16(iinfHdr, iinf.headerSize + 4, newEntryCount);
   else                      w32(iinfHdr, iinf.headerSize + 4, newEntryCount);
 
-  // 5b. New iloc content
+  // 6b. New iloc content
   const newIlocSize  = iloc.size - removedIlocBytes;
   const newItemCount = keepItems.length;
   const ilocPreLen   = iloc.headerSize + 4 + 2 + ilocLay.itemCountSize;
@@ -405,41 +523,45 @@ export function stripExifItem(input: Uint8Array): Uint8Array {
   if (ilocLay.itemCountSize === 2) w16(ilocPre, iloc.headerSize + 4 + 2, newItemCount);
   else                             w32(ilocPre, iloc.headerSize + 4 + 2, newItemCount);
 
-  const newIlocEntries = keepItems.map(it => rewriteIlocEntry(it, ilocLay, metaDelta));
+  const newIlocEntries = keepItems.map(it => rewriteIlocEntry(it, ilocLay, metaDelta, metaEnd));
 
-  // 5c. New meta header (update size only; version/flags unchanged)
+  // 6c. New meta header (update size only; version/flags unchanged)
   const metaHdr = input.slice(meta.offset, meta.offset + meta.headerSize + 4);
   w32(metaHdr, 0, meta.size - metaDelta);
 
-  // ── 6. Assemble output ───────────────────────────────────────────────────
+  // ── 7. Assemble output ───────────────────────────────────────────────────
   const parts: Uint8Array[] = [];
 
-  // Before meta
+  // Before meta (unchanged — may include mdat in mdat-first layouts)
   parts.push(input.subarray(0, meta.offset));
 
   // Rebuilt meta header
   parts.push(metaHdr);
 
-  // Rebuilt meta body: iterate child boxes, substitute iinf and iloc
+  // Rebuilt meta body: iterate child boxes, substitute iinf, iloc, and iref
   for (const child of iterBoxes(input, metaBodyStart, metaEnd)) {
     if (child.type === 'iinf') {
       parts.push(iinfHdr);
       for (const e of infeList) {
-        if (!exifIds.has(e.itemId)) {
+        if (!removeIds.has(e.itemId)) {
           parts.push(input.subarray(e.boxOffset, e.boxOffset + e.boxSize));
         }
       }
     } else if (child.type === 'iloc') {
       parts.push(ilocPre);
       for (const e of newIlocEntries) parts.push(e);
+    } else if (child.type === 'iref' && irefResult) {
+      parts.push(irefResult.newBytes);
     } else {
       parts.push(input.subarray(child.offset, child.offset + child.size));
     }
   }
 
-  // After meta: copy and zero out the former EXIF extents
+  // After meta: copy tail and zero out the former metadata extents
+  // (only extents at or after metaEnd are in the tail; extents before meta
+  //  in mdat-first layouts are left as-is since they're inaccessible anyway)
   const tail = input.slice(metaEnd);
-  for (const ext of exifExtents) {
+  for (const ext of removedExtents) {
     const s = ext.offset - metaEnd;
     if (s >= 0 && s + ext.length <= tail.length) tail.fill(0, s, s + ext.length);
   }
