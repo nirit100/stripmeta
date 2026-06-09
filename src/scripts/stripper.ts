@@ -1014,7 +1014,7 @@ async function stripAndDownload() {
 
   pendingBlobs = blobs;
   if (blobs.length >= 1) {
-    btnDownload.textContent = blobs.length === 1 ? 'Download' : 'Download ZIP';
+    btnDownload.textContent = blobs.length === 1 ? 'Save' : 'Save ZIP';
     btnDownload.hidden = false;
     btnStrip.hidden = true;
   }
@@ -1162,7 +1162,7 @@ btnDownload.addEventListener('click', async () => {
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     download(URL.createObjectURL(zipBlob), 'stripped-photos.zip');
     btnDownload.disabled = false;
-    btnDownload.textContent = 'Download ZIP';
+    btnDownload.textContent = 'Save ZIP';
   }
   window.dispatchEvent(new CustomEvent('stripmeta:downloaded'));
 });

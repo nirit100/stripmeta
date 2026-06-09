@@ -397,8 +397,8 @@ import Brand from "../components/Brand.astro";
         <span class="text-2xl">⚡</span>
         <p class="font-semibold text-sm">Batch processing</p>
         <p class="text-xs text-base-content/50">
-          Drop an entire folder. All files are processed and zipped for
-          download.
+          Drop an entire folder. All files are processed and packaged as a
+          ZIP for saving.
         </p>
       </div>
     </div>
@@ -409,7 +409,7 @@ import Brand from "../components/Brand.astro";
     <div>
       <h2 class="text-2xl font-bold tracking-tight">Privacy by architecture</h2>
       <p class="mt-3 text-base-content/65 leading-relaxed">
-        Most tools that handle your files involve a server: you upload, they
+        Many tools that handle your files involve a server: you upload, they
         process, they send back a result. <Brand /> works differently — there
         is no server in that loop. Everything happens inside your browser, using
         the same APIs browsers expose to any local application.
@@ -476,7 +476,7 @@ import Brand from "../components/Brand.astro";
               ✅
             </div>
             <p class="text-[0.65rem] font-semibold text-center text-base-content/70">Clean files</p>
-            <p class="text-[0.6rem] text-center text-base-content/40 leading-relaxed">downloaded locally</p>
+            <p class="text-[0.6rem] text-center text-base-content/40 leading-relaxed">saved locally</p>
           </div>
 
         </div>
@@ -826,13 +826,13 @@ import Brand from "../components/Brand.astro";
           class="w-7 h-7 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 text-sm font-bold flex items-center justify-center shrink-0"
           >3</span
         >
-        <h3 class="text-lg font-semibold">Strip and download</h3>
+        <h3 class="text-lg font-semibold">Strip, then save</h3>
       </div>
       <p class="text-base-content/60 text-sm leading-relaxed pl-10">
-        Click <strong>Strip metadata &amp; download</strong>. StripMeta
-        processes every file in your browser and triggers an automatic download.
-        Multiple files are packaged as a ZIP archive. The whole operation takes
-        a few seconds even for large batches.
+        Click <strong>Strip metadata</strong>. StripMeta processes every file
+        in your browser — no uploads, no waiting on a server. Once done, a
+        <strong>Save</strong> button appears. Click it to save the cleaned
+        files; multiple files are packaged as a ZIP archive.
       </p>
       <div class="rounded-2xl border border-base-300 overflow-hidden shadow-sm">
         <div
@@ -847,25 +847,9 @@ import Brand from "../components/Brand.astro";
         <div class="bg-base-100 p-3 flex flex-col gap-3">
           {
             [
-              {
-                name: "vacation.jpg",
-                size: "3.2 MB",
-                badges: [
-                  ["📍 GPS", "text-red-500/80 bg-red-500/8 border-red-500/20"],
-                  [
-                    "📅 Date",
-                    "text-blue-500/80 bg-blue-500/8 border-blue-500/20",
-                  ],
-                ],
-              },
-              {
-                name: "selfie.jpg",
-                size: "2.1 MB",
-                badges: [
-                  ["📍 GPS", "text-red-500/80 bg-red-500/8 border-red-500/20"],
-                ],
-              },
-            ].map(({ name, size, badges }) => (
+              { name: "vacation.jpg", size: "3.2 MB" },
+              { name: "selfie.jpg",   size: "2.1 MB" },
+            ].map(({ name, size }) => (
               <div class="flex items-center gap-2 px-3 py-2 rounded-xl border border-base-300 bg-base-100">
                 <div class="w-8 h-8 rounded-lg bg-base-200 shrink-0 flex items-center justify-center">
                   <svg
@@ -893,19 +877,9 @@ import Brand from "../components/Brand.astro";
                 </div>
                 <div class="flex-1 min-w-0">
                   <p class="text-xs font-medium truncate">{name}</p>
-                  <div class="flex flex-wrap items-center gap-1 mt-1">
-                    {badges.map(([label, cls]) => (
-                      <span
-                        class={`text-[0.55rem] font-medium px-1.5 py-0.5 rounded-full border ${cls}`}
-                      >
-                        {label}
-                      </span>
-                    ))}
-                  </div>
+                  <p class="text-[0.6rem] text-base-content/35">{size}</p>
                 </div>
-                <span class="text-[0.6rem] text-base-content/30 shrink-0">
-                  {size}
-                </span>
+                <span class="badge badge-success badge-sm shrink-0">Done</span>
               </div>
             ))
           }
@@ -913,7 +887,7 @@ import Brand from "../components/Brand.astro";
             <div
               class="btn btn-brand btn-sm pointer-events-none text-xs h-8 min-h-0 flex-1"
             >
-              Strip metadata &amp; download
+              Save ZIP
             </div>
             <div
               class="btn btn-ghost btn-sm pointer-events-none text-xs h-8 min-h-0"
@@ -935,8 +909,8 @@ import Brand from "../components/Brand.astro";
         <h3 class="text-lg font-semibold">Your clean files are ready</h3>
       </div>
       <p class="text-base-content/60 text-sm leading-relaxed pl-10">
-        Your browser downloads the cleaned files immediately. No account, no
-        waiting, no email required. The About panel shows a summary of what was
+        Your browser saves the cleaned files directly to your device. No
+        account, no waiting, no email required. The About panel shows a summary of what was
         removed — GPS locations, timestamps, and total data stripped — so you
         can see exactly what was there.
       </p>
