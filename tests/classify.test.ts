@@ -188,7 +188,7 @@ describe('StripperManager — magic byte detection', () => {
   it('non-PNG content with PNG MIME is rejected by the PNG handler', async () => {
     const { defaultStripperManager } = await importFresh();
     const fakeContent = new File([new Uint8Array([0, 0, 0, 0])], 'a.png', { type: 'image/png' });
-    // PNG stripper rejects → JPEG stripper rejects (no JPEG magic) → canvas handles it
+    // PNG stripper rejects -> JPEG stripper rejects (no JPEG magic) -> canvas handles it
     expect(await defaultStripperManager.classify(fakeContent)).toBe('lossy');
   });
 });

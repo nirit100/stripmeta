@@ -191,10 +191,10 @@ registerAutoShowHandler();
 window.addEventListener('stripmeta:downloaded', tryAutoShow);
 window.addEventListener('stripmeta:copied', tryAutoShow);
 
-// Re-enable the toggle → reset so the modal can auto-show again on next run
+// Re-enable the toggle -> reset so the modal can auto-show again on next run
 onSettingChange('autoAbout', () => { if (settings.autoAbout) resetAutoShow(); });
 
-// "Clear storage" → reset the already-shown flag and wipe stats
+// "Clear storage" -> reset the already-shown flag and wipe stats
 window.addEventListener('stripmeta:storageCleared', () => {
   resetAutoShow();
   localStorage.removeItem(STATS_KEY);

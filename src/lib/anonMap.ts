@@ -1,8 +1,8 @@
 import type { LogEntry } from '../scripts/logger.ts';
 
 export function buildAnonMap(entries: readonly LogEntry[]): Map<string, string> {
-  const fileMap = new Map<string, string>();    // full path → anon path
-  const segmentMap = new Map<string, string>(); // individual segment → anon segment
+  const fileMap = new Map<string, string>();    // full path -> anon path
+  const segmentMap = new Map<string, string>(); // individual segment -> anon segment
   let fileN = 0;
   let folderN = 0;
 

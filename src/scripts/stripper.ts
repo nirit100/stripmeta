@@ -102,7 +102,7 @@ let pendingBlobs: { path: string; blob: Blob }[] = [];
 const rowOf          = new Map<File, HTMLElement>();
 const urlOf          = new Map<File, string>();
 const dirRowOf       = new Map<string, HTMLElement>();
-const dirCounters    = new Map<string, () => void>(); // path → update fn for the stat label
+const dirCounters    = new Map<string, () => void>(); // path -> update fn for the stat label
 const copyBtnOf      = new Map<File, HTMLButtonElement>();
 
 // — Directory breadcrumb
