@@ -53,6 +53,11 @@ Feel free to modify and host your own flavour, although I would prefer contribut
 
 See [docs/environment-variables.md](docs/environment-variables.md) for a full list of environment variables and their descriptions.
 
+### Deployment
+
+Basically a note to myself: Deploy-Prod workflow depends on succesful Tests workflow execution.
+Add `/no-deploy` to the main branch's head commit message to skip deployment.
+
 ### On Donations
 
 The donation links are in the app to help cover hosting costs. They are constants injected at deployment time.
