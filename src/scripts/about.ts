@@ -26,6 +26,8 @@ interface StripStats {
   date?: string;
 }
 
+const ZERO_STATS: StripStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
+let baseStats: StripStats = { ...ZERO_STATS };
 let liveStats: StripStats | null = null;
 let statsAnimated = false;
 
@@ -139,16 +141,22 @@ function openModal(auto: boolean): void {
   }
 }
 
-// Stats update on every strip
+// Stats update on every strip — merge session totals with the cross-session base
 window.addEventListener('stripmeta:processed', (e: Event) => {
-  const stats = (e as CustomEvent<StripStats>).detail;
-  liveStats = stats;
+  const session = (e as CustomEvent<StripStats>).detail;
+  const merged: StripStats = {
+    filesProcessed: baseStats.filesProcessed + session.filesProcessed,
+    gpsRemoved:     baseStats.gpsRemoved     + session.gpsRemoved,
+    datesRemoved:   baseStats.datesRemoved   + session.datesRemoved,
+    bytesStripped:  baseStats.bytesStripped  + session.bytesStripped,
+  };
+  liveStats = merged;
   statsAnimated = false;
-  saveStats(stats);
+  saveStats(merged);
   aboutBadge?.classList.remove('hidden');
   if (modal?.open) {
     statsAnimated = true;
-    renderStats(stats, true);
+    renderStats(merged, true);
   }
 });
 
@@ -191,6 +199,7 @@ window.addEventListener('stripmeta:storageCleared', () => {
   resetAutoShow();
   localStorage.removeItem(STATS_KEY);
   liveStats = null;
+  baseStats = { ...ZERO_STATS };
   statsAnimated = false;
   statsSection?.classList.add('hidden');
 });
@@ -201,12 +210,16 @@ btnAboutNav?.addEventListener('click', () => openModal(false));
 btnClearStats?.addEventListener('click', () => {
   localStorage.removeItem(STATS_KEY);
   liveStats = null;
+  baseStats = { ...ZERO_STATS };
   statsAnimated = false;
   statsSection?.classList.add('hidden');
 });
 
 // Pre-fill from storage so stats are visible as soon as modal opens
 const stored = loadStoredStats();
-if (stored) renderStats(stored, false);
+if (stored) {
+  baseStats = stored;
+  renderStats(stored, false);
+}
 
 export {};
