@@ -3,7 +3,11 @@ const CACHE_PAGES  = 'stripmeta-pages-v1';
 const CACHE_STATIC = 'stripmeta-static-v1';
 const LIVE_CACHES  = new Set([CACHE_PAGES, CACHE_STATIC]);
 
-self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('install', () => { /* wait for user to approve update */ });
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
 self.addEventListener('activate', event => {
   event.waitUntil(

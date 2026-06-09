@@ -149,6 +149,14 @@ const appVersion: string = __APP_VERSION__;
     <AboutModal />
     <BugReportModal />
 
+    <div id="pwa-update-toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999] w-max max-w-[calc(100vw-2rem)]">
+      <div class="flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border border-base-300/60 bg-base-100/90 backdrop-blur-xl backdrop-brightness-125 glass-elem text-sm">
+        <span class="text-base-content/80">An update is available.</span>
+        <button id="pwa-update-reload" type="button" class="btn btn-xs btn-brand shrink-0">Update now</button>
+        <button id="pwa-update-dismiss" type="button" class="btn btn-ghost btn-xs btn-circle text-base-content/40 shrink-0" title="Apply on next launch">✕</button>
+      </div>
+    </div>
+
     <dialog id="pwa-install-modal" class="modal">
       <div class="modal-box max-w-sm p-0 overflow-hidden flex flex-col">
 

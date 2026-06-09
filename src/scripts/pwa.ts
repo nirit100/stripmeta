@@ -8,6 +8,45 @@ const VISITS_KEY  = 'stripmeta-visits';
 const DECLINED_KEY = 'stripmeta-install-declined';
 const PROMPT_AFTER = 3;
 
+// Update banner — detects a waiting SW and lets the user choose when to apply it.
+if ('serviceWorker' in navigator) {
+  const toast   = document.getElementById('pwa-update-toast');
+  const reload  = document.getElementById('pwa-update-reload');
+  const dismiss = document.getElementById('pwa-update-dismiss');
+
+  let waitingSW: ServiceWorker | null = null;
+
+  function showUpdateBanner(sw: ServiceWorker) {
+    waitingSW = sw;
+    toast?.classList.remove('hidden');
+  }
+
+  navigator.serviceWorker.ready.then(reg => {
+    // Already waiting when the page loaded (e.g. user refreshed mid-update).
+    if (reg.waiting && navigator.serviceWorker.controller) {
+      showUpdateBanner(reg.waiting);
+    }
+
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      if (!newSW) return;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateBanner(newSW);
+        }
+      });
+    });
+  });
+
+  reload?.addEventListener('click', () => {
+    if (!waitingSW) return;
+    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+    waitingSW.postMessage({ type: 'SKIP_WAITING' });
+  });
+
+  dismiss?.addEventListener('click', () => toast?.classList.add('hidden'));
+}
+
 // Already running as an installed PWA — nothing to do.
 const isStandalone =
   window.matchMedia('(display-mode: standalone)').matches ||
