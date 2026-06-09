@@ -1,13 +1,29 @@
 ---
-import Icon from './Icon.astro';
+import Icon from "./Icon.astro";
 ---
 
-<details id="settings-details" class="w-full group border border-base-300 rounded-xl overflow-hidden">
-  <summary class="list-none flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-base-200/60 transition-colors">
-    <svg class="w-3 h-3 text-base-content/40 transition-transform group-open:rotate-90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+<details
+  id="settings-details"
+  class="w-full group border border-base-300 rounded-xl overflow-hidden"
+>
+  <summary
+    class="list-none flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-base-200/60 transition-colors"
+  >
+    <svg
+      class="w-3 h-3 text-base-content/40 transition-transform group-open:rotate-90 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      aria-hidden="true"
+    >
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"
+      ></path>
     </svg>
-    <span class="text-xs font-medium uppercase tracking-widest text-base-content/70">Settings</span>
+    <span
+      class="text-xs font-medium uppercase tracking-widest text-base-content/70"
+      >Settings</span
+    >
   </summary>
   <div class="settings-body border-t border-base-300 divide-y divide-base-300">
     <div class="flex items-center justify-between px-4 pt-3 pb-1">
@@ -16,37 +32,64 @@ import Icon from './Icon.astro';
     </div>
     <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
       <div class="flex items-start gap-3">
-        <Icon name="shield-exclamation" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+        <Icon
+          name="shield-exclamation"
+          class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40"
+        />
         <div>
           <p class="text-sm font-medium">Paranoid mode <span id="star-paranoid" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Always re-encode via canvas — strips everything, but output is <b>always JPEG</b>. Small quality loss.</p>
           <p class="text-xs text-base-content/50">Only use when you're really paranoid.</p>
         </div>
       </div>
-      <input type="checkbox" id="toggle-paranoid" class="toggle toggle-sm toggle-warning shrink-0" />
+      <input
+        type="checkbox"
+        id="toggle-paranoid"
+        class="toggle toggle-sm toggle-warning shrink-0"
+      />
     </label>
-    <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+    <label
+      class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors"
+    >
       <div class="flex items-start gap-3">
-        <Icon name="funnel" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+        <Icon
+          name="funnel"
+          class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40"
+        />
         <div>
           <p class="text-sm font-medium">Process files even if no metadata is found <span id="star-skip-clean" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">If disabled, files without detectable metadata are skipped.</p>
         </div>
       </div>
-      <input type="checkbox" id="toggle-skip-clean" class="toggle toggle-sm shrink-0" />
+      <input
+        type="checkbox"
+        id="toggle-skip-clean"
+        class="toggle toggle-sm shrink-0"
+      />
     </label>
-    <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+    <label
+      class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors"
+    >
       <div class="flex items-start gap-3">
-        <Icon name="document-minus" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+        <Icon
+          name="document-minus"
+          class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40"
+        />
         <div>
           <p class="text-sm font-medium">Try processing unsupported files <span id="star-skip-unsupported" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Tries to re-encode unsupported formats to JPEG via the canvas method. <br />
             <b>Not recommended</b> — this frequently causes errors.</p>
         </div>
       </div>
-      <input type="checkbox" id="toggle-skip-unsupported" class="toggle toggle-sm toggle-warning shrink-0" />
+      <input
+        type="checkbox"
+        id="toggle-skip-unsupported"
+        class="toggle toggle-sm toggle-warning shrink-0"
+      />
     </label>
-    <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+    <label
+      class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors"
+    >
       <div class="flex items-start gap-3">
         <Icon name="beaker" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
@@ -64,7 +107,11 @@ import Icon from './Icon.astro';
           <p class="text-xs text-base-content/50">Include skipped files unchanged in the saved output, so it is always complete.</p>
         </div>
       </div>
-      <input type="checkbox" id="toggle-include-skipped" class="toggle toggle-sm shrink-0" />
+      <input
+        type="checkbox"
+        id="toggle-include-skipped"
+        class="toggle toggle-sm shrink-0"
+      />
     </label>
     <div class="flex items-center justify-between px-4 pt-3 pb-1">
       <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">🎨 Appearance & Usability</p>
@@ -72,56 +119,115 @@ import Icon from './Icon.astro';
     </div>
     <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
       <div class="flex items-start gap-3">
-        <Icon name="chart-bar" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+        <Icon
+          name="chart-bar"
+          class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40"
+        />
         <div>
           <p class="text-sm font-medium">Show results after processing <span id="star-auto-about" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Opens the About panel after your first run to show what was removed.</p>
         </div>
       </div>
-      <input type="checkbox" id="toggle-auto-about" class="toggle toggle-sm shrink-0" checked />
+      <input
+        type="checkbox"
+        id="toggle-auto-about"
+        class="toggle toggle-sm shrink-0"
+        checked
+      />
     </label>
-    <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+    <label
+      class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors"
+    >
       <div class="flex items-start gap-3">
-        <Icon name="bell-alert" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+        <Icon
+          name="bell-alert"
+          class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40"
+        />
         <div>
           <p class="text-sm font-medium">Warn before leaving with files loaded <span id="star-warn-unload" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Shows a browser confirmation if you try to close or reload the tab while images are loaded.</p>
           {import.meta.env.DEV && <p class="text-xs text-warning/70 mt-0.5">Off by default in dev mode unless overridden in localStorage.</p>}
         </div>
       </div>
-      <input type="checkbox" id="toggle-warn-unload" class="toggle toggle-sm shrink-0" checked />
+      <input
+        type="checkbox"
+        id="toggle-warn-unload"
+        class="toggle toggle-sm shrink-0"
+        checked
+      />
     </label>
-    <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+    <label
+      class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors"
+    >
       <div class="flex items-start gap-3">
-        <Icon name="sparkles" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+        <Icon
+          name="sparkles"
+          class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40"
+        />
         <div>
           <p class="text-sm font-medium">Disable frosted glass &amp; animations <span id="star-no-glass" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Removes blur effects from floating elements and disables decorative shine animations.</p>
         </div>
       </div>
-      <input type="checkbox" id="toggle-no-glass" class="toggle toggle-sm shrink-0" />
+      <input
+        type="checkbox"
+        id="toggle-no-glass"
+        class="toggle toggle-sm shrink-0"
+      />
     </label>
     <div class="flex items-center justify-between px-4 pt-3 pb-1">
       <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">🛠️ Technical stuff</p>
       <button id="btn-reset-technical" type="button" class="shrink-0 text-[0.65rem] font-medium transition-colors text-base-content/30 hover:text-base-content/60">Reset</button>
     </div>
     <div>
-      <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+      <label
+        class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors"
+      >
         <div class="flex items-start gap-3">
-          <Icon name="circle-stack" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+          <Icon
+            name="circle-stack"
+            class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40"
+          />
           <div>
             <p class="text-sm font-medium">Remember settings and stats <span id="star-persist" class="hidden ml-1.5 text-warning">*</span></p>
             <p class="text-xs text-base-content/50">
-              Settings and stat counters are saved in your browser's local storage and restored on your next visit if enabled.<br />
+              Settings and stat counters are saved in your browser's local
+              storage and restored on your next visit if enabled.<br />
               Don't worry, the server never sees them.
             </p>
           </div>
         </div>
-        <input type="checkbox" id="toggle-persist" class="toggle toggle-sm shrink-0" checked />
+        <input
+          type="checkbox"
+          id="toggle-persist"
+          class="toggle toggle-sm shrink-0"
+          checked
+        />
       </label>
-      <div id="clear-storage-hint" class="items-center justify-between gap-2 px-4 text-xs text-base-content/70">
-        <span>⚠️ <b>Previously saved settings and stats still exist in local storage!</b></span>
-        <button id="btn-clear-storage" type="button" class="btn btn-xs btn-ghost text-error/70 hover:text-error shrink-0">Clear settings and stats now</button>
+      <div
+        id="clear-storage-hint"
+        class="items-center justify-between gap-2 px-4 text-xs text-base-content/70"
+      >
+        <span
+          >⚠️ <b
+            >Previously saved settings and stats still exist in local storage!</b
+          >
+        </span>
+        <div class="flex items-center gap-1 shrink-0">
+          <span
+            id="btn-clear-info"
+            class="inline-flex items-center cursor-help text-base-content/35 hover:text-base-content/60 transition-colors ml-1"
+            data-tip="Deletes saved settings and stats. Some items, like e.g. your install prompt preference, are not touched."
+          >
+            <Icon name="information-circle" class="w-3.5 h-3.5" />
+          </span>
+          <button
+            id="btn-clear-storage"
+            type="button"
+            class="btn btn-xs btn-ghost text-error/70 hover:text-error"
+            >Clear now</button
+          >
+        </div>
       </div>
     </div>
   </div>
