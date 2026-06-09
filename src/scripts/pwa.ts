@@ -8,8 +8,12 @@ const VISITS_KEY  = 'stripmeta-visits';
 const DECLINED_KEY = 'stripmeta-install-declined';
 const PROMPT_AFTER = 3;
 
-// Update banner — detects a waiting SW and lets the user choose when to apply it.
-if ('serviceWorker' in navigator) {
+const isStandalone =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+// Update banner — only relevant when running as an installed PWA.
+if (isStandalone && 'serviceWorker' in navigator) {
   const toast   = document.getElementById('pwa-update-toast');
   const reload  = document.getElementById('pwa-update-reload');
   const dismiss = document.getElementById('pwa-update-dismiss');
@@ -18,7 +22,8 @@ if ('serviceWorker' in navigator) {
 
   function showUpdateBanner(sw: ServiceWorker) {
     waitingSW = sw;
-    toast?.classList.remove('hidden');
+    toast?.classList.remove('pwa-toast-hide');
+    toast?.classList.add('pwa-toast-show');
   }
 
   navigator.serviceWorker.ready.then(reg => {
@@ -36,6 +41,9 @@ if ('serviceWorker' in navigator) {
         }
       });
     });
+
+    // Browser checks on every page load automatically; poll hourly for long sessions.
+    setInterval(() => { if (navigator.onLine) reg.update(); }, 60 * 60 * 1000);
   });
 
   reload?.addEventListener('click', () => {
@@ -44,13 +52,11 @@ if ('serviceWorker' in navigator) {
     waitingSW.postMessage({ type: 'SKIP_WAITING' });
   });
 
-  dismiss?.addEventListener('click', () => toast?.classList.add('hidden'));
+  dismiss?.addEventListener('click', () => {
+    toast?.classList.add('pwa-toast-hide');
+    toast?.addEventListener('animationend', () => toast.classList.remove('pwa-toast-show', 'pwa-toast-hide'), { once: true });
+  });
 }
-
-// Already running as an installed PWA — nothing to do.
-const isStandalone =
-  window.matchMedia('(display-mode: standalone)').matches ||
-  (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
 if (!isStandalone) {
   const visits = parseInt(localStorage.getItem(VISITS_KEY) ?? '0', 10) + 1;

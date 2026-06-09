@@ -1,9 +1,13 @@
 // Bump both names whenever a deploy requires invalidating cached pages or static chunks.
-const CACHE_PAGES  = 'stripmeta-pages-v1';
+const CACHE_PAGES  = 'stripmeta-pages-v2';
 const CACHE_STATIC = 'stripmeta-static-v1';
 const LIVE_CACHES  = new Set([CACHE_PAGES, CACHE_STATIC]);
 
-self.addEventListener('install', () => { /* wait for user to approve update */ });
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_PAGES).then(cache => cache.addAll(['/', '/how-it-works']))
+  );
+});
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
@@ -16,6 +20,11 @@ self.addEventListener('activate', event => {
       .then(() => self.clients.claim())
   );
 });
+
+// Only cache responses that are safe to clone and store.
+function cacheable(r) {
+  return r.ok && r.type !== 'opaqueredirect' && r.type !== 'error';
+}
 
 self.addEventListener('fetch', event => {
   const { request } = event;
@@ -31,7 +40,7 @@ self.addEventListener('fetch', event => {
       caches.match(request).then(cached => {
         if (cached) return cached;
         return fetch(request).then(response => {
-          if (response.ok) caches.open(CACHE_STATIC).then(c => c.put(request, response.clone()));
+          if (cacheable(response)) { const c = response.clone(); caches.open(CACHE_STATIC).then(s => s.put(request, c)); }
           return response;
         });
       })
@@ -44,7 +53,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(response => {
-          if (response.ok) caches.open(CACHE_PAGES).then(c => c.put(request, response.clone()));
+          if (cacheable(response)) { const c = response.clone(); caches.open(CACHE_PAGES).then(s => s.put(request, c)); }
           return response;
         })
         .catch(() => caches.match(request))

@@ -6,15 +6,16 @@ const THEME_COLORS: Record<'light' | 'dark', string> = {
   dark:  '#1d232a',
 };
 
-function resolvedDark(): boolean {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
-
 function syncThemeColor(theme: Theme) {
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (!meta) return;
-  const isDark = theme === 'dark' || (theme === 'auto' && resolvedDark());
-  meta.content = isDark ? THEME_COLORS.dark : THEME_COLORS.light;
+  const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!metas.length) return;
+  if (theme === 'auto') {
+    // Restore per-scheme defaults — browser picks via media query natively.
+    metas.forEach(m => { m.content = m.media.includes('light') ? THEME_COLORS.light : THEME_COLORS.dark; });
+  } else {
+    const color = THEME_COLORS[theme];
+    metas.forEach(m => { m.content = color; });
+  }
 }
 
 function apply(theme: Theme) {
@@ -39,11 +40,6 @@ function apply(theme: Theme) {
 const initial = (localStorage.getItem(KEY) as Theme | null) ?? 'auto';
 apply(initial);
 
-// Keep theme-color in sync when OS preference changes while in auto mode
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  const current = (localStorage.getItem(KEY) as Theme | null) ?? 'auto';
-  if (current === 'auto') syncThemeColor('auto');
-});
 
 document.getElementById('theme-toggle')?.querySelectorAll<HTMLElement>('[data-t]').forEach(btn => {
   btn.addEventListener('click', () => apply(btn.dataset.t as Theme));
