@@ -248,6 +248,7 @@ function detachEntry(entry: FileEntry) {
   urlOf.delete(entry.file);
   metadataCache.delete(entry.file);
   levelOf.delete(entry.file);
+  canConvertPngOf.delete(entry.file);
   rowOf.delete(entry.file);
   copyBtnOf.delete(entry.file);
   state.remove(entry.file);
