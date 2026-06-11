@@ -402,6 +402,31 @@ import Brand from "../components/Brand.astro";
         </p>
       </div>
     </div>
+
+    <!-- Limitations -->
+    <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 flex gap-4">
+      <div class="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg shrink-0 mt-0.5">
+        ⚠
+      </div>
+      <div class="flex flex-col gap-2">
+        <p class="font-semibold text-sm text-base-content/80">Limitations</p>
+        <p class="text-xs text-base-content/65 leading-relaxed">
+          <Brand /> is actively developed and does its best to strip metadata thoroughly.
+          However, no tool can guarantee that every trace is removed from every file.
+          Image formats are complex and varied:
+          Different cameras, phones, and editing apps embed metadata in their own ways, many undocumented.
+          StripMeta covers JPEG, PNG, and WebP with AVIF and HEIC on the way and it even removes data it cannot interpret,
+          but unusual or proprietary extensions might not always be caught if the data is stored in unconventional regions
+          of the file.
+        </p>
+        <p class="text-xs text-base-content/65 leading-relaxed">
+          For high-stakes privacy needs, <strong>treat metadata stripping as one layer of protection rather than a complete solution</strong>. Combining it with other precautions, such as disabling location access for your camera app in the first place, gives stronger guarantees than any single tool can.
+        </p>
+        <p class="text-xs text-base-content/75 leading-relaxed">
+          <Brand /> certainly <strong>can help</strong> protect your privacy, especially in paranoid mode, but it <strong>cannot guarantee</strong> your privacy or safety on its own.
+        </p>
+      </div>
+    </div>
   </section>
 
   <!-- Privacy by architecture -->
