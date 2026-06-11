@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MetadataPreview } from '../src/lib/stripMeta';
+import { buildIsobmffFile } from './fixtures/isobmff';
 
 vi.mock('exifr', () => ({
   default: { parse: vi.fn(), gps: vi.fn() },
@@ -290,3 +291,69 @@ describe('readRichMetadata', () => {
     expect(exifSection!.entries.length).toBeGreaterThan(0);
   });
 });
+
+// ── HEIC / AVIF metadata path ─────────────────────────────────────────────────
+
+function makeSyntheticHeic(tiff: Uint8Array, type = 'image/heic'): File {
+  // ISO 23008-12 §6.6.1 Exif item: 4-byte big-endian offset (0) + TIFF bytes
+  const payload = new Uint8Array(4 + tiff.length);
+  payload.set(tiff, 4);
+  const brand = type === 'image/avif' ? 'avif' : 'heic';
+  const imageItemType = type === 'image/avif' ? 'av01' : 'hvc1';
+  const data = buildIsobmffFile({ brand, imageItemType, exifData: payload });
+  return new File([data.slice()], `photo.${brand}`, { type });
+}
+
+function minimalTiff(): Uint8Array {
+  return new Uint8Array([0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00]);
+}
+
+for (const [label, type] of [['HEIC', 'image/heic'], ['AVIF', 'image/avif']] as const) {
+  describe(`readMetadata — ${label}`, () => {
+    it('sets hasAnyMetadata=true when Exif item is present', async () => {
+      vi.doUnmock('exifr');
+      vi.resetModules();
+      const { readMetadata } = await import('../src/lib/stripMeta');
+      expect((await readMetadata(makeSyntheticHeic(minimalTiff(), type))).hasAnyMetadata).toBe(true);
+    });
+
+    it('sets hasAnyMetadata=false when no Exif item is present', async () => {
+      vi.doUnmock('exifr');
+      vi.resetModules();
+      const { readMetadata } = await import('../src/lib/stripMeta');
+      const brand = type === 'image/avif' ? 'avif' : 'heic';
+      const imageItemType = type === 'image/avif' ? 'av01' : 'hvc1';
+      const data = buildIsobmffFile({ brand, imageItemType, exifData: null });
+      const result = await readMetadata(new File([data.slice()], `photo.${brand}`, { type }));
+      expect(result.hasAnyMetadata).toBe(false);
+    });
+
+    it('passes extracted TIFF bytes (not the File) to exifr', async () => {
+      // vi.spyOn cannot intercept exifr's non-configurable export; use doMock for this routing check.
+      vi.doMock('exifr', () => ({ default: { parse: vi.fn().mockResolvedValue(null), gps: vi.fn().mockResolvedValue(null) } }));
+      vi.resetModules();
+      const { readMetadata } = await import('../src/lib/stripMeta');
+      const exifrModule = await import('exifr');
+
+      await readMetadata(makeSyntheticHeic(minimalTiff(), type));
+
+      for (const call of vi.mocked(exifrModule.default.parse).mock.calls) {
+        expect(call[0]).not.toBeInstanceOf(File);
+        expect(call[0]).toBeInstanceOf(Uint8Array);
+      }
+    });
+  });
+
+  describe(`readRichMetadata — ${label}`, () => {
+    it('reads real HEIC fixture without crashing or reporting a parse error', async () => {
+      vi.doUnmock('exifr');
+      vi.resetModules();
+      const { readRichMetadata } = await import('../src/lib/stripMeta');
+      const buf = readFileSync(join(import.meta.dirname, 'fixtures', 'heic_sample_file_50KB.heic'));
+      const { parseError } = await readRichMetadata(
+        new File([buf], 'heic_sample_file_50KB.heic', { type: 'image/heic' }),
+      );
+      expect(parseError).toBeUndefined();
+    });
+  });
+}

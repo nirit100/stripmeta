@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripExifItem, iterBoxes } from '../src/lib/strippers/isobmff';
+import { stripExifItem, readExifBytes, iterBoxes } from '../src/lib/strippers/isobmff';
 import { heicStripper } from '../src/lib/strippers/heic';
 import { avifStripper } from '../src/lib/strippers/avif';
 import { buildIsobmffFile } from './fixtures/isobmff';
@@ -373,5 +373,62 @@ describe('avifStripper.supports', () => {
     const data = buildIsobmffFile({ brand: 'avif', imageItemType: 'av01' });
     const file = new File([data], 'photo.png', { type: 'image/png' });
     expect(await avifStripper.supports(file, mockCaps)).toBe(false);
+  });
+});
+
+// ── readExifBytes ─────────────────────────────────────────────────────────────
+
+function makeTiff(le = false): Uint8Array {
+  // Minimal TIFF: byte-order mark + magic + IFD offset pointing past end (no entries)
+  return le
+    ? new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00])
+    : new Uint8Array([0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00]);
+}
+
+function exifPayload(tiff: Uint8Array, offset = 0): Uint8Array {
+  // ISO 23008-12 §6.6.1: 4-byte big-endian offset, then optional prefix bytes, then TIFF
+  const prefix = new Uint8Array(offset); // zero-filled filler before TIFF
+  const buf = new Uint8Array(4 + offset + tiff.length);
+  buf[2] = (offset >>> 8) & 0xff;
+  buf[3] = offset & 0xff;
+  buf.set(prefix, 4);
+  buf.set(tiff, 4 + offset);
+  return buf;
+}
+
+describe('readExifBytes', () => {
+  it('returns null for non-ISOBMFF data', () => {
+    expect(readExifBytes(new Uint8Array(64))).toBeNull();
+  });
+
+  it('returns null when no Exif item is present', () => {
+    const data = buildIsobmffFile({ exifData: null });
+    expect(readExifBytes(data)).toBeNull();
+  });
+
+  it('extracts TIFF bytes with offset=0', () => {
+    const tiff = makeTiff();
+    const data = buildIsobmffFile({ exifData: exifPayload(tiff, 0) });
+    expect(readExifBytes(data)).toEqual(tiff);
+  });
+
+  it('respects a non-zero 4-byte offset (e.g. Exif\\0\\0 prefix)', () => {
+    const tiff = makeTiff(true);
+    // offset=6 means 6 filler bytes before TIFF (mimics "Exif\0\0" prefix in some files)
+    const data = buildIsobmffFile({ exifData: exifPayload(tiff, 6) });
+    expect(readExifBytes(data)).toEqual(tiff);
+  });
+
+  it('works with mdat-first layout', () => {
+    const tiff = makeTiff();
+    const data = buildIsobmffFile({ exifData: exifPayload(tiff), mdatFirst: true });
+    expect(readExifBytes(data)).toEqual(tiff);
+  });
+
+  it('returns null when the 4-byte offset points past the item end', () => {
+    // Payload is only 4 bytes (the offset itself), pointing to offset 999 which is out of range
+    const bad = new Uint8Array([0x00, 0x00, 0x03, 0xe7]); // offset = 999
+    const data = buildIsobmffFile({ exifData: bad });
+    expect(readExifBytes(data)).toBeNull();
   });
 });

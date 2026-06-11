@@ -441,6 +441,51 @@ function rebuildIref(
  *     are supported for non-metadata items but removed items must use method 0.
  *   • Box sizes > 2^32 are rejected.
  */
+/**
+ * Extracts the raw TIFF/EXIF bytes from the 'Exif' item in an ISOBMFF file.
+ * Returns null if no Exif item is found or the structure is unrecognisable.
+ */
+export function readExifBytes(input: Uint8Array): Uint8Array | null {
+  const meta = findBox(input, 'meta', 0, input.length);
+  if (!meta) return null;
+
+  const metaBodyStart = fc(meta);
+  const metaEnd       = meta.offset + meta.size;
+
+  const iinf = findBox(input, 'iinf', metaBodyStart, metaEnd);
+  if (!iinf) return null;
+  const iloc = findBox(input, 'iloc', metaBodyStart, metaEnd);
+  if (!iloc) return null;
+
+  const exifInfe = parseIinf(input, iinf).find(e => e.itemType === 'Exif');
+  if (!exifInfe) return null;
+
+  const lay  = parseIlocLayout(input, iloc);
+  const item = parseIlocItems(input, lay).find(i => i.itemId === exifInfe.itemId);
+  if (!item || item.extents.length === 0) return null;
+
+  // Concatenate all extents (almost always a single one for Exif).
+  let raw: Uint8Array;
+  if (item.extents.length === 1) {
+    const ext = item.extents[0]!;
+    raw = input.slice(ext.offset, ext.offset + ext.length);
+  } else {
+    const total = item.extents.reduce((s, e) => s + e.length, 0);
+    raw = new Uint8Array(total);
+    let pos = 0;
+    for (const ext of item.extents) {
+      raw.set(input.slice(ext.offset, ext.offset + ext.length), pos);
+      pos += ext.length;
+    }
+  }
+
+  // ISO 23008-12 §6.6.1: first 4 bytes are a big-endian offset to the TIFF header start.
+  if (raw.length < 4) return null;
+  const tiffStart = 4 + r32(raw, 0);
+  if (tiffStart >= raw.length) return null;
+  return raw.slice(tiffStart);
+}
+
 export function stripExifItem(input: Uint8Array): Uint8Array {
   // ── 1. Locate meta box ───────────────────────────────────────────────────
   // ISO 14496-12 §8.11.1: meta can appear at the file level or inside moov/trak/udta.
