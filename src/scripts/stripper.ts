@@ -658,10 +658,13 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
 
         if (preview.parseErrored) {
           badgesSlot.appendChild(badge('badge-warning', '⚠ unreadable', 'Metadata could not be parsed'));
-          logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata' });
         }
 
         metadataCache.set(file, preview);
+
+        if (preview.parseErrored && getSkipReason(file) === null) {
+          logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata' });
+        }
 
         if (!preview.hasAnyMetadata && !preview.parseErrored) detailsBtn.textContent = 'no metadata';
 
