@@ -50,8 +50,8 @@ const bugReportEnabled = !!import.meta.env.PUBLIC_BUG_REPORT_ENABLED;
         <button id="btn-pick-dir" type="button" class="btn btn-sm btn-outline">📁 Open folder</button>
       </div>
       <p class="text-xs text-base-content/40">JPEG, PNG, WebP, TIFF, HEIC and more</p>
-      <input id="file-input" type="file" accept="image/*" multiple class="hidden" />
-      <input id="dir-input" type="file" accept="image/*" multiple webkitdirectory class="hidden" />
+      <input id="file-input" type="file" accept="image/*,.heic,.heif,.avif" multiple class="hidden" />
+      <input id="dir-input" type="file" accept="image/*,.heic,.heif,.avif" multiple webkitdirectory class="hidden" />
     </div>
 
     <div id="scan-state" class="hidden flex-col items-center gap-2 py-1">

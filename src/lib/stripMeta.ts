@@ -4,11 +4,15 @@ import { StripperManager } from './strippers/manager.ts';
 import { jpegStripper } from './strippers/jpeg.ts';
 import { pngStripper } from './strippers/png.ts';
 import { webpStripper } from './strippers/webp.ts';
+import { heicStripper } from './strippers/heic.ts';
+import { avifStripper } from './strippers/avif.ts';
 import { canvasStripper } from './strippers/canvas.ts';
 import { browserCapabilities } from './platform.ts';
+import { readExifBytes } from './strippers/isobmff.ts';
 
 export type { StripperHandler, WarningLevel } from './strippers/types.ts';
 export { StripperManager };
+export { browserCapabilities } from './platform.ts';
 
 // Handlers are tried in registration order; first match wins.
 // canvasStripper must be last — it defers to capabilities to decide support.
@@ -16,6 +20,8 @@ export const defaultStripperManager = new StripperManager(browserCapabilities)
   .register(jpegStripper)
   .register(pngStripper)
   .register(webpStripper)
+  .register(heicStripper)
+  .register(avifStripper)
   .register(canvasStripper);
 
 // Paranoid mode: skip all native handlers and always re-encode through canvas.
@@ -89,6 +95,35 @@ export interface MetadataPreview {
   parseErrored?: true;  // exifr threw during parsing! treat as not clean
 }
 
+const ISOBMFF_TYPES = new Set(['image/heic', 'image/heif', 'image/avif']);
+
+// exifr has no ISOBMFF parser; extract the Exif item from the container and
+// feed the raw TIFF bytes directly, forcing TIFF mode.
+async function readIsobmffExif(file: File): Promise<{
+  exifRaw: Record<string, unknown> | null;
+  gpsResult: { latitude: number; longitude: number } | null;
+  hasAnyMetadata: boolean;
+  parseErrored: boolean;
+}> {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const tiff = readExifBytes(buf);
+  const hasAnyMetadata = tiff !== null;
+  let exifRaw: Record<string, unknown> | null = null;
+  let gpsResult: { latitude: number; longitude: number } | null = null;
+  let parseErrored = false;
+
+  if (tiff) {
+    [exifRaw, gpsResult] = await Promise.all([
+      exifr.parse(tiff, { tiff: true } as Parameters<typeof exifr.parse>[1])
+        .catch(err => { console.warn('[isobmff exif parse]', err); parseErrored = true; return null; }),
+      exifr.gps(tiff)
+        .catch(err => { console.warn('[isobmff gps]', err); return null; }),
+    ]);
+  }
+
+  return { exifRaw, gpsResult, hasAnyMetadata, parseErrored };
+}
+
 // exifr has no WebP parser; extract the EXIF chunk from the RIFF structure and
 // feed the raw TIFF bytes directly, forcing TIFF mode.
 async function readWebpExif(file: File): Promise<{
@@ -134,11 +169,13 @@ async function readWebpExif(file: File): Promise<{
 export async function readMetadata(file: File): Promise<MetadataPreview> {
   let parseErrored = false;
 
-  const isWebp = file.type === 'image/webp';
-  const webp = isWebp ? await readWebpExif(file) : null;
+  const isWebp     = file.type === 'image/webp';
+  const isIsobmff  = ISOBMFF_TYPES.has(file.type);
+  const webp       = isWebp    ? await readWebpExif(file)    : null;
+  const isobmff    = isIsobmff ? await readIsobmffExif(file) : null;
 
-  const [exifRaw, gpsResult, pngText] = isWebp
-    ? [webp!.exifRaw, webp!.gpsResult, null] as const
+  const [exifRaw, gpsResult, pngText] = (isWebp || isIsobmff)
+    ? [(webp ?? isobmff)!.exifRaw, (webp ?? isobmff)!.gpsResult, null] as const
     : await Promise.all([
         // Full parse (not just picked fields) so hasAnyMetadata covers the complete EXIF/XMP/IPTC scope.
         exifr.parse(file, true).catch(err => { console.warn('[exif parse]', err); parseErrored = true; return null; }),
@@ -148,9 +185,8 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
           : Promise.resolve(null),
       ]);
 
-  if (isWebp) {
-    parseErrored = webp!.parseErrored;
-  }
+  if (isWebp)    parseErrored = webp!.parseErrored;
+  if (isIsobmff) parseErrored = isobmff!.parseErrored;
 
   const gps = (gpsResult != null && Number.isFinite(gpsResult.latitude) && Number.isFinite(gpsResult.longitude))
     ? { latitude: gpsResult.latitude, longitude: gpsResult.longitude }
@@ -171,7 +207,9 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
   const exifKeys = exifRaw ? Object.keys(exifRaw).filter(k => k !== 'errors') : [];
   const hasAnyMetadata = exifKeys.length > 0
     || (Array.isArray(exifRaw?.errors) && (exifRaw!.errors as unknown[]).length > 0)
-    || (pngText !== null && pngText.entries.length > 0);
+    || (pngText !== null && pngText.entries.length > 0)
+    || (webp?.hasAnyMetadata ?? false)
+    || (isobmff?.hasAnyMetadata ?? false);
 
   return {
     gps,
@@ -197,6 +235,10 @@ export async function readRichMetadata(file: File): Promise<{ sections: Metadata
     const webp = await readWebpExif(file);
     raw = webp.exifRaw;
     if (webp.parseErrored) parseError = new Error('Could not parse EXIF data');
+  } else if (ISOBMFF_TYPES.has(file.type)) {
+    const isobmff = await readIsobmffExif(file);
+    raw = isobmff.exifRaw;
+    if (isobmff.parseErrored) parseError = new Error('Could not parse EXIF data');
   } else {
     raw = await exifr.parse(file, true)
       .catch((err: unknown) => { parseError = err; return null; }) as Record<string, unknown> | null;

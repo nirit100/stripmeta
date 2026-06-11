@@ -22,9 +22,14 @@ Photos taken with phones and cameras carry hidden metadata: GPS coordinates, dev
 | JPEG | Strips EXIF segments from the binary — image data untouched | Lossless |
 | PNG | Removes metadata chunks (`tEXt`, `iTXt`, `zTXt`, `eXIf`, `tIME`) | Lossless |
 | WebP | Removes `EXIF` and `XMP` chunks from the RIFF container | Lossless |
-| GIF, BMP, AVIF, TIFF, SVG | Re-encodes through canvas as JPEG 95% | Lossy |
+| HEIC / HEIF ⚠️ | Removes Exif item from the ISOBMFF container without re-encoding | Lossless (experimental) |
+| AVIF ⚠️ | Removes Exif item from the ISOBMFF container without re-encoding | Lossless (experimental) |
+| GIF, BMP, TIFF, SVG | Re-encodes through canvas as JPEG 95% | Lossy |
 
-Files are identified by their actual content (magic bytes), not by filename or MIME type — so a JPEG saved with a `.png` extension is still stripped correctly.
+> [!NOTE]
+> Handlers marked **experimental** pass the test suite but the ISOBMFF specification is very complicated. Verify output before relying on it for sensitive files.
+
+Files are identified by their actual content (magic bytes), not by filename or MIME type — so a JPEG saved with a `.png` extension is still stripped correctly. *coughs in Android*
 
 ## Privacy
 
