@@ -852,6 +852,7 @@ function removeDirNode(node: DirNode) {
     urlOf.delete(entry.file);
     metadataCache.delete(entry.file);
     levelOf.delete(entry.file);
+    canConvertPngOf.delete(entry.file);
     rowOf.delete(entry.file);
   }
   entries = entries.filter(e => !allEntries.includes(e));
@@ -1196,6 +1197,7 @@ btnClear.addEventListener('click', () => {
   urlOf.clear();
   entries = [];
   levelOf.clear();
+  canConvertPngOf.clear();
   metadataCache.clear();
   dirRowOf.clear();
   dirCounters.clear();
