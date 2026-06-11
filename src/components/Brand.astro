@@ -1,10 +1,9 @@
 ---
 interface Props {
   logo?: boolean;
+  ml?: boolean;
+  mr?: boolean;
 }
-const { logo = true } = Astro.props;
+const { logo = true, ml = true, mr = true } = Astro.props;
 ---
-<span class="whitespace-nowrap ml-0.5 mr-0.5">
-  {logo && <img src="/logo.svg" alt="" aria-hidden="true" class="inline-block h-[0.8em] w-auto align-middle -translate-y-px" />}
-  <span class="brand-name font-bold">StripMeta</span>
-</span>
+<span class:list={["whitespace-nowrap", ml && "ml-0.5", mr && "mr-0.5"]}>{logo && <img src="/logo.svg" alt="" aria-hidden="true" class="inline-block h-[0.8em] w-auto align-middle -translate-y-px" />}{logo && " "}<span class="brand-name font-bold">StripMeta</span></span>

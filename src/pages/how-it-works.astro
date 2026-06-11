@@ -108,7 +108,7 @@ import Brand from "../components/Brand.astro";
       <p class="mt-3 text-base-content/65 leading-relaxed">
         For most people under usual circumstances that is not a real problem,
         but in some situations you'd want to sanitise your photos or screenshots
-        before sharing them — that is where you might want to use a tool like <Brand
+        before sharing them — that is where you might want to use a tool like <Brand mr={false}
         />. Screenshots typically carry a smaller set of metadata (e.g. device
         model, OS version and a timestamp) — but it is often the combination of
         data that makes you trackable, not a single piece of information on its
@@ -411,7 +411,7 @@ import Brand from "../components/Brand.astro";
       <div class="flex flex-col gap-2">
         <p class="font-semibold text-sm text-base-content/80">Limitations</p>
         <p class="text-xs text-base-content/65 leading-relaxed">
-          <Brand /> is actively developed and does its best to strip metadata thoroughly.
+          <Brand ml={false} /> is actively developed and does its best to strip metadata thoroughly.
           However, no tool can guarantee that every trace is removed from every file.
           Image formats are complex and varied:
           Different cameras, phones, and editing apps embed metadata in their own ways, many undocumented.
@@ -423,7 +423,7 @@ import Brand from "../components/Brand.astro";
           For high-stakes privacy needs, <strong>treat metadata stripping as one layer of protection rather than a complete solution</strong>. Combining it with other precautions, such as disabling location access for your camera app in the first place, gives stronger guarantees than any single tool can.
         </p>
         <p class="text-xs text-base-content/75 leading-relaxed">
-          <Brand /> certainly <strong>can help</strong> protect your privacy, especially in paranoid mode, but it <strong>cannot guarantee</strong> your privacy or safety on its own.
+          <Brand ml={false} /> certainly <strong>can help</strong> protect your privacy, especially in paranoid mode, but it <strong>cannot guarantee</strong> your privacy or safety on its own.
         </p>
       </div>
     </div>
@@ -556,7 +556,7 @@ import Brand from "../components/Brand.astro";
           <p class="font-semibold text-sm">Your files never leave your device</p>
           <p class="text-xs text-base-content/55 mt-1.5 leading-relaxed">
             File processing runs entirely through browser APIs — the same ones
-            used by local applications. When you drop a photo onto <Brand />,
+            used by local applications. When you drop a photo onto <Brand mr={false} />,
             the bytes are read into memory, metadata segments are located and
             removed, and the result is written back to a file — all inside the
             browser sandbox. No request is made to any server. There is no
@@ -615,7 +615,7 @@ import Brand from "../components/Brand.astro";
         <div>
           <p class="font-semibold text-sm">No analytics, no third-party scripts</p>
           <p class="text-xs text-base-content/55 mt-1.5 leading-relaxed">
-            <Brand /> loads no external scripts — no Google Analytics, no ad
+            <Brand ml={false} /> loads no external scripts — no Google Analytics, no ad
             networks, no error-reporting services, no social media widgets.
             Every byte of code that runs on the page is served directly from
             this origin. There is nothing phoning home, and nothing to intercept
@@ -1036,7 +1036,7 @@ import Brand from "../components/Brand.astro";
         </h3>
       </div>
       <p class="text-base-content/60 text-sm leading-relaxed pl-10">
-        <Brand /> is written and maintained by one person, serves no ads, tracks nothing,
+        <Brand ml={false} /> is written and maintained by one person, serves no ads, tracks nothing,
         and costs nothing to use. That also means no ad revenue. If it saved you time
         or protected your privacy, a small donation goes a long way. You can find
         the donation links in the About panel — click
