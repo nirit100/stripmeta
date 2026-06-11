@@ -145,6 +145,7 @@ export function initSettings(): void {
       labelSkipClean.classList.remove('opacity-40', 'pointer-events-none');
     }
     notify('paranoid');
+    notify('skipClean');
   });
 
   toggleSkipClean.addEventListener('change', () => {

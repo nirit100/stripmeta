@@ -31,12 +31,8 @@ let baseStats: StripStats = { ...ZERO_STATS };
 let liveStats: StripStats | null = null;
 let statsAnimated = false;
 
-function shouldPersist(): boolean {
-  return localStorage.getItem('stripmeta-no-persist') !== '1';
-}
-
 function saveStats(stats: StripStats): void {
-  if (!shouldPersist()) return;
+  if (!settings.persist) return;
   localStorage.setItem(STATS_KEY, JSON.stringify({ ...stats, date: new Date().toISOString() }));
 }
 
