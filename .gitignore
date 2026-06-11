@@ -66,3 +66,6 @@ TODO.txt
 Screenshot*.png
 IMG_*.jpg
 YANN_*
+
+# Helper scripts
+*.py
