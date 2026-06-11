@@ -87,8 +87,7 @@ if (!isStandalone) {
     if (!deferredPrompt) return;
     closeModal();
     deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'dismissed') localStorage.setItem(DECLINED_KEY, '1');
+    await deferredPrompt.userChoice;
     deferredPrompt = null;
     installBtn?.classList.add('hidden');
   }
@@ -110,11 +109,11 @@ if (!isStandalone) {
     closeModal();
   });
 
+  // Any close (✕, backdrop, or "No thanks") suppresses the auto-prompt permanently.
+  modal?.addEventListener('close', () => localStorage.setItem(DECLINED_KEY, '1'));
+
   // Navbar button opens the modal; the modal's Install button triggers the browser prompt.
   installBtn?.addEventListener('click', () => openModal('manual'));
   promptInstall?.addEventListener('click', triggerInstall);
-  promptDismiss?.addEventListener('click', () => {
-    closeModal();
-    localStorage.setItem(DECLINED_KEY, '1');
-  });
+  promptDismiss?.addEventListener('click', closeModal);
 }
