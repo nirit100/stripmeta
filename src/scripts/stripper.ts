@@ -558,7 +558,16 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   removeBtn.type = 'button';
   removeBtn.className = 'btn btn-ghost btn-xs btn-circle -mr-1 text-error/80 hover:text-error-content hover:bg-error';
   removeBtn.innerHTML = '&times;';
-  removeBtn.addEventListener('click', () => removeEntry(entry));
+  removeBtn.addEventListener('click', () => {
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      deleteHint.style.opacity = '1';
+      body.style.transition = 'transform 320ms ease-in';
+      body.style.transform = 'translateX(-110%)';
+      setTimeout(() => { detachEntry(entry); row.remove(); cleanEmptyDirs(); afterRemove(); }, 330);
+    } else {
+      removeEntry(entry);
+    }
+  });
   topRow.appendChild(removeBtn);
   right.appendChild(topRow);
 
