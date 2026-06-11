@@ -86,19 +86,21 @@ export interface MetadataPreview {
   artist: string | null;
   userComment: string | null;
   hasAnyMetadata: boolean;
+  parseErrored?: true;  // exifr threw during parsing! treat as not clean
 }
 
 export async function readMetadata(file: File): Promise<MetadataPreview> {
+  let parseErrored = false;
   const [exifRaw, gpsResult, pngText] = await Promise.all([
     // Full parse (not just picked fields) so hasAnyMetadata covers the complete EXIF/XMP/IPTC scope.
-    exifr.parse(file, true).catch(() => null),
+    exifr.parse(file, true).catch(() => { parseErrored = true; return null; }),
     exifr.gps(file).catch(() => null),
     file.type === 'image/png'
       ? file.arrayBuffer().then(b => decodePngTextChunks(new Uint8Array(b))).catch(() => null)
       : Promise.resolve(null),
   ]);
 
-  const gps = (gpsResult?.latitude != null && gpsResult?.longitude != null)
+  const gps = (gpsResult != null && Number.isFinite(gpsResult.latitude) && Number.isFinite(gpsResult.longitude))
     ? { latitude: gpsResult.latitude, longitude: gpsResult.longitude }
     : null;
 
@@ -113,6 +115,7 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
     : null;
 
   // True if exifr found any data (even binary blobs, errors, or non-preview fields) or PNG has text chunks.
+  // parseErrored is kept separate — callers must not treat a failed parse as "confirmed clean".
   const exifKeys = exifRaw ? Object.keys(exifRaw).filter(k => k !== 'errors') : [];
   const hasAnyMetadata = exifKeys.length > 0
     || (Array.isArray(exifRaw?.errors) && (exifRaw!.errors as unknown[]).length > 0)
@@ -128,6 +131,7 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
     artist: exifRaw?.Artist ?? null,
     userComment,
     hasAnyMetadata,
+    parseErrored: parseErrored ? true : undefined,
   };
 }
 

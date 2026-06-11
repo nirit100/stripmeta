@@ -37,7 +37,7 @@ describe('readMetadata', () => {
     });
   });
 
-  it('returns all nulls and hasAnyMetadata=false when exifr throws', async () => {
+  it('sets parseErrored=true and hasAnyMetadata=false when exifr.parse throws', async () => {
     const exifr = await import('exifr');
     vi.mocked(exifr.default.parse).mockRejectedValue(new Error('parse error'));
     vi.mocked(exifr.default.gps).mockRejectedValue(new Error('gps error'));
@@ -46,6 +46,19 @@ describe('readMetadata', () => {
     const result = await readMetadata(makeFile());
     expect(result.gps).toBeNull();
     expect(result.make).toBeNull();
+    expect(result.parseErrored).toBe(true);
+    // hasAnyMetadata is false — callers must check parseErrored before treating the file as clean
+    expect(result.hasAnyMetadata).toBe(false);
+  });
+
+  it('leaves parseErrored undefined when exifr returns null (genuinely clean file)', async () => {
+    const exifr = await import('exifr');
+    vi.mocked(exifr.default.parse).mockResolvedValue(null);
+    vi.mocked(exifr.default.gps).mockResolvedValue(undefined as never);
+
+    const { readMetadata } = await importFresh();
+    const result = await readMetadata(makeFile());
+    expect(result.parseErrored).toBeUndefined();
     expect(result.hasAnyMetadata).toBe(false);
   });
 

@@ -647,9 +647,14 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
           badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
         }
 
+        if (preview.parseErrored) {
+          badgesSlot.appendChild(badge('badge-warning', '⚠ unreadable', 'Metadata could not be parsed'));
+          logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata' });
+        }
+
         metadataCache.set(file, preview);
 
-        if (!preview.hasAnyMetadata) detailsBtn.textContent = 'no metadata';
+        if (!preview.hasAnyMetadata && !preview.parseErrored) detailsBtn.textContent = 'no metadata';
 
         applySkipStatus(file);
         syncFlatList();

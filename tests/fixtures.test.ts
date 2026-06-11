@@ -44,6 +44,44 @@ describe('readMetadata — all-metadata fixture', () => {
   });
 });
 
+describe('readMetadata — zeroed GPS IFD (0/0 rationals → NaN)', () => {
+  // Reproduces Samsung behaviour: GPS IFD present but all rational values are 0/0
+  // (= NaN). The finite check must reject NaN and return gps: null.
+  const file = () => fixtureFile('synthetic-zeroed-gps.jpg', 'image/jpeg');
+
+  it('returns gps: null (NaN coordinates must not pass the finite check)', async () => {
+    const result = await readMetadata(file());
+    expect(result.gps).toBeNull();
+  });
+
+  it('detects metadata (GPS IFD present, Make present)', async () => {
+    const result = await readMetadata(file());
+    expect(result.make).toBe('synthetic');
+    expect(result.hasAnyMetadata).toBe(true);
+  });
+});
+
+describe('readMetadata — Orientation=0 with APP1 before APP0', () => {
+  // Reproduces Brave-Android screenshot structure: Orientation tag value 0 (invalid;
+  // spec allows 1–8 only) and APP1 (Exif) preceding APP0 (JFIF).
+  const file = () => fixtureFile('synthetic-orientation0-exif-before-jfif.jpg', 'image/jpeg');
+
+  it('does not throw', async () => {
+    await expect(readMetadata(file())).resolves.not.toThrow();
+  });
+
+  it('returns gps: null (no GPS IFD)', async () => {
+    const result = await readMetadata(file());
+    expect(result.gps).toBeNull();
+  });
+
+  it('detects metadata (Make and Software present)', async () => {
+    const result = await readMetadata(file());
+    expect(result.make).toBe('synthetic');
+    expect(result.hasAnyMetadata).toBe(true);
+  });
+});
+
 describe('readRichMetadata — JPEG misnamed as PNG (regression)', () => {
   // Some Android versions save screenshots as JPEG but with a .png extension.
   // png-chunks-extract throws on such files; readRichMetadata must not propagate that error.

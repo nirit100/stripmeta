@@ -22,7 +22,7 @@ export function getSkipReason(
   }
   if (settings.skipClean) {
     const meta = metadataCache.get(file);
-    if (meta && !meta.hasAnyMetadata) {
+    if (meta && !meta.hasAnyMetadata && !meta.parseErrored) {
       return 'no-metadata';
     }
   }
