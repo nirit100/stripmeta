@@ -1040,17 +1040,3 @@ import Brand from "../components/Brand.astro";
   </section>
 </Layout>
 
-<script>
-  const modal = document.getElementById(
-    "about-modal",
-  ) as HTMLDialogElement | null;
-  function openAbout() {
-    if (modal && !modal.open) modal.showModal();
-  }
-  document
-    .getElementById("btn-about-footer")
-    ?.addEventListener("click", openAbout);
-  document
-    .getElementById("btn-about-nav")
-    ?.addEventListener("click", openAbout);
-</script>
