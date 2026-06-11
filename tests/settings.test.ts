@@ -43,8 +43,9 @@ describe('default state (empty localStorage)', () => {
     expect(settings.includeSkipped).toBe(false);
   });
 
-  it('warnUnload is false in DEV (vitest sets import.meta.env.DEV=true)', async () => {
+  it('warnUnload defaults to false in DEV, true in prod (vitest sets DEV=true)', async () => {
     const { settings } = await importFresh();
+    // vitest sets import.meta.env.DEV=true, so the prod default (true) does not apply
     expect(settings.warnUnload).toBe(false);
   });
 
@@ -138,10 +139,10 @@ describe('noPersist mode (stripmeta-no-persist=1)', () => {
     expect(settings.autoAbout).toBe(true);
   });
 
-  it('ignores saved warnUnload value and returns default (true in prod)', async () => {
+  it('ignores saved warnUnload and uses DEV default (false) in test env', async () => {
     setLS({ 'stripmeta-no-persist': '1', 'stripmeta-warn-unload': '0' });
     const { settings } = await importFresh();
-    expect(settings.warnUnload).toBe(true);
+    expect(settings.warnUnload).toBe(false);
   });
 
   it('persist is false', async () => {
@@ -159,8 +160,8 @@ describe('onSettingChange', () => {
     document.body.innerHTML = `
       <details id="settings-details"><summary></summary><div class="settings-body"></div></details>
       <input type="checkbox" id="toggle-paranoid" />
-      <input type="checkbox" id="toggle-skip-clean" />
-      <input type="checkbox" id="toggle-skip-unsupported" /><label></label>
+      <label><input type="checkbox" id="toggle-skip-clean" /></label>
+      <input type="checkbox" id="toggle-skip-unsupported" />
       <input type="checkbox" id="toggle-include-skipped" />
       <input type="checkbox" id="toggle-warn-unload" />
       <input type="checkbox" id="toggle-auto-about" />
@@ -188,8 +189,8 @@ describe('onSettingChange', () => {
     document.body.innerHTML = `
       <details id="settings-details"><summary></summary><div class="settings-body"></div></details>
       <input type="checkbox" id="toggle-paranoid" />
-      <input type="checkbox" id="toggle-skip-clean" checked />
-      <input type="checkbox" id="toggle-skip-unsupported" /><label></label>
+      <label><input type="checkbox" id="toggle-skip-clean" checked /></label>
+      <input type="checkbox" id="toggle-skip-unsupported" />
       <input type="checkbox" id="toggle-include-skipped" />
       <input type="checkbox" id="toggle-warn-unload" checked />
       <input type="checkbox" id="toggle-auto-about" checked />

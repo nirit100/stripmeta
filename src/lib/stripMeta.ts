@@ -89,16 +89,68 @@ export interface MetadataPreview {
   parseErrored?: true;  // exifr threw during parsing! treat as not clean
 }
 
+// exifr has no WebP parser; extract the EXIF chunk from the RIFF structure and
+// feed the raw TIFF bytes directly, forcing TIFF mode.
+async function readWebpExif(file: File): Promise<{
+  exifRaw: Record<string, unknown> | null;
+  gpsResult: { latitude: number; longitude: number } | null;
+  hasAnyMetadata: boolean;
+  parseErrored: boolean;
+}> {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const dec = (o: number) => String.fromCharCode(buf[o], buf[o+1], buf[o+2], buf[o+3]);
+  const u32le = (o: number) => (buf[o] | buf[o+1]<<8 | buf[o+2]<<16 | buf[o+3]<<24) >>> 0;
+
+  let exifRaw: Record<string, unknown> | null = null;
+  let gpsResult: { latitude: number; longitude: number } | null = null;
+  let hasAnyMetadata = false;
+  let parseErrored = false;
+
+  let pos = 12;
+  while (pos + 8 <= buf.length) {
+    const fourcc = dec(pos);
+    const size   = u32le(pos + 4);
+
+    if (fourcc === 'EXIF' || fourcc === 'XMP ') {
+      hasAnyMetadata = true;
+      if (fourcc === 'EXIF') {
+        const raw = buf.slice(pos + 8, pos + 8 + size);
+        // Skip the optional "Exif\0\0" app-level prefix
+        const hasPrefix = raw[0]===0x45&&raw[1]===0x78&&raw[2]===0x69&&raw[3]===0x66&&raw[4]===0&&raw[5]===0;
+        const tiff = hasPrefix ? raw.slice(6) : raw;
+        [exifRaw, gpsResult] = await Promise.all([
+          exifr.parse(tiff, { tiff: true } as Parameters<typeof exifr.parse>[1]).catch(() => { parseErrored = true; return null; }),
+          exifr.gps(tiff).catch(() => null),
+        ]);
+      }
+    }
+
+    pos += 8 + size + (size & 1);
+  }
+
+  return { exifRaw, gpsResult, hasAnyMetadata, parseErrored };
+}
+
 export async function readMetadata(file: File): Promise<MetadataPreview> {
   let parseErrored = false;
-  const [exifRaw, gpsResult, pngText] = await Promise.all([
-    // Full parse (not just picked fields) so hasAnyMetadata covers the complete EXIF/XMP/IPTC scope.
-    exifr.parse(file, true).catch(() => { parseErrored = true; return null; }),
-    exifr.gps(file).catch(() => null),
-    file.type === 'image/png'
-      ? file.arrayBuffer().then(b => decodePngTextChunks(new Uint8Array(b))).catch(() => null)
-      : Promise.resolve(null),
-  ]);
+
+  const isWebp = file.type === 'image/webp';
+  const webp = isWebp ? await readWebpExif(file) : null;
+
+  const [exifRaw, gpsResult, pngText] = isWebp
+    ? [webp!.exifRaw, webp!.gpsResult, null] as const
+    : await Promise.all([
+        // Full parse (not just picked fields) so hasAnyMetadata covers the complete EXIF/XMP/IPTC scope.
+        exifr.parse(file, true).catch(() => { parseErrored = true; return null; }),
+        exifr.gps(file).catch(() => null),
+        file.type === 'image/png'
+          ? file.arrayBuffer().then(b => decodePngTextChunks(new Uint8Array(b))).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+  if (isWebp) {
+    parseErrored = webp!.parseErrored;
+  }
 
   const gps = (gpsResult != null && Number.isFinite(gpsResult.latitude) && Number.isFinite(gpsResult.longitude))
     ? { latitude: gpsResult.latitude, longitude: gpsResult.longitude }
@@ -140,8 +192,16 @@ export async function readRichMetadata(file: File): Promise<{ sections: Metadata
   let parseError: unknown;
   let hasUnreadableData: true | undefined;
 
-  const raw = await exifr.parse(file, true)
-    .catch((err: unknown) => { parseError = err; return null; }) as Record<string, unknown> | null;
+  let raw: Record<string, unknown> | null;
+  if (file.type === 'image/webp') {
+    const webp = await readWebpExif(file);
+    raw = webp.exifRaw;
+    if (webp.parseErrored) parseError = new Error('Could not parse EXIF data');
+  } else {
+    raw = await exifr.parse(file, true)
+      .catch((err: unknown) => { parseError = err; return null; }) as Record<string, unknown> | null;
+  }
+
   if (raw) {
     // exifr surfaces parsing failures as a returned `errors` array rather than throwing.
     if (Array.isArray(raw.errors) && (raw.errors as unknown[]).length > 0) {
@@ -149,7 +209,7 @@ export async function readRichMetadata(file: File): Promise<{ sections: Metadata
     }
     const allKeys = Object.keys(raw).filter(k => k !== 'errors');
     const entries = allKeys
-      .map(key => ({ key, value: formatExifrValue(raw[key]) }))
+      .map(key => ({ key, value: formatExifrValue(raw![key]) }))
       .filter((e): e is { key: string; value: string } => e.value !== null);
     if (entries.length < allKeys.length) hasUnreadableData = true;
     if (entries.length) sections.push({ name: 'EXIF / XMP / IPTC', entries });
