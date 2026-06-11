@@ -25,7 +25,7 @@ export function openMetadataModal(file: File, manager: StripperManager): void {
   manager.resolve(file).then(h => {
     modalHandler.innerHTML = `<span class="font-semibold text-base-content/60">${h.name}</span><span class="mx-1.5 text-base-content/30">—</span>${h.description}`;
     modalHandler.classList.remove('hidden');
-  }).catch(() => {});
+  }).catch(err => console.warn('[handler resolve]', err));
 
   readRichMetadata(file).then(({ sections, parseError, hasUnreadableData }) => {
     modalContent.innerHTML = '';
@@ -135,7 +135,8 @@ export function openMetadataModal(file: File, manager: StripperManager): void {
     disclaimer.className = 'mt-5 text-[0.65rem] text-base-content/35 leading-relaxed';
     disclaimer.textContent = 'Fields highlighted in amber may contain personally identifiable data. However, the combination of multiple fields — even seemingly innocent ones like timestamps or device settings — can be just as identifying as explicit location data.';
     modalContent.appendChild(disclaimer);
-  }).catch(() => {
+  }).catch(err => {
+    console.error('[readRichMetadata]', err);
     modalContent.innerHTML = '<p class="text-sm text-error py-10 text-center">Could not read metadata.</p>';
   });
 }

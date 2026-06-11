@@ -401,6 +401,13 @@ function showGpsPopover(anchor: HTMLElement, lat: number, lon: number, coordStr:
   setTimeout(() => document.addEventListener('click', dismiss, true), 0);
 }
 
+// — File card handler constants —
+
+const COPY_BTN_CLASS = 'btn btn-ghost btn-xs btn-circle text-base-content/65 hover:text-primary hover:bg-primary/10 tooltip tooltip-left transition-colors';
+const SVG_COPY_CLIP  = iconSvg('clipboard', 'w-3.5 h-3.5', '2');
+const SVG_COPY_CHECK = iconSvg('check',     'w-3.5 h-3.5', '2.5');
+const SVG_COPY_X     = iconSvg('x-mark',   'w-3.5 h-3.5', '2.5');
+
 // — Badge helper —
 
 function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-top'): HTMLElement {
@@ -416,7 +423,141 @@ function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-top'):
   return el;
 }
 
-// — File card (preserved from original) —
+// — File card handlers —
+
+function attachCopyHandler(file: File, copyBtn: HTMLButtonElement, defaultTip: string): void {
+  let busy = false;
+  copyBtn.addEventListener('click', async () => {
+    if (busy) return;
+    const blob = state.blobs.get(file);
+    if (!blob) return;
+    busy = true;
+    copyBtn.disabled = true;
+    copyBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span>';
+    try {
+      const clipPromise: Promise<Blob> = blob.type === 'image/png'
+        ? Promise.resolve(blob)
+        : createImageBitmap(blob).then(bmp => {
+            const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+            canvas.getContext('2d')!.drawImage(bmp, 0, 0);
+            bmp.close();
+            return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+          });
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipPromise })]);
+      copyBtn.innerHTML = SVG_COPY_CHECK;
+      copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-success tooltip tooltip-left transition-colors';
+      copyBtn.dataset.tip = 'Copied!';
+      window.dispatchEvent(new CustomEvent('stripmeta:copied'));
+    } catch (err) {
+      console.error('[copy]', err);
+      copyBtn.innerHTML = SVG_COPY_X;
+      copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-error tooltip tooltip-left transition-colors';
+      copyBtn.dataset.tip = 'Failed';
+      setTimeout(() => {
+        copyBtn.innerHTML = SVG_COPY_CLIP;
+        copyBtn.className = COPY_BTN_CLASS;
+        copyBtn.dataset.tip = defaultTip;
+        copyBtn.disabled = false;
+        busy = false;
+      }, 4000);
+      return;
+    }
+    setTimeout(() => {
+      copyBtn.innerHTML = SVG_COPY_CLIP;
+      copyBtn.className = COPY_BTN_CLASS;
+      copyBtn.dataset.tip = defaultTip;
+      copyBtn.disabled = false;
+      busy = false;
+    }, 2000);
+  });
+}
+
+function attachRemoveHandler(
+  removeBtn: HTMLButtonElement,
+  entry: FileEntry,
+  deleteHint: HTMLElement,
+  body: HTMLElement,
+  row: HTMLElement,
+): void {
+  removeBtn.addEventListener('click', () => {
+    if (window.matchMedia('(pointer: coarse)').matches) {
+      deleteHint.style.opacity = '1';
+      body.style.transition = 'transform 320ms ease-in';
+      body.style.transform = 'translateX(-110%)';
+      setTimeout(() => { detachEntry(entry); row.remove(); cleanEmptyDirs(); afterRemove(); }, 330);
+    } else {
+      removeEntry(entry);
+    }
+  });
+}
+
+async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detailsBtn: HTMLButtonElement): Promise<void> {
+  const { file } = entry;
+  await acquireMeta();
+  try {
+    const preview = await readMetadata(file);
+
+    if (preview.gps) {
+      const { latitude, longitude } = preview.gps;
+      const coordStr = formatGps(latitude, longitude);
+      const gpsBadge = document.createElement('button');
+      gpsBadge.type = 'button';
+      gpsBadge.className = 'badge badge-xs badge-error [--size:1.25rem] cursor-pointer tooltip tooltip-top';
+      gpsBadge.dataset.tip = coordStr;
+      const gpsInner = document.createElement('span');
+      gpsInner.className = 'truncate min-w-0';
+      gpsInner.textContent = '📍 GPS';
+      gpsBadge.appendChild(gpsInner);
+      gpsBadge.addEventListener('click', e => {
+        e.stopPropagation();
+        showGpsPopover(gpsBadge, latitude, longitude, coordStr);
+      });
+      badgesSlot.appendChild(gpsBadge);
+    }
+    if (preview.make || preview.model) {
+      const cam = [preview.make, preview.model].filter(Boolean).join(' ');
+      badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '📷 ' + cam, cam));
+    }
+    if (preview.serialNumber) {
+      badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
+    }
+    if (preview.dateTime) {
+      const d = preview.dateTime instanceof Date
+        ? preview.dateTime
+        : new Date(String(preview.dateTime).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
+      badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + (!isNaN(d.getTime()) ? d.toDateString() : String(preview.dateTime))));
+    }
+    if (preview.software) {
+      badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '🛠️ ' + preview.software, preview.software));
+    }
+    if (preview.artist) {
+      badgesSlot.appendChild(badge('badge-error max-w-[9rem]', '👤 ' + preview.artist, preview.artist));
+    }
+    if (preview.userComment) {
+      badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
+    }
+    if (preview.parseErrored) {
+      badgesSlot.appendChild(badge('badge-warning', '⚠ unreadable', 'Metadata could not be parsed'));
+    }
+
+    metadataCache.set(file, preview);
+
+    if (preview.parseErrored && getSkipReason(file) === null) {
+      logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata' });
+    }
+    if (!preview.hasAnyMetadata && !preview.parseErrored) detailsBtn.textContent = 'no metadata';
+
+    applySkipStatus(file);
+    syncFlatList();
+    updateAllDirCounts();
+  } catch (err) {
+    logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
+  } finally {
+    releaseMeta();
+  }
+}
+
+// — File card —
 
 function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   const { file } = entry;
@@ -500,57 +641,16 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   }
   topRow.appendChild(statusBadge);
 
-  if (level !== 'unsupported' && navigator.clipboard?.write) {
-    const svgClip  = iconSvg('clipboard', 'w-3.5 h-3.5', '2');
-    const svgCheck = iconSvg('check',     'w-3.5 h-3.5', '2.5');
-    const svgX     = iconSvg('x-mark',   'w-3.5 h-3.5', '2.5');
-    const baseClass = 'btn btn-ghost btn-xs btn-circle text-base-content/65 hover:text-primary hover:bg-primary/10 tooltip tooltip-left transition-colors';
-
+  if (level !== 'unsupported' && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
     const copyBtn = document.createElement('button');
     copyBtn.type = 'button';
-    copyBtn.className = baseClass;
+    copyBtn.className = COPY_BTN_CLASS;
     const defaultTip = file.type === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
     copyBtn.dataset.tip = defaultTip;
-    copyBtn.innerHTML = svgClip;
+    copyBtn.innerHTML = SVG_COPY_CLIP;
     copyBtn.hidden = !state.done.has(file);
     copyBtnOf.set(file, copyBtn);
-
-    let busy = false;
-    copyBtn.addEventListener('click', async () => {
-      if (busy) return;
-      const blob = state.blobs.get(file);
-      if (!blob) return;
-      busy = true;
-      copyBtn.disabled = true;
-      copyBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span>';
-      try {
-        let clipBlob = blob;
-        if (blob.type !== 'image/png') {
-          const bmp = await createImageBitmap(blob);
-          const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-          canvas.getContext('2d')!.drawImage(bmp, 0, 0);
-          bmp.close();
-          clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
-        }
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
-        copyBtn.innerHTML = svgCheck;
-        copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-success tooltip tooltip-left transition-colors';
-        copyBtn.dataset.tip = 'Copied!';
-        window.dispatchEvent(new CustomEvent('stripmeta:copied'));
-      } catch {
-        copyBtn.innerHTML = svgX;
-        copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-error tooltip tooltip-left transition-colors';
-        copyBtn.dataset.tip = 'Failed';
-      }
-      setTimeout(() => {
-        copyBtn.innerHTML = svgClip;
-        copyBtn.className = baseClass;
-        copyBtn.dataset.tip = defaultTip;
-        copyBtn.disabled = false;
-        busy = false;
-      }, 2000);
-    });
-
+    attachCopyHandler(file, copyBtn, defaultTip);
     topRow.appendChild(copyBtn);
   }
 
@@ -558,16 +658,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   removeBtn.type = 'button';
   removeBtn.className = 'btn btn-ghost btn-xs btn-circle -mr-1 text-error/80 hover:text-error-content hover:bg-error';
   removeBtn.innerHTML = '&times;';
-  removeBtn.addEventListener('click', () => {
-    if (window.matchMedia('(pointer: coarse)').matches) {
-      deleteHint.style.opacity = '1';
-      body.style.transition = 'transform 320ms ease-in';
-      body.style.transform = 'translateX(-110%)';
-      setTimeout(() => { detachEntry(entry); row.remove(); cleanEmptyDirs(); afterRemove(); }, 330);
-    } else {
-      removeEntry(entry);
-    }
-  });
+  attachRemoveHandler(removeBtn, entry, deleteHint, body, row);
   topRow.appendChild(removeBtn);
   right.appendChild(topRow);
 
@@ -594,7 +685,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
       lossyLabel.dataset.tip = 'Output will be re-encoded as JPEG (small quality loss)';
       handlerRow.appendChild(lossyLabel);
     }
-  }).catch(() => {});
+  }).catch(err => console.warn('[handler resolve]', err));
 
   applySkipStatus(file);
 
@@ -610,73 +701,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
     detailsBtn.addEventListener('click', () => openMetadataModal(file, activeManager()));
 
     subline.append(sep, detailsBtn);
-
-    void (async () => {
-      await acquireMeta();
-      try {
-        const preview = await readMetadata(file);
-
-        if (preview.gps) {
-          const { latitude, longitude } = preview.gps;
-          const coordStr = formatGps(latitude, longitude);
-          const gpsBadge = document.createElement('button');
-          gpsBadge.type = 'button';
-          gpsBadge.className = 'badge badge-xs badge-error [--size:1.25rem] cursor-pointer tooltip tooltip-top';
-          gpsBadge.dataset.tip = coordStr;
-          const gpsInner = document.createElement('span');
-          gpsInner.className = 'truncate min-w-0';
-          gpsInner.textContent = '📍 GPS';
-          gpsBadge.appendChild(gpsInner);
-          gpsBadge.addEventListener('click', e => {
-            e.stopPropagation();
-            showGpsPopover(gpsBadge, latitude, longitude, coordStr);
-          });
-          badgesSlot.appendChild(gpsBadge);
-        }
-        if (preview.make || preview.model) {
-          const cam = [preview.make, preview.model].filter(Boolean).join(' ');
-          badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '📷 ' + cam, cam));
-        }
-        if (preview.serialNumber) {
-          badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
-        }
-        if (preview.dateTime) {
-          const d = preview.dateTime instanceof Date
-            ? preview.dateTime
-            : new Date(String(preview.dateTime).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
-          badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + (!isNaN(d.getTime()) ? d.toDateString() : String(preview.dateTime))));
-        }
-        if (preview.software) {
-          badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '🛠️ ' + preview.software, preview.software));
-        }
-        if (preview.artist) {
-          badgesSlot.appendChild(badge('badge-error max-w-[9rem]', '👤 ' + preview.artist, preview.artist));
-        }
-        if (preview.userComment) {
-          badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
-        }
-
-        if (preview.parseErrored) {
-          badgesSlot.appendChild(badge('badge-warning', '⚠ unreadable', 'Metadata could not be parsed'));
-        }
-
-        metadataCache.set(file, preview);
-
-        if (preview.parseErrored && getSkipReason(file) === null) {
-          logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata' });
-        }
-
-        if (!preview.hasAnyMetadata && !preview.parseErrored) detailsBtn.textContent = 'no metadata';
-
-        applySkipStatus(file);
-        syncFlatList();
-        updateAllDirCounts();
-      } catch (err) {
-        logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
-      } finally {
-        releaseMeta();
-      }
-    })();
+    void loadFileMetadata(entry, badgesSlot, detailsBtn);
   }
 
   addSwipeToRemove(body, row, entry);
@@ -1035,7 +1060,7 @@ async function stripAndDownload() {
     btnDownload.hidden = false;
     btnStrip.hidden = true;
   }
-  if (blobs.length === 1 && navigator.clipboard) {
+  if (blobs.length === 1 && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
     const blobType = blobs[0]!.blob.type;
     const label = blobType === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
     btnCopyResult.innerHTML = `${iconSvg('clipboard', 'w-4 h-4', '2')} ${label}`;
@@ -1193,19 +1218,26 @@ btnCopyResult.addEventListener('click', async () => {
   const originalHtml = btnCopyResult.innerHTML;
   btnCopyResult.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Copying…';
   try {
-    let clipBlob = blob;
-    if (blob.type !== 'image/png') {
-      const bmp = await createImageBitmap(blob);
-      const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-      canvas.getContext('2d')!.drawImage(bmp, 0, 0);
-      bmp.close();
-      clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
-    }
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
+    const clipPromise: Promise<Blob> = blob.type === 'image/png'
+      ? Promise.resolve(blob)
+      : createImageBitmap(blob).then(bmp => {
+          const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+          canvas.getContext('2d')!.drawImage(bmp, 0, 0);
+          bmp.close();
+          return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+        });
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipPromise })]);
     btnCopyResult.innerHTML = `${iconSvg('check', 'w-4 h-4', '2.5')} Copied!`;
     window.dispatchEvent(new CustomEvent('stripmeta:copied'));
-  } catch {
+  } catch (err) {
+    console.error('[copy]', err);
     btnCopyResult.innerHTML = `${iconSvg('x-mark', 'w-4 h-4', '2.5')} Failed`;
+    setTimeout(() => {
+      btnCopyResult.innerHTML = originalHtml;
+      btnCopyResult.disabled = false;
+      copyResultBusy = false;
+    }, 4000);
+    return;
   }
   setTimeout(() => {
     btnCopyResult.innerHTML = originalHtml;

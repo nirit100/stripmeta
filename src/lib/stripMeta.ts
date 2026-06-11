@@ -119,8 +119,8 @@ async function readWebpExif(file: File): Promise<{
         const hasPrefix = raw[0]===0x45&&raw[1]===0x78&&raw[2]===0x69&&raw[3]===0x66&&raw[4]===0&&raw[5]===0;
         const tiff = hasPrefix ? raw.slice(6) : raw;
         [exifRaw, gpsResult] = await Promise.all([
-          exifr.parse(tiff, { tiff: true } as Parameters<typeof exifr.parse>[1]).catch(() => { parseErrored = true; return null; }),
-          exifr.gps(tiff).catch(() => null),
+          exifr.parse(tiff, { tiff: true } as Parameters<typeof exifr.parse>[1]).catch(err => { console.warn('[webp exif parse]', err); parseErrored = true; return null; }),
+          exifr.gps(tiff).catch(err => { console.warn('[webp gps]', err); return null; }),
         ]);
       }
     }
@@ -141,10 +141,10 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
     ? [webp!.exifRaw, webp!.gpsResult, null] as const
     : await Promise.all([
         // Full parse (not just picked fields) so hasAnyMetadata covers the complete EXIF/XMP/IPTC scope.
-        exifr.parse(file, true).catch(() => { parseErrored = true; return null; }),
-        exifr.gps(file).catch(() => null),
+        exifr.parse(file, true).catch(err => { console.warn('[exif parse]', err); parseErrored = true; return null; }),
+        exifr.gps(file).catch(err => { console.warn('[gps parse]', err); return null; }),
         file.type === 'image/png'
-          ? file.arrayBuffer().then(b => decodePngTextChunks(new Uint8Array(b))).catch(() => null)
+          ? file.arrayBuffer().then(b => decodePngTextChunks(new Uint8Array(b))).catch(err => { console.warn('[png chunks]', err); return null; })
           : Promise.resolve(null),
       ]);
 
@@ -216,7 +216,7 @@ export async function readRichMetadata(file: File): Promise<{ sections: Metadata
   }
 
   if (file.type === 'image/png') {
-    const buf = await file.arrayBuffer().catch(() => null);
+    const buf = await file.arrayBuffer().catch(err => { console.warn('[arrayBuffer]', err); return null; });
     if (buf) {
       try {
         const section = decodePngTextChunks(new Uint8Array(buf));
