@@ -41,8 +41,7 @@ const appVersion: string = __APP_VERSION__;
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1d232a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <link rel="apple-touch-icon" href="/icons/apple-touch.png" />
@@ -52,12 +51,12 @@ const appVersion: string = __APP_VERSION__;
     <title>{title}</title>
     <script is:inline>
       (function () {
+        var DARK = '#1d232a', LIGHT = '#ffffff';
         var t = localStorage.getItem('stripmeta-theme');
-        if (t === 'light' || t === 'dark') {
-          document.documentElement.setAttribute('data-theme', t);
-          var color = t === 'dark' ? '#1d232a' : '#ffffff';
-          document.querySelectorAll('meta[name="theme-color"]').forEach(function(m) { m.setAttribute('content', color); });
-        }
+        var color = t === 'dark' ? DARK : t === 'light' ? LIGHT
+          : window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK : LIGHT;
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', color);
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
         if (localStorage.getItem('stripmeta-no-glass') === '1') document.documentElement.classList.add('no-glass');
       })();
     </script>

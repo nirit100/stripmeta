@@ -6,17 +6,20 @@ const THEME_COLORS: Record<'light' | 'dark', string> = {
   dark:  '#1d232a',
 };
 
+const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+
 function syncThemeColor(theme: Theme) {
-  const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
-  if (!metas.length) return;
-  if (theme === 'auto') {
-    // Restore per-scheme defaults — browser picks via media query natively.
-    metas.forEach(m => { m.content = m.media.includes('light') ? THEME_COLORS.light : THEME_COLORS.dark; });
-  } else {
-    const color = THEME_COLORS[theme];
-    metas.forEach(m => { m.content = color; });
-  }
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) return;
+  meta.content = theme === 'auto'
+    ? (systemDark.matches ? THEME_COLORS.dark : THEME_COLORS.light)
+    : THEME_COLORS[theme];
 }
+
+// Keep the bar in sync when the OS flips colour scheme while in auto mode.
+systemDark.addEventListener('change', () => {
+  if (((localStorage.getItem(KEY) as Theme | null) ?? 'auto') === 'auto') syncThemeColor('auto');
+});
 
 function apply(theme: Theme) {
   if (theme === 'auto') {
