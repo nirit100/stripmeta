@@ -109,9 +109,11 @@ function setupReset(
   onPreview: () => void,
   onConfirm: () => void,
   onAbort: () => void,
+  toLock: HTMLInputElement[] = [],
 ): void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let bar: HTMLSpanElement | null = null;
+  let cancelBlink: () => void = () => {};
 
   function startBar() {
     btn.style.position = 'relative';
@@ -127,15 +129,33 @@ function setupReset(
     btn.style.position = '';
   }
 
+  function startBlink() {
+    const restores = toLock.map(t => {
+      const target = t.closest('label') ?? t;
+      const anim = target.animate(
+        [
+          { backgroundColor: 'transparent' },
+          { backgroundColor: 'rgba(251, 191, 36, 0.18)' },
+          { backgroundColor: 'transparent' },
+        ],
+        { duration: 900, iterations: Infinity, easing: 'ease-in-out' },
+      );
+      return () => { anim.cancel(); };
+    });
+    cancelBlink = () => { restores.forEach(f => f()); cancelBlink = () => {}; };
+  }
+
   btn.addEventListener('click', () => {
     if (timer === null) {
       onPreview();
       btn.textContent = 'click again to confirm';
       btn.className = RESET_PENDING;
       startBar();
+      startBlink();
       timer = setTimeout(() => {
         timer = null;
         stopBar();
+        cancelBlink();
         btn.textContent = 'Reset';
         btn.className = RESET_BASE;
         onAbort();
@@ -144,6 +164,7 @@ function setupReset(
       clearTimeout(timer);
       timer = null;
       stopBar();
+      cancelBlink();
       btn.textContent = 'Reset';
       btn.className = RESET_BASE;
       onConfirm();
@@ -350,6 +371,7 @@ export function initSettings(): void {
       toggleIncludeSkipped.checked    = procSaved.includeSkipped;
       toggleIncludeSkipped.disabled   = false;
     },
+    [toggleParanoid, toggleSkipClean, toggleSkipUnsupported, toggleSkipExperimental, toggleIncludeSkipped],
   );
 
   setupReset(
@@ -383,6 +405,7 @@ export function initSettings(): void {
       toggleNoGlass.checked     = appSaved.noGlass;
       toggleNoGlass.disabled    = false;
     },
+    [toggleAutoAbout, toggleWarnUnload, toggleNoGlass],
   );
 
   setupReset(
@@ -400,6 +423,7 @@ export function initSettings(): void {
       togglePersist.checked  = techSaved.persist;
       togglePersist.disabled = false;
     },
+    [togglePersist],
   );
 
   // Panel open/close animation

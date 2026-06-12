@@ -162,6 +162,7 @@ describe('onSettingChange', () => {
       <input type="checkbox" id="toggle-paranoid" />
       <label><input type="checkbox" id="toggle-skip-clean" /></label>
       <input type="checkbox" id="toggle-skip-unsupported" />
+      <label><input type="checkbox" id="toggle-skip-experimental" checked /></label>
       <input type="checkbox" id="toggle-include-skipped" />
       <input type="checkbox" id="toggle-warn-unload" />
       <input type="checkbox" id="toggle-auto-about" />
@@ -169,6 +170,9 @@ describe('onSettingChange', () => {
       <input type="checkbox" id="toggle-no-glass" />
       <span id="clear-storage-hint"></span>
       <button id="btn-clear-storage"></button>
+      <button id="btn-reset-processing"></button>
+      <button id="btn-reset-appearance"></button>
+      <button id="btn-reset-technical"></button>
     `;
 
     const { settings, onSettingChange, initSettings } = await importFresh();
@@ -191,6 +195,7 @@ describe('onSettingChange', () => {
       <input type="checkbox" id="toggle-paranoid" />
       <label><input type="checkbox" id="toggle-skip-clean" checked /></label>
       <input type="checkbox" id="toggle-skip-unsupported" />
+      <label><input type="checkbox" id="toggle-skip-experimental" checked /></label>
       <input type="checkbox" id="toggle-include-skipped" />
       <input type="checkbox" id="toggle-warn-unload" checked />
       <input type="checkbox" id="toggle-auto-about" checked />
@@ -198,6 +203,9 @@ describe('onSettingChange', () => {
       <input type="checkbox" id="toggle-no-glass" />
       <span id="clear-storage-hint"></span>
       <button id="btn-clear-storage"></button>
+      <button id="btn-reset-processing"></button>
+      <button id="btn-reset-appearance"></button>
+      <button id="btn-reset-technical"></button>
     `;
 
     const { settings, initSettings } = await importFresh();
