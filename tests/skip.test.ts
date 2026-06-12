@@ -14,8 +14,8 @@ const emptyMeta: MetadataPreview = {
   hasAnyMetadata: false,
 };
 
-const allOn: SkipSettings = { paranoid: false, skipUnsupported: true, skipClean: true };
-const allOff: SkipSettings = { paranoid: false, skipUnsupported: false, skipClean: false };
+const allOn: SkipSettings = { paranoid: false, skipUnsupported: true, skipExperimental: true, skipClean: true };
+const allOff: SkipSettings = { paranoid: false, skipUnsupported: false, skipExperimental: false, skipClean: false };
 
 describe('getSkipReason', () => {
   describe('skipUnsupported', () => {
@@ -34,7 +34,7 @@ describe('getSkipReason', () => {
     it('does NOT skip lossy when paranoid mode is on', () => {
       const file = makeFile();
       const levelOf = new Map<File, WarningLevel>([[file, 'lossy']]);
-      const settings: SkipSettings = { paranoid: true, skipUnsupported: true, skipClean: false };
+      const settings: SkipSettings = { paranoid: true, skipUnsupported: true, skipExperimental: true, skipClean: false };
       expect(getSkipReason(file, settings, levelOf, new Map())).toBeNull();
     });
 
@@ -81,7 +81,7 @@ describe('getSkipReason', () => {
 
     it('does not skip when metadata is not yet cached', () => {
       const file = makeFile();
-      const settings: SkipSettings = { paranoid: false, skipUnsupported: false, skipClean: true };
+      const settings: SkipSettings = { paranoid: false, skipUnsupported: false, skipExperimental: false, skipClean: true };
       expect(getSkipReason(file, settings, new Map(), new Map())).toBeNull();
     });
 

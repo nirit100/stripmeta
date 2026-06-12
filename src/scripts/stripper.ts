@@ -340,9 +340,10 @@ function applySkipStatus(file: File) {
     statusBadge.hidden = true; // red ✕ Unsupported badge already covers this
   } else {
     statusBadge.hidden = false;
-    if (reason === 'lossy')            statusBadge.textContent = 'Skipped — lossy only';
-    else if (reason === 'no-metadata') statusBadge.textContent = 'Skipped — no metadata';
-    else                               statusBadge.textContent = 'Ready';
+    if (reason === 'lossy')             statusBadge.textContent = 'Skipped — lossy only';
+    else if (reason === 'experimental') statusBadge.textContent = 'Skipped — experimental';
+    else if (reason === 'no-metadata')  statusBadge.textContent = 'Skipped — no metadata';
+    else                                statusBadge.textContent = 'Ready';
   }
 }
 
@@ -757,7 +758,7 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
     let incompatible = 0, clean = 0, stripErrors = 0, done = 0;
     for (const e of under) {
       const r = getSkipReason(e.file);
-      if (r === 'unsupported' || r === 'lossy') incompatible++;
+      if (r === 'unsupported' || r === 'lossy' || r === 'experimental') incompatible++;
       else if (r === 'no-metadata') clean++;
       if (state.errored.has(e.file)) stripErrors++;
       if (state.done.has(e.file))   done++;
@@ -914,7 +915,11 @@ function renderBanner() {
 
   if (experimental) {
     const p = experimental > 1;
-    lines.push(`<span class="text-warning font-medium">${experimental} file${p ? 's' : ''} will use an experimental handler</span> — review the output carefully before sharing.`);
+    if (settings.skipExperimental && !settings.paranoid) {
+      lines.push(`<span class="text-base-content/60 font-medium">${experimental} file${p ? 's' : ''} will be skipped</span> — experimental format${p ? 's' : ''} (HEIC/AVIF) disabled in settings.`);
+    } else {
+      lines.push(`<span class="text-warning font-medium">${experimental} file${p ? 's' : ''} will use an experimental handler</span> — review the output carefully before sharing.`);
+    }
   }
 
   fileWarningBanner.hidden = false;
@@ -1294,8 +1299,9 @@ function maybeRestoreStripButton() {
   }
 }
 
-onSettingChange('skipClean',       () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
-onSettingChange('skipUnsupported', () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
+onSettingChange('skipClean',        () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
+onSettingChange('skipUnsupported',  () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
+onSettingChange('skipExperimental', () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); renderBanner(); maybeRestoreStripButton(); });
 
 window.addEventListener('beforeunload', e => {
   if (settings.warnUnload && entries.length > 0) e.preventDefault();

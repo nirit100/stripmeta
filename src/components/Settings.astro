@@ -45,6 +45,16 @@ import Icon from './Icon.astro';
     </label>
     <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
       <div class="flex items-start gap-3">
+        <Icon name="beaker" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+        <div>
+          <p class="text-sm font-medium">Process experimental formats (HEIC, AVIF)</p>
+          <p class="text-xs text-base-content/50">Metadata stripping for some formats is experimental. Disable to skip these formats entirely.</p>
+        </div>
+      </div>
+      <input type="checkbox" id="toggle-skip-experimental" class="toggle toggle-sm shrink-0" checked />
+    </label>
+    <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+      <div class="flex items-start gap-3">
         <Icon name="document-duplicate" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
           <p class="text-sm font-medium">Copy skipped files to output</p>

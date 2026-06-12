@@ -1,13 +1,14 @@
 // — DOM refs (only used inside initSettings) —
 
-const toggleAutoAbout       = document.getElementById('toggle-auto-about') as HTMLInputElement;
-const toggleParanoid        = document.getElementById('toggle-paranoid') as HTMLInputElement;
-const toggleSkipClean       = document.getElementById('toggle-skip-clean') as HTMLInputElement;
-const toggleSkipUnsupported = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
-const toggleIncludeSkipped  = document.getElementById('toggle-include-skipped') as HTMLInputElement;
-const toggleWarnUnload      = document.getElementById('toggle-warn-unload') as HTMLInputElement;
-const togglePersist         = document.getElementById('toggle-persist') as HTMLInputElement;
-const toggleNoGlass         = document.getElementById('toggle-no-glass') as HTMLInputElement;
+const toggleAutoAbout          = document.getElementById('toggle-auto-about') as HTMLInputElement;
+const toggleParanoid           = document.getElementById('toggle-paranoid') as HTMLInputElement;
+const toggleSkipClean          = document.getElementById('toggle-skip-clean') as HTMLInputElement;
+const toggleSkipUnsupported    = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
+const toggleSkipExperimental   = document.getElementById('toggle-skip-experimental') as HTMLInputElement;
+const toggleIncludeSkipped     = document.getElementById('toggle-include-skipped') as HTMLInputElement;
+const toggleWarnUnload         = document.getElementById('toggle-warn-unload') as HTMLInputElement;
+const togglePersist            = document.getElementById('toggle-persist') as HTMLInputElement;
+const toggleNoGlass            = document.getElementById('toggle-no-glass') as HTMLInputElement;
 const clearStorageHint      = document.getElementById('clear-storage-hint')!;
 const btnClearStorage       = document.getElementById('btn-clear-storage') as HTMLButtonElement;
 
@@ -17,6 +18,7 @@ interface SettingsState {
   paranoid: boolean;
   skipClean: boolean;
   skipUnsupported: boolean;
+  skipExperimental: boolean;
   includeSkipped: boolean;
   warnUnload: boolean;
   autoAbout: boolean;
@@ -32,23 +34,25 @@ function lsRead(key: string, def: boolean): boolean {
 }
 
 const _state: SettingsState = {
-  paranoid:        lsRead('stripmeta-paranoid',            false),
-  skipClean:       !lsRead('stripmeta-process-clean',       false),
-  skipUnsupported: !lsRead('stripmeta-process-unsupported', false),
-  includeSkipped:  lsRead('stripmeta-include-skipped',      false),
-  warnUnload:      lsRead('stripmeta-warn-unload',          import.meta.env.DEV ? false : true),
-  autoAbout:       lsRead('stripmeta-auto-about',           true),
-  persist:         !_noPersist,
+  paranoid:         lsRead('stripmeta-paranoid',              false),
+  skipClean:        !lsRead('stripmeta-process-clean',         false),
+  skipUnsupported:  !lsRead('stripmeta-process-unsupported',   false),
+  skipExperimental: !lsRead('stripmeta-process-experimental',  true),
+  includeSkipped:   lsRead('stripmeta-include-skipped',        false),
+  warnUnload:       lsRead('stripmeta-warn-unload',            import.meta.env.DEV ? false : true),
+  autoAbout:        lsRead('stripmeta-auto-about',             true),
+  persist:          !_noPersist,
 };
 
 export const settings: Readonly<SettingsState> = {
-  get paranoid()        { return _state.paranoid; },
-  get skipClean()       { return _state.paranoid ? false : _state.skipClean; },
-  get skipUnsupported() { return _state.skipUnsupported; },
-  get includeSkipped()  { return _state.includeSkipped; },
-  get warnUnload()      { return _state.warnUnload; },
-  get autoAbout()       { return _state.autoAbout; },
-  get persist()         { return _state.persist; },
+  get paranoid()          { return _state.paranoid; },
+  get skipClean()         { return _state.paranoid ? false : _state.skipClean; },
+  get skipUnsupported()   { return _state.skipUnsupported; },
+  get skipExperimental()  { return _state.paranoid ? false : _state.skipExperimental; },
+  get includeSkipped()    { return _state.includeSkipped; },
+  get warnUnload()        { return _state.warnUnload; },
+  get autoAbout()         { return _state.autoAbout; },
+  get persist()           { return _state.persist; },
 };
 
 // — Change subscriptions —
@@ -72,6 +76,7 @@ const PERSIST_KEYS = [
   'stripmeta-paranoid',
   'stripmeta-process-clean',
   'stripmeta-process-unsupported',
+  'stripmeta-process-experimental',
   'stripmeta-include-skipped',
   'stripmeta-no-glass',
   'stripmeta-warn-unload',
@@ -112,23 +117,29 @@ export function initSettings(): void {
   const labelSkipClean = toggleSkipClean.closest('label')!;
 
   // Sync toggle DOM state from _state
-  togglePersist.checked         = _state.persist;
-  toggleParanoid.checked        = _state.paranoid;
-  toggleSkipClean.checked       = !_state.skipClean;
-  toggleSkipUnsupported.checked = !_state.skipUnsupported;
-  toggleIncludeSkipped.checked  = _state.includeSkipped;
-  toggleWarnUnload.checked      = _state.warnUnload;
-  toggleAutoAbout.checked       = _state.autoAbout;
-  toggleNoGlass.checked         = localStorage.getItem('stripmeta-no-glass') === '1';
+  togglePersist.checked            = _state.persist;
+  toggleParanoid.checked           = _state.paranoid;
+  toggleSkipClean.checked          = !_state.skipClean;
+  toggleSkipUnsupported.checked    = !_state.skipUnsupported;
+  toggleSkipExperimental.checked   = !_state.skipExperimental;
+  toggleIncludeSkipped.checked     = _state.includeSkipped;
+  toggleWarnUnload.checked         = _state.warnUnload;
+  toggleAutoAbout.checked          = _state.autoAbout;
+  toggleNoGlass.checked            = localStorage.getItem('stripmeta-no-glass') === '1';
 
   // Show stale-data hint if persist was already disabled and old data exists
   if (_noPersist && hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
 
-  // Apply paranoid UI state on load (skipClean forced; toggle-skip-clean locked checked)
+  const labelSkipExperimental = toggleSkipExperimental.closest('label')!;
+
+  // Apply paranoid UI state on load (skipClean + skipExperimental forced; toggles locked checked)
   if (_state.paranoid) {
-    toggleSkipClean.checked   = true;
-    toggleSkipClean.disabled  = true;
+    toggleSkipClean.checked          = true;
+    toggleSkipClean.disabled         = true;
     labelSkipClean.classList.add('opacity-40', 'pointer-events-none');
+    toggleSkipExperimental.checked   = true;
+    toggleSkipExperimental.disabled  = true;
+    labelSkipExperimental.classList.add('opacity-40', 'pointer-events-none');
   }
 
   // Event listeners — update _state, persist, notify
@@ -136,16 +147,23 @@ export function initSettings(): void {
     _state.paranoid = toggleParanoid.checked;
     persist('stripmeta-paranoid', _state.paranoid);
     if (_state.paranoid) {
-      toggleSkipClean.checked  = true;
-      toggleSkipClean.disabled = true;
+      toggleSkipClean.checked          = true;
+      toggleSkipClean.disabled         = true;
       labelSkipClean.classList.add('opacity-40', 'pointer-events-none');
+      toggleSkipExperimental.checked   = true;
+      toggleSkipExperimental.disabled  = true;
+      labelSkipExperimental.classList.add('opacity-40', 'pointer-events-none');
     } else {
-      toggleSkipClean.checked  = !_state.skipClean;
-      toggleSkipClean.disabled = false;
+      toggleSkipClean.checked          = !_state.skipClean;
+      toggleSkipClean.disabled         = false;
       labelSkipClean.classList.remove('opacity-40', 'pointer-events-none');
+      toggleSkipExperimental.checked   = !_state.skipExperimental;
+      toggleSkipExperimental.disabled  = false;
+      labelSkipExperimental.classList.remove('opacity-40', 'pointer-events-none');
     }
     notify('paranoid');
     notify('skipClean');
+    notify('skipExperimental');
   });
 
   toggleSkipClean.addEventListener('change', () => {
@@ -158,6 +176,12 @@ export function initSettings(): void {
     _state.skipUnsupported = !toggleSkipUnsupported.checked;
     persist('stripmeta-process-unsupported', toggleSkipUnsupported.checked);
     notify('skipUnsupported');
+  });
+
+  toggleSkipExperimental.addEventListener('change', () => {
+    _state.skipExperimental = !toggleSkipExperimental.checked;
+    persist('stripmeta-process-experimental', toggleSkipExperimental.checked);
+    notify('skipExperimental');
   });
 
   toggleIncludeSkipped.addEventListener('change', () => {
@@ -184,10 +208,11 @@ export function initSettings(): void {
     _state.persist = togglePersist.checked;
     if (_state.persist) {
       localStorage.removeItem('stripmeta-no-persist');
-      localStorage.setItem('stripmeta-paranoid',            _state.paranoid ? '1' : '0');
-      localStorage.setItem('stripmeta-process-clean',       (!_state.skipClean) ? '1' : '0');
-      localStorage.setItem('stripmeta-process-unsupported', (!_state.skipUnsupported) ? '1' : '0');
-      localStorage.setItem('stripmeta-include-skipped',     _state.includeSkipped ? '1' : '0');
+      localStorage.setItem('stripmeta-paranoid',              _state.paranoid ? '1' : '0');
+      localStorage.setItem('stripmeta-process-clean',         (!_state.skipClean) ? '1' : '0');
+      localStorage.setItem('stripmeta-process-unsupported',   (!_state.skipUnsupported) ? '1' : '0');
+      localStorage.setItem('stripmeta-process-experimental',  (!_state.skipExperimental) ? '1' : '0');
+      localStorage.setItem('stripmeta-include-skipped',       _state.includeSkipped ? '1' : '0');
       localStorage.setItem('stripmeta-no-glass',            document.documentElement.classList.contains('no-glass') ? '1' : '0');
       localStorage.setItem('stripmeta-warn-unload',         _state.warnUnload ? '1' : '0');
       localStorage.setItem('stripmeta-auto-about',          _state.autoAbout ? '1' : '0');
