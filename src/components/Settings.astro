@@ -18,7 +18,7 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="shield-exclamation" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Paranoid mode</p>
+          <p class="text-sm font-medium">Paranoid mode <span id="star-paranoid" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Always re-encode via canvas — strips everything, but output is <b>always JPEG</b>. Small quality loss.</p>
           <p class="text-xs text-base-content/50">Only use when you're really paranoid.</p>
         </div>
@@ -29,7 +29,7 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="funnel" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Process files even if no metadata is found</p>
+          <p class="text-sm font-medium">Process files even if no metadata is found <span id="star-skip-clean" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">If disabled, files without detectable metadata are skipped.</p>
         </div>
       </div>
@@ -39,7 +39,7 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="document-minus" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Try processing unsupported files</p>
+          <p class="text-sm font-medium">Try processing unsupported files <span id="star-skip-unsupported" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Tries to re-encode unsupported formats to JPEG via the canvas method. <br />
             <b>Not recommended</b> — this frequently causes errors.</p>
         </div>
@@ -50,7 +50,7 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="beaker" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Process experimental formats (HEIC, AVIF)</p>
+          <p class="text-sm font-medium">Process experimental formats (HEIC, AVIF) <span id="star-skip-experimental" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Metadata stripping for some formats is experimental. Disable to skip these formats entirely.</p>
         </div>
       </div>
@@ -60,7 +60,7 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="document-duplicate" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Copy skipped files to output</p>
+          <p class="text-sm font-medium">Copy skipped files to output <span id="star-include-skipped" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Include skipped files unchanged in the saved output, so it is always complete.</p>
         </div>
       </div>
@@ -74,7 +74,7 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="chart-bar" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Show results after processing</p>
+          <p class="text-sm font-medium">Show results after processing <span id="star-auto-about" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Opens the About panel after your first run to show what was removed.</p>
         </div>
       </div>
@@ -84,7 +84,7 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="bell-alert" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Warn before leaving with files loaded</p>
+          <p class="text-sm font-medium">Warn before leaving with files loaded <span id="star-warn-unload" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Shows a browser confirmation if you try to close or reload the tab while images are loaded.</p>
           {import.meta.env.DEV && <p class="text-xs text-warning/70 mt-0.5">Off by default in dev mode unless overridden in localStorage.</p>}
         </div>
@@ -95,7 +95,7 @@ import Icon from './Icon.astro';
       <div class="flex items-start gap-3">
         <Icon name="sparkles" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
         <div>
-          <p class="text-sm font-medium">Disable frosted glass &amp; animations</p>
+          <p class="text-sm font-medium">Disable frosted glass &amp; animations <span id="star-no-glass" class="hidden ml-1.5 text-warning">*</span></p>
           <p class="text-xs text-base-content/50">Removes blur effects from floating elements and disables decorative shine animations.</p>
         </div>
       </div>
@@ -110,7 +110,7 @@ import Icon from './Icon.astro';
         <div class="flex items-start gap-3">
           <Icon name="circle-stack" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
           <div>
-            <p class="text-sm font-medium">Remember settings and stats</p>
+            <p class="text-sm font-medium">Remember settings and stats <span id="star-persist" class="hidden ml-1.5 text-warning">*</span></p>
             <p class="text-xs text-base-content/50">
               Settings and stat counters are saved in your browser's local storage and restored on your next visit if enabled.<br />
               Don't worry, the server never sees them.

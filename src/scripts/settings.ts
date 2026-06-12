@@ -99,6 +99,49 @@ function applyNoGlass(enabled: boolean): void {
   persist('stripmeta-no-glass', enabled);
 }
 
+// — Changed-from-default stars —
+
+const DEFAULT_CHECKED: Record<string, boolean> = {
+  'toggle-paranoid':          false,
+  'toggle-skip-clean':        false,
+  'toggle-skip-unsupported':  false,
+  'toggle-skip-experimental': true,
+  'toggle-include-skipped':   false,
+  'toggle-auto-about':        true,
+  'toggle-warn-unload':       !import.meta.env.DEV,
+  'toggle-no-glass':          false,
+  'toggle-persist':           true,
+};
+
+function isDefaultChecked(toggle: HTMLInputElement, id: string): boolean {
+  return toggle.disabled || toggle.checked === DEFAULT_CHECKED[id];
+}
+
+function refreshStars(): void {
+  for (const [toggleId] of Object.entries(DEFAULT_CHECKED)) {
+    const toggle = document.getElementById(toggleId) as HTMLInputElement | null;
+    const star   = document.getElementById(toggleId.replace('toggle-', 'star-'));
+    if (!toggle || !star) continue;
+    star.classList.toggle('hidden', isDefaultChecked(toggle, toggleId));
+  }
+}
+
+function refreshResetButtons(): void {
+  const groups: Array<[HTMLButtonElement | null, string[]]> = [
+    [btnResetProcessing, ['toggle-paranoid', 'toggle-skip-clean', 'toggle-skip-unsupported', 'toggle-skip-experimental', 'toggle-include-skipped']],
+    [btnResetAppearance, ['toggle-auto-about', 'toggle-warn-unload', 'toggle-no-glass']],
+    [btnResetTechnical,  ['toggle-persist']],
+  ];
+  for (const [btn, ids] of groups) {
+    if (!btn) continue;
+    const allDefault = ids.every(id => {
+      const t = document.getElementById(id) as HTMLInputElement | null;
+      return !t || isDefaultChecked(t, id);
+    });
+    btn.classList.toggle('hidden', allDefault);
+  }
+}
+
 // — Category reset buttons —
 
 const RESET_BASE    = 'shrink-0 text-[0.65rem] font-medium transition-colors text-base-content/30 hover:text-base-content/60';
@@ -148,6 +191,7 @@ function setupReset(
   btn.addEventListener('click', () => {
     if (timer === null) {
       onPreview();
+      refreshStars();
       btn.textContent = 'click again to confirm';
       btn.className = RESET_PENDING;
       startBar();
@@ -159,6 +203,8 @@ function setupReset(
         btn.textContent = 'Reset';
         btn.className = RESET_BASE;
         onAbort();
+        refreshStars();
+        refreshResetButtons();
       }, 5000);
     } else {
       clearTimeout(timer);
@@ -168,6 +214,8 @@ function setupReset(
       btn.textContent = 'Reset';
       btn.className = RESET_BASE;
       onConfirm();
+      refreshStars();
+      refreshResetButtons();
     }
   });
 }
@@ -452,4 +500,8 @@ export function initSettings(): void {
       }));
     }
   });
+
+  body.addEventListener('change', () => { refreshStars(); refreshResetButtons(); });
+  refreshStars();
+  refreshResetButtons();
 }
