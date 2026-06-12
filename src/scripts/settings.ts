@@ -152,11 +152,11 @@ function setupReset(
   onPreview: () => void,
   onConfirm: () => void,
   onAbort: () => void,
-  toLock: HTMLInputElement[] = [],
+  starIds: string[] = [],
 ): void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let bar: HTMLSpanElement | null = null;
-  let cancelBlink: () => void = () => {};
+  let stopBlink: () => void = () => {};
 
   function startBar() {
     btn.style.position = 'relative';
@@ -172,34 +172,32 @@ function setupReset(
     btn.style.position = '';
   }
 
-  function startBlink() {
-    const restores = toLock.map(t => {
-      const target = t.closest('label') ?? t;
-      const anim = target.animate(
-        [
-          { backgroundColor: 'transparent' },
-          { backgroundColor: 'rgba(251, 191, 36, 0.18)' },
-          { backgroundColor: 'transparent' },
-        ],
-        { duration: 900, iterations: Infinity, easing: 'ease-in-out' },
-      );
-      return () => { anim.cancel(); };
-    });
-    cancelBlink = () => { restores.forEach(f => f()); cancelBlink = () => {}; };
-  }
-
   btn.addEventListener('click', () => {
     if (timer === null) {
+      // Capture visible stars before onPreview changes toggle states
+      const activeStars = starIds
+        .map(id => document.getElementById(id))
+        .filter((el): el is HTMLElement => el !== null && !el.classList.contains('hidden'));
+
       onPreview();
-      refreshStars();
+      // No refreshStars() here — stars stay visible so they can blink
+
       btn.textContent = 'click again to confirm';
       btn.className = RESET_PENDING;
       startBar();
-      startBlink();
+
+      const anims = activeStars.map(star =>
+        star.animate(
+          [{ opacity: '1' }, { opacity: '0.15' }, { opacity: '1' }],
+          { duration: 700, iterations: Infinity, easing: 'ease-in-out' },
+        )
+      );
+      stopBlink = () => { anims.forEach(a => a.cancel()); stopBlink = () => {}; };
+
       timer = setTimeout(() => {
         timer = null;
         stopBar();
-        cancelBlink();
+        stopBlink();
         btn.textContent = 'Reset';
         btn.className = RESET_BASE;
         onAbort();
@@ -210,7 +208,7 @@ function setupReset(
       clearTimeout(timer);
       timer = null;
       stopBar();
-      cancelBlink();
+      stopBlink();
       btn.textContent = 'Reset';
       btn.className = RESET_BASE;
       onConfirm();
@@ -419,7 +417,7 @@ export function initSettings(): void {
       toggleIncludeSkipped.checked    = procSaved.includeSkipped;
       toggleIncludeSkipped.disabled   = false;
     },
-    [toggleParanoid, toggleSkipClean, toggleSkipUnsupported, toggleSkipExperimental, toggleIncludeSkipped],
+    ['star-paranoid', 'star-skip-clean', 'star-skip-unsupported', 'star-skip-experimental', 'star-include-skipped'],
   );
 
   setupReset(
@@ -453,7 +451,7 @@ export function initSettings(): void {
       toggleNoGlass.checked     = appSaved.noGlass;
       toggleNoGlass.disabled    = false;
     },
-    [toggleAutoAbout, toggleWarnUnload, toggleNoGlass],
+    ['star-auto-about', 'star-warn-unload', 'star-no-glass'],
   );
 
   setupReset(
@@ -471,7 +469,7 @@ export function initSettings(): void {
       togglePersist.checked  = techSaved.persist;
       togglePersist.disabled = false;
     },
-    [togglePersist],
+    ['star-persist'],
   );
 
   // Panel open/close animation
