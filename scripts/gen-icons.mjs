@@ -21,7 +21,7 @@ function pngChunk(type, data) {
 function solidPng(size, [r, g, b]) {
   const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
-  const ihdr = Buffer.allocUnsafe(13);
+  const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0); // width
   ihdr.writeUInt32BE(size, 4); // height
   ihdr[8] = 8; // bit depth
