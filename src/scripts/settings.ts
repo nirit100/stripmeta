@@ -11,6 +11,9 @@ const togglePersist            = document.getElementById('toggle-persist') as HT
 const toggleNoGlass            = document.getElementById('toggle-no-glass') as HTMLInputElement;
 const clearStorageHint      = document.getElementById('clear-storage-hint')!;
 const btnClearStorage       = document.getElementById('btn-clear-storage') as HTMLButtonElement;
+const btnResetProcessing    = document.getElementById('btn-reset-processing') as HTMLButtonElement;
+const btnResetAppearance    = document.getElementById('btn-reset-appearance') as HTMLButtonElement;
+const btnResetTechnical     = document.getElementById('btn-reset-technical') as HTMLButtonElement;
 
 // — Cached state (initialized from localStorage, no DOM dependency) —
 
@@ -94,6 +97,58 @@ function persist(key: string, value: boolean): void {
 function applyNoGlass(enabled: boolean): void {
   document.documentElement.classList.toggle('no-glass', enabled);
   persist('stripmeta-no-glass', enabled);
+}
+
+// — Category reset buttons —
+
+const RESET_BASE    = 'shrink-0 text-[0.65rem] font-medium transition-colors text-base-content/30 hover:text-base-content/60';
+const RESET_PENDING = 'shrink-0 text-[0.65rem] font-medium transition-colors text-warning';
+
+function setupReset(
+  btn: HTMLButtonElement,
+  onPreview: () => void,
+  onConfirm: () => void,
+  onAbort: () => void,
+): void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let bar: HTMLSpanElement | null = null;
+
+  function startBar() {
+    btn.style.position = 'relative';
+    bar = document.createElement('span');
+    bar.style.cssText = 'position:absolute;bottom:0;left:0;height:2px;width:100%;background:currentColor;opacity:0.4;border-radius:1px;pointer-events:none';
+    btn.appendChild(bar);
+    bar.animate([{ width: '100%' }, { width: '0%' }], { duration: 5000, easing: 'linear', fill: 'forwards' });
+  }
+
+  function stopBar() {
+    bar?.remove();
+    bar = null;
+    btn.style.position = '';
+  }
+
+  btn.addEventListener('click', () => {
+    if (timer === null) {
+      onPreview();
+      btn.textContent = 'click again to confirm';
+      btn.className = RESET_PENDING;
+      startBar();
+      timer = setTimeout(() => {
+        timer = null;
+        stopBar();
+        btn.textContent = 'Reset';
+        btn.className = RESET_BASE;
+        onAbort();
+      }, 5000);
+    } else {
+      clearTimeout(timer);
+      timer = null;
+      stopBar();
+      btn.textContent = 'Reset';
+      btn.className = RESET_BASE;
+      onConfirm();
+    }
+  });
 }
 
 // — Settings panel animation —
@@ -228,6 +283,124 @@ export function initSettings(): void {
     clearStorageHint.classList.remove('hint-visible');
     window.dispatchEvent(new CustomEvent('stripmeta:storageCleared'));
   });
+
+  // — Reset buttons —
+
+  // Saved visual state for abort (captured on first click)
+  let procSaved = { paranoid: false, skipClean: false, skipUnsupported: false, skipExperimental: true, includeSkipped: false, cleanDisabled: false, expDisabled: false };
+  let appSaved  = { autoAbout: true, warnUnload: true, noGlass: false };
+  let techSaved = { persist: true };
+
+  setupReset(
+    btnResetProcessing,
+    () => {
+      procSaved = {
+        paranoid:         toggleParanoid.checked,
+        skipClean:        toggleSkipClean.checked,
+        skipUnsupported:  toggleSkipUnsupported.checked,
+        skipExperimental: toggleSkipExperimental.checked,
+        includeSkipped:   toggleIncludeSkipped.checked,
+        cleanDisabled:    toggleSkipClean.disabled,
+        expDisabled:      toggleSkipExperimental.disabled,
+      };
+      // Show defaults visually; unlock any paranoid-locked toggles
+      toggleParanoid.checked          = false;
+      toggleSkipClean.checked         = false;
+      toggleSkipClean.disabled        = false;
+      labelSkipClean.classList.remove('opacity-40', 'pointer-events-none');
+      toggleSkipUnsupported.checked   = false;
+      toggleSkipExperimental.checked  = true;
+      toggleSkipExperimental.disabled = false;
+      labelSkipExperimental.classList.remove('opacity-40', 'pointer-events-none');
+      toggleIncludeSkipped.checked    = false;
+      // Lock all during pending
+      toggleParanoid.disabled         = true;
+      toggleSkipClean.disabled        = true;
+      toggleSkipUnsupported.disabled  = true;
+      toggleSkipExperimental.disabled = true;
+      toggleIncludeSkipped.disabled   = true;
+    },
+    () => {
+      // Re-enable before dispatching so paranoid handler can re-manage skip-clean/skip-experimental
+      toggleParanoid.disabled         = false;
+      toggleSkipClean.disabled        = false;
+      toggleSkipUnsupported.disabled  = false;
+      toggleSkipExperimental.disabled = false;
+      toggleIncludeSkipped.disabled   = false;
+      // Dispatch non-paranoid toggles first so paranoid's restore reads the updated _state
+      toggleSkipClean.dispatchEvent(new Event('change'));
+      toggleSkipUnsupported.dispatchEvent(new Event('change'));
+      toggleSkipExperimental.dispatchEvent(new Event('change'));
+      toggleIncludeSkipped.dispatchEvent(new Event('change'));
+      toggleParanoid.dispatchEvent(new Event('change'));
+    },
+    () => {
+      toggleParanoid.checked          = procSaved.paranoid;
+      toggleParanoid.disabled         = false;
+      toggleSkipClean.checked         = procSaved.skipClean;
+      toggleSkipClean.disabled        = procSaved.cleanDisabled;
+      if (procSaved.cleanDisabled) labelSkipClean.classList.add('opacity-40', 'pointer-events-none');
+      else labelSkipClean.classList.remove('opacity-40', 'pointer-events-none');
+      toggleSkipUnsupported.checked   = procSaved.skipUnsupported;
+      toggleSkipUnsupported.disabled  = false;
+      toggleSkipExperimental.checked  = procSaved.skipExperimental;
+      toggleSkipExperimental.disabled = procSaved.expDisabled;
+      if (procSaved.expDisabled) labelSkipExperimental.classList.add('opacity-40', 'pointer-events-none');
+      else labelSkipExperimental.classList.remove('opacity-40', 'pointer-events-none');
+      toggleIncludeSkipped.checked    = procSaved.includeSkipped;
+      toggleIncludeSkipped.disabled   = false;
+    },
+  );
+
+  setupReset(
+    btnResetAppearance,
+    () => {
+      appSaved = {
+        autoAbout: toggleAutoAbout.checked,
+        warnUnload: toggleWarnUnload.checked,
+        noGlass: toggleNoGlass.checked,
+      };
+      toggleAutoAbout.checked  = true;
+      toggleWarnUnload.checked = !import.meta.env.DEV;
+      toggleNoGlass.checked    = false;
+      toggleAutoAbout.disabled  = true;
+      toggleWarnUnload.disabled = true;
+      toggleNoGlass.disabled    = true;
+    },
+    () => {
+      toggleAutoAbout.disabled  = false;
+      toggleWarnUnload.disabled = false;
+      toggleNoGlass.disabled    = false;
+      toggleAutoAbout.dispatchEvent(new Event('change'));
+      toggleWarnUnload.dispatchEvent(new Event('change'));
+      toggleNoGlass.dispatchEvent(new Event('change'));
+    },
+    () => {
+      toggleAutoAbout.checked   = appSaved.autoAbout;
+      toggleAutoAbout.disabled  = false;
+      toggleWarnUnload.checked  = appSaved.warnUnload;
+      toggleWarnUnload.disabled = false;
+      toggleNoGlass.checked     = appSaved.noGlass;
+      toggleNoGlass.disabled    = false;
+    },
+  );
+
+  setupReset(
+    btnResetTechnical,
+    () => {
+      techSaved = { persist: togglePersist.checked };
+      togglePersist.checked  = true;
+      togglePersist.disabled = true;
+    },
+    () => {
+      togglePersist.disabled = false;
+      togglePersist.dispatchEvent(new Event('change'));
+    },
+    () => {
+      togglePersist.checked  = techSaved.persist;
+      togglePersist.disabled = false;
+    },
+  );
 
   // Panel open/close animation
   details.querySelector('summary')!.addEventListener('click', e => {

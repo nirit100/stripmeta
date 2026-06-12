@@ -10,7 +10,10 @@ import Icon from './Icon.astro';
     <span class="text-xs font-medium uppercase tracking-widest text-base-content/70">Settings</span>
   </summary>
   <div class="settings-body border-t border-base-300 divide-y divide-base-300">
-    <p class="px-4 pt-3 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">⚙️ Processing</p>
+    <div class="flex items-center justify-between px-4 pt-3 pb-1">
+      <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">⚙️ Processing</p>
+      <button id="btn-reset-processing" type="button" class="shrink-0 text-[0.65rem] font-medium transition-colors text-base-content/30 hover:text-base-content/60">Reset</button>
+    </div>
     <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
       <div class="flex items-start gap-3">
         <Icon name="shield-exclamation" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
@@ -63,7 +66,10 @@ import Icon from './Icon.astro';
       </div>
       <input type="checkbox" id="toggle-include-skipped" class="toggle toggle-sm shrink-0" />
     </label>
-    <p class="px-4 pt-3 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">🎨 Appearance & Usability</p>
+    <div class="flex items-center justify-between px-4 pt-3 pb-1">
+      <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">🎨 Appearance & Usability</p>
+      <button id="btn-reset-appearance" type="button" class="shrink-0 text-[0.65rem] font-medium transition-colors text-base-content/30 hover:text-base-content/60">Reset</button>
+    </div>
     <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
       <div class="flex items-start gap-3">
         <Icon name="chart-bar" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
@@ -95,7 +101,10 @@ import Icon from './Icon.astro';
       </div>
       <input type="checkbox" id="toggle-no-glass" class="toggle toggle-sm shrink-0" />
     </label>
-    <p class="px-4 pt-3 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">🛠️ Technical stuff</p>
+    <div class="flex items-center justify-between px-4 pt-3 pb-1">
+      <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">🛠️ Technical stuff</p>
+      <button id="btn-reset-technical" type="button" class="shrink-0 text-[0.65rem] font-medium transition-colors text-base-content/30 hover:text-base-content/60">Reset</button>
+    </div>
     <div>
       <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
         <div class="flex items-start gap-3">
