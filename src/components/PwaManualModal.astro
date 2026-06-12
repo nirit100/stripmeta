@@ -1,0 +1,25 @@
+---
+import PwaManual from './PwaManual.astro';
+---
+
+<dialog id="pwa-manual-modal" class="modal">
+  <div class="modal-box max-w-sm p-0 overflow-hidden flex flex-col">
+
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300/60 shrink-0 bg-base-100/75 backdrop-blur-xl backdrop-brightness-125 glass-elem">
+      <h3 class="flex-1 font-bold text-lg">Add to your device</h3>
+      <form method="dialog">
+        <button class="btn btn-ghost btn-sm btn-circle text-base-content/50">✕</button>
+      </form>
+    </div>
+
+    <PwaManual />
+
+    <div class="flex justify-end px-5 py-4 border-t border-base-300/60 bg-base-100">
+      <form method="dialog">
+        <button type="submit" class="btn btn-sm btn-brand">Got it</button>
+      </form>
+    </div>
+
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>

@@ -4,7 +4,7 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
-const VISITS_KEY  = 'stripmeta-visits';
+const VISITS_KEY   = 'stripmeta-visits';
 const DECLINED_KEY = 'stripmeta-install-declined';
 const PROMPT_AFTER = 3;
 
@@ -12,7 +12,26 @@ const isStandalone =
   window.matchMedia('(display-mode: standalone)').matches ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-// Update banner — only relevant when running as an installed PWA.
+type ManualPlatform = 'safari-ios' | 'firefox-android' | 'safari-macos';
+
+// Browsers that support PWA install but not the beforeinstallprompt API.
+function getManualInstallPlatform(): ManualPlatform | null {
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(ua) ||
+    // iPadOS 13+ reports as macOS in the UA; distinguish via touch support.
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isChromium = /Chrome\/|CriOS\/|Chromium\/|EdgA\//.test(ua);
+  const isFirefox  = /Firefox\//.test(ua);
+  const isSafari   = /Safari\//.test(ua) && !isChromium && !isFirefox;
+
+  if (isIOS)                              return 'safari-ios';   // All iOS browsers use WebKit's share sheet
+  if (/Android/.test(ua) && isFirefox)   return 'firefox-android';
+  if (/Macintosh/.test(ua) && isSafari)  return 'safari-macos';
+  return null;
+}
+
+// ── Update banner (standalone / installed PWA only) ───────────────────────────
+
 if (isStandalone && 'serviceWorker' in navigator) {
   const toast   = document.getElementById('pwa-update-toast');
   const reload  = document.getElementById('pwa-update-reload');
@@ -28,17 +47,13 @@ if (isStandalone && 'serviceWorker' in navigator) {
 
   navigator.serviceWorker.ready.then(reg => {
     // Already waiting when the page loaded (e.g. user refreshed mid-update).
-    if (reg.waiting && navigator.serviceWorker.controller) {
-      showUpdateBanner(reg.waiting);
-    }
+    if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
 
     reg.addEventListener('updatefound', () => {
       const newSW = reg.installing;
       if (!newSW) return;
       newSW.addEventListener('statechange', () => {
-        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-          showUpdateBanner(newSW);
-        }
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(newSW);
       });
     });
 
@@ -58,62 +73,75 @@ if (isStandalone && 'serviceWorker' in navigator) {
   });
 }
 
+// ── Install prompt (browser tab / not yet installed) ─────────────────────────
+
 if (!isStandalone) {
   const visits = parseInt(localStorage.getItem(VISITS_KEY) ?? '0', 10) + 1;
   localStorage.setItem(VISITS_KEY, String(visits));
 
-  let deferredPrompt: BeforeInstallPromptEvent | null = null;
+  const installBtn = document.getElementById('btn-pwa-install') as HTMLButtonElement | null;
 
-  const installBtn    = document.getElementById('btn-pwa-install')    as HTMLButtonElement | null;
-  const modal         = document.getElementById('pwa-install-modal')  as HTMLDialogElement | null;
-  const modalTitle    = document.getElementById('pwa-modal-title')    as HTMLElement       | null;
-  const modalIntro    = document.getElementById('pwa-modal-intro')    as HTMLElement       | null;
-  const promptInstall = document.getElementById('pwa-prompt-install') as HTMLButtonElement | null;
-  const promptDismiss = document.getElementById('pwa-prompt-dismiss') as HTMLButtonElement | null;
+  const manualPlatform = getManualInstallPlatform();
 
-  const modalText = {
-    auto:   { title: "Oh, it's you again 👀",   intro: "I noticed you've dropped by a couple of times now. I wasn't going to say anything, but since we're basically old friends at this point —" },
-    manual: { title: "Nice, let's do this 🙌",  intro: "Bold move. Here's the deal:" },
-  };
-
-  function openModal(trigger: 'auto' | 'manual' = 'auto') {
-    if (modalTitle) modalTitle.textContent = modalText[trigger].title;
-    if (modalIntro) modalIntro.textContent = modalText[trigger].intro;
-    modal?.showModal();
-  }
-  function closeModal() { modal?.close(); }
-
-  async function triggerInstall() {
-    if (!deferredPrompt) return;
-    closeModal();
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    installBtn?.classList.add('hidden');
-  }
-
-  window.addEventListener('beforeinstallprompt', ((e: BeforeInstallPromptEvent) => {
-    e.preventDefault();
-    deferredPrompt = e;
+  if (manualPlatform && 'serviceWorker' in navigator) {
+    // ── Manual install: Safari iOS / Firefox Android / Safari macOS ────────────
+    // These browsers can install PWAs but don't fire beforeinstallprompt.
+    // Show the install button immediately and open a how-to modal on click.
+    const manualModal = document.getElementById('pwa-manual-modal') as HTMLDialogElement | null;
+    manualModal?.querySelector<HTMLElement>(`[data-platform="${manualPlatform}"]`)?.classList.remove('hidden');
     installBtn?.classList.remove('hidden');
+    installBtn?.addEventListener('click', () => manualModal?.showModal());
 
-    const declined = localStorage.getItem(DECLINED_KEY) === '1';
-    if (!declined && visits >= PROMPT_AFTER) {
-      setTimeout(() => openModal('auto'), 1500);
+  } else if (!manualPlatform) {
+    // ── Automated install: Chromium-based browsers (Chrome, Edge, Brave, …) ───
+    let deferredPrompt: BeforeInstallPromptEvent | null = null;
+
+    const modal         = document.getElementById('pwa-install-modal')  as HTMLDialogElement | null;
+    const modalTitle    = document.getElementById('pwa-modal-title')    as HTMLElement       | null;
+    const modalIntro    = document.getElementById('pwa-modal-intro')    as HTMLElement       | null;
+    const promptInstall = document.getElementById('pwa-prompt-install') as HTMLButtonElement | null;
+    const promptDismiss = document.getElementById('pwa-prompt-dismiss') as HTMLButtonElement | null;
+
+    const modalText = {
+      auto:   { title: "Oh, it's you again 👀",  intro: "I noticed you've dropped by a couple of times now. I wasn't going to say anything, but since we're basically old friends at this point —" },
+      manual: { title: "Nice, let's do this 🙌", intro: "Bold move. Here's the deal:" },
+    };
+
+    function openModal(trigger: 'auto' | 'manual' = 'auto') {
+      if (modalTitle) modalTitle.textContent = modalText[trigger].title;
+      if (modalIntro) modalIntro.textContent = modalText[trigger].intro;
+      modal?.showModal();
     }
-  }) as EventListener);
+    function closeModal() { modal?.close(); }
 
-  window.addEventListener('appinstalled', () => {
-    deferredPrompt = null;
-    installBtn?.classList.add('hidden');
-    closeModal();
-  });
+    async function triggerInstall() {
+      if (!deferredPrompt) return;
+      closeModal();
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBtn?.classList.add('hidden');
+    }
 
-  // Any close (✕, backdrop, or "No thanks") suppresses the auto-prompt permanently.
-  modal?.addEventListener('close', () => localStorage.setItem(DECLINED_KEY, '1'));
+    window.addEventListener('beforeinstallprompt', ((e: BeforeInstallPromptEvent) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn?.classList.remove('hidden');
+      if (localStorage.getItem(DECLINED_KEY) !== '1' && visits >= PROMPT_AFTER) {
+        setTimeout(() => openModal('auto'), 1500);
+      }
+    }) as EventListener);
 
-  // Navbar button opens the modal; the modal's Install button triggers the browser prompt.
-  installBtn?.addEventListener('click', () => openModal('manual'));
-  promptInstall?.addEventListener('click', triggerInstall);
-  promptDismiss?.addEventListener('click', closeModal);
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      installBtn?.classList.add('hidden');
+      closeModal();
+    });
+
+    // Any close (✕, backdrop, or "No thanks") suppresses the auto-prompt permanently.
+    modal?.addEventListener('close', () => localStorage.setItem(DECLINED_KEY, '1'));
+    installBtn?.addEventListener('click', () => openModal('manual'));
+    promptInstall?.addEventListener('click', triggerInstall);
+    promptDismiss?.addEventListener('click', closeModal);
+  }
 }
