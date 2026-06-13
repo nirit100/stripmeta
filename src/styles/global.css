@@ -29,6 +29,12 @@ html.no-glass .glass-elem {
   display: contents;
 }
 
+/* Collapse flex-gap contributors that contain only hidden children */
+#file-list-area:not(:has(> :not(.hidden))),
+#log-wrap:not(:has(> :not(.hidden))) {
+  display: none;
+}
+
 #clear-storage-hint {
   display: flex;
   overflow: hidden;
