@@ -13,6 +13,7 @@ Set these in your Cloudflare Pages dashboard (or `.env` for local development). 
 | `PUBLIC_PRIVACY_URL` | No | Privacy policy page URL. If unset, the Privacy link is hidden. |
 | `PUBLIC_IMPRESSUM_URL` | No | Impressum page URL. If unset, the Impressum link is hidden. |
 | `PUBLIC_BUG_REPORT_ENABLED` | No | Set to `true` to show the bug report buttons. Requires the runtime variables below to also be configured. |
+| `PUBLIC_LONELYVOID_URL` | No | Artist profile link shown in the About modal credits. If unset, the link renders with an empty href. |
 
 ## Runtime variables
 

@@ -121,7 +121,12 @@ import Icon from './Icon.astro';
       </label>
       <div id="clear-storage-hint" class="items-center justify-between gap-2 px-4 text-xs text-base-content/70">
         <span>⚠️ <b>Previously saved settings and stats still exist in local storage!</b></span>
-        <button id="btn-clear-storage" type="button" class="btn btn-xs btn-ghost text-error/70 hover:text-error shrink-0">Clear settings and stats now</button>
+        <div class="flex items-center gap-1 shrink-0">
+          <span id="btn-clear-info" class="inline-flex items-center cursor-help text-base-content/35 hover:text-base-content/60 transition-colors ml-1" data-tip="Deletes saved settings and stats. Some items, like e.g. your install prompt preference, are not touched.">
+            <Icon name="information-circle" class="w-3.5 h-3.5" />
+          </span>
+          <button id="btn-clear-storage" type="button" class="btn btn-xs btn-ghost text-error/70 hover:text-error">Clear now</button>
+        </div>
       </div>
     </div>
   </div>

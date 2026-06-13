@@ -472,6 +472,27 @@ export function initSettings(): void {
     ['star-persist'],
   );
 
+  // — btn-clear-info tooltip —
+
+  const btnClearInfo = document.getElementById('btn-clear-info');
+  if (btnClearInfo) {
+    const tip = document.createElement('div');
+    tip.className = 'fixed z-[9999] max-w-56 px-2.5 py-1.5 text-xs rounded-lg shadow-xl pointer-events-none opacity-0 transition-opacity duration-100 bg-base-content text-base-100';
+    tip.textContent = btnClearInfo.dataset.tip ?? '';
+    document.body.appendChild(tip);
+
+    btnClearInfo.addEventListener('mouseenter', () => {
+      const r = btnClearInfo.getBoundingClientRect();
+      tip.style.left = `${r.left + r.width / 2}px`;
+      tip.style.top  = `${r.top - 6}px`;
+      tip.style.transform = 'translate(-50%, -100%)';
+      tip.classList.replace('opacity-0', 'opacity-100');
+    });
+    btnClearInfo.addEventListener('mouseleave', () => {
+      tip.classList.replace('opacity-100', 'opacity-0');
+    });
+  }
+
   // Panel open/close animation
   details.querySelector('summary')!.addEventListener('click', e => {
     e.preventDefault();

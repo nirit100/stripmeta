@@ -39,6 +39,32 @@ html.no-glass .glass-elem {
   padding-bottom: 0.75rem;
 }
 
+/* PWA update toast */
+@keyframes pwa-toast-in {
+  from { opacity: 0; transform: translateY(1.5rem); }
+  65%  { transform: translateY(-0.3rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pwa-toast-out {
+  to   { opacity: 0; transform: translateY(0.75rem); }
+}
+@keyframes pwa-toast-glow {
+  /* Ring expands and fades over ~0.7 s, then stays invisible for the rest of the 10 s cycle */
+  0%   { box-shadow: 0 0 0 0px oklch(72% 0.18 160 / 0.45); }
+  7%   { box-shadow: 0 0 0 10px oklch(72% 0.18 160 / 0); }
+  100% { box-shadow: 0 0 0 10px oklch(72% 0.18 160 / 0); }
+}
+#pwa-update-toast.pwa-toast-show {
+  animation:
+    pwa-toast-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+    pwa-toast-glow 10s linear 0.5s infinite;
+  pointer-events: auto;
+}
+#pwa-update-toast.pwa-toast-hide {
+  animation: pwa-toast-out 0.2s ease-in forwards;
+  pointer-events: none;
+}
+
 /* Shine sweep keyframe */
 @keyframes card-shine {
   from { transform: translateX(-100%); }

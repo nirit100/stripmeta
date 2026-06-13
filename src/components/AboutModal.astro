@@ -1,18 +1,21 @@
 ---
 import Brand from './Brand.astro';
 import Icon from './Icon.astro';
-import { siAstro, siTailwindcss, siDaisyui, siGithub, siPaypal } from 'simple-icons';
+import { siAstro, siTailwindcss, siDaisyui, siGithub, siPaypal, siBluesky, siSimpleicons } from 'simple-icons';
 
 const kofiId      = import.meta.env.PUBLIC_KOFI_ID    as string;
 const paypalUrl   = import.meta.env.PUBLIC_PAYPAL_URL as string;
-const githubUrl   = import.meta.env.PUBLIC_GITHUB_URL as string;
+const githubUrl      = import.meta.env.PUBLIC_GITHUB_URL        as string;
+const lonelyvoidUrl  = import.meta.env.PUBLIC_LONELYVOID_URL    as string;
 const bothDonations = !!kofiId && !!paypalUrl;
 
 const libs = [
-  { name: 'exifr',      href: 'https://github.com/MikeKovarik/exifr',        title: 'EXIF reader'   },
-  { name: 'piexifjs',   href: 'https://github.com/hMatoba/piexifjs',          title: 'JPEG stripper' },
-  { name: 'png-chunks', href: 'https://github.com/hughsk/png-chunks-extract', title: 'PNG stripper'  },
-  { name: 'JSZip',      href: 'https://stuk.github.io/jszip/',                title: 'ZIP builder'   },
+  { name: 'exifr',              href: 'https://github.com/MikeKovarik/exifr',         title: 'EXIF reader'   },
+  { name: 'piexifjs',           href: 'https://github.com/hMatoba/piexifjs',          title: 'JPEG stripper' },
+  { name: 'png-chunks-extract', href: 'https://github.com/hughsk/png-chunks-extract', title: 'PNG chunk reader' },
+  { name: 'png-chunks-encode',  href: 'https://github.com/hughsk/png-chunks-encode',  title: 'PNG chunk writer' },
+  { name: 'JSZip',              href: 'https://stuk.github.io/jszip/',                title: 'ZIP builder'   },
+  { name: 'simple-icons',       href: 'https://simpleicons.org',                      title: 'Brand icons', icon: siSimpleicons },
 ];
 ---
 
@@ -89,6 +92,22 @@ const libs = [
         </div>
       </div>
 
+      {lonelyvoidUrl && (
+        <div class="px-5 py-4 flex items-center justify-center gap-4">
+          <div class="shrink-0 w-20 h-20 rounded-2xl bg-[#1d232a] p-1.5 flex items-center justify-center">
+            <img src="/logo_orig.png" alt="StripMeta logo" class="w-full h-full object-contain" />
+          </div>
+          <div class="text-sm text-base-content/70">
+            <p>Original logo and icon art by <em class="not-italic font-semibold text-base-content/90">lonelyvoid</em></p>
+            <a href={lonelyvoidUrl} target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-1.5 mt-2 text-xs text-base-content/60 hover:text-base-content/80 transition-colors">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill={`#${siBluesky.hex}`} aria-hidden="true"><path d={siBluesky.path}/></svg>
+              @lonelyvoid.bsky.social
+            </a>
+          </div>
+        </div>
+      )}
+
       <div class="px-5 py-4">
         <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35 mb-2.5">Built with</p>
         <div class="flex flex-wrap justify-center gap-x-3 gap-y-2">
@@ -111,12 +130,13 @@ const libs = [
             daisyUI
           </a>
 
-          <!-- Libraries without brand logos — cube icon -->
+          <!-- Libraries — brand icon if available, else cube -->
           {libs.map(lib => (
             <a href={lib.href} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs border border-base-300 rounded-full px-2 py-0.5 text-base-content/70 hover:border-base-content/30 hover:text-base-content transition-colors" title={lib.title}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
-              </svg>
+              {lib.icon
+                ? <svg width="11" height="11" viewBox="0 0 24 24" fill={`#${lib.icon.hex}`} aria-hidden="true"><path d={lib.icon.path}/></svg>
+                : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+              }
               {lib.name}
             </a>
           ))}

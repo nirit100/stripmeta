@@ -5,6 +5,8 @@ import Icon from '../components/Icon.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
 import AboutModal from '../components/AboutModal.astro';
 import BugReportModal from '../components/BugReportModal.astro';
+import PwaInstallModal from '../components/PwaInstallModal.astro';
+import PwaManualModal from '../components/PwaManualModal.astro';
 import { siKofi, siPaypal } from 'simple-icons';
 
 interface Props {
@@ -37,13 +39,23 @@ const appVersion: string = __APP_VERSION__;
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
+    <link rel="apple-touch-icon" href="/icons/apple-touch.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="StripMeta" />
     <title>{title}</title>
     <script is:inline>
       (function () {
-        const t = localStorage.getItem('stripmeta-theme');
+        var DARK = '#1d232a', LIGHT = '#ffffff';
+        var t = localStorage.getItem('stripmeta-theme');
+        var color = t === 'dark' ? DARK : t === 'light' ? LIGHT
+          : window.matchMedia('(prefers-color-scheme: dark)').matches ? DARK : LIGHT;
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', color);
         if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
         if (localStorage.getItem('stripmeta-no-glass') === '1') document.documentElement.classList.add('no-glass');
       })();
@@ -53,7 +65,7 @@ const appVersion: string = __APP_VERSION__;
     <header class="navbar border-b border-base-200 px-6">
       <div class="flex-1 min-w-0 flex items-center">
         <a href="/" class="hidden min-[350px]:block min-[450px]:hidden shrink-0" aria-label="StripMeta">
-          <img src="/logo.svg" alt="StripMeta" class="h-7 w-auto" />
+          <img src="/logo_orig.png" alt="StripMeta" class="h-7 w-auto" />
         </a>
         <a href="/" class="hidden min-[450px]:block text-xl font-bold tracking-tight shrink-0">
           <Brand />
@@ -65,6 +77,9 @@ const appVersion: string = __APP_VERSION__;
       <div class="flex items-center gap-0.5 mr-2">
         <a href="/how-it-works" class="btn btn-ghost btn-sm text-xs text-base-content/55">How it works</a>
         <button id="btn-about-nav" type="button" class="btn btn-ghost btn-sm text-xs text-base-content/55 hidden min-[720px]:flex"><Icon name="information-circle" class="w-3.5 h-3.5" />About</button>
+        <button id="btn-pwa-install" type="button" class="hidden btn btn-ghost btn-sm text-xs text-base-content/55" title="Install app">
+          <Icon name="arrow-down-tray" class="w-3.5 h-3.5" /><span class="sr-only min-[720px]:not-sr-only">Install</span>
+        </button>
       </div>
       <ThemeToggle />
     </header>
@@ -130,10 +145,33 @@ const appVersion: string = __APP_VERSION__;
 
     <AboutModal />
     <BugReportModal />
+
+    <div class="fixed inset-x-0 bottom-5 z-[9999] flex justify-center pointer-events-none">
+      <div id="pwa-update-toast" class="w-max max-w-[calc(100vw-2rem)] pointer-events-none opacity-0 rounded-xl">
+        <div class="flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border border-base-300/60 bg-base-100/90 backdrop-blur-xl backdrop-brightness-125 glass-elem text-sm">
+          <span class="text-base-content/80">An update is available.</span>
+          <button id="pwa-update-reload" type="button" class="btn btn-xs btn-brand shrink-0">Update now</button>
+          <button id="pwa-update-dismiss" type="button" class="btn btn-ghost btn-xs btn-circle text-base-content/40 shrink-0" title="Apply on next launch">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <PwaInstallModal />
+
+    <PwaManualModal />
+
     <script>
       import '../scripts/footer.ts';
       import '../scripts/bugReport.ts';
       import '../scripts/about.ts';
+      import '../scripts/pwa.ts';
     </script>
+    {!import.meta.env.DEV && (
+      <script is:inline>
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+        }
+      </script>
+    )}
   </body>
 </html>
