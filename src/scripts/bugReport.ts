@@ -35,6 +35,7 @@ function getSettingsAndStats(): string {
     '— Settings —',
     `Paranoid mode: ${on(settings.paranoid)}`,
     `Process clean files: ${on(!settings.skipClean)}`,
+    `Process experimental files: ${on(!settings.skipExperimental)}`,
     `Try unsupported files: ${on(!settings.skipUnsupported)}`,
     `Include skipped in output: ${on(settings.includeSkipped)}`,
     `Warn on unload: ${on(settings.warnUnload)}`,
