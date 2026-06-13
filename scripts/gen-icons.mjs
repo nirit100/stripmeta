@@ -1,50 +1,61 @@
 #!/usr/bin/env node
-// Generates solid-color placeholder PWA icons.  Replace with real artwork.
-// Usage: node scripts/gen-icons.mjs
+// Generates all PWA and favicon assets from public/logo_orig.png.
+// Run: node scripts/gen-icons.mjs
+// Requires: ImageMagick 7 (magick)
 
-import { crc32, deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-const TEAL = [13, 148, 136]; // #0d9488 — brand mid-point
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const LOGO = path.join(root, 'public/logo_orig.png');
+const BG   = '#1d232a';
 
-function pngChunk(type, data) {
-  const typeBytes = Buffer.from(type, 'ascii');
-  const checksum = crc32(Buffer.concat([typeBytes, data]));
-  const out = Buffer.allocUnsafe(4 + 4 + data.length + 4);
-  out.writeUInt32BE(data.length, 0);
-  typeBytes.copy(out, 4);
-  data.copy(out, 8);
-  out.writeUInt32BE(checksum >>> 0, 8 + data.length);
-  return out;
+function run(cmd) {
+  execSync(cmd, { stdio: 'inherit', cwd: root });
 }
 
-function solidPng(size, [r, g, b]) {
-  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+// Generates SIZE×SIZE icon with BG fill, centered logo at logoPct of SIZE,
+// and optional rounded corners at radiusPct of SIZE.
+function icon(size, dest, { logoPct = 0.82, radiusPct = 0.15, rounded = true } = {}) {
+  const logoSize = Math.round(size * logoPct);
+  const radius   = Math.round(size * radiusPct);
+  const last     = size - 1;
 
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0); // width
-  ihdr.writeUInt32BE(size, 4); // height
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 2; // color type: RGB
-  // compression(0), filter(0), interlace(0) already zero
+  const maskOp = rounded
+    ? `\\( +clone -alpha extract -fill black -colorize 100 -fill white -draw "roundrectangle 0,0 ${last},${last} ${radius},${radius}" \\) -compose CopyOpacity -composite`
+    : '';
 
-  const scanline = Buffer.allocUnsafe(1 + size * 3);
-  scanline[0] = 0; // filter: None
-  for (let i = 0; i < size; i++) {
-    scanline[1 + i * 3] = r;
-    scanline[2 + i * 3] = g;
-    scanline[3 + i * 3] = b;
-  }
-  const raw = Buffer.concat(Array.from({ length: size }, () => scanline));
-  const compressed = deflateSync(raw, { level: 6 });
+  run(`magick \
+    -size ${size}x${size} xc:"${BG}" \
+    \\( "${LOGO}" -resize ${logoSize}x${logoSize} \\) \
+    -gravity Center -composite \
+    ${maskOp} \
+    "${dest}"`);
 
-  return Buffer.concat([sig, pngChunk('IHDR', ihdr), pngChunk('IDAT', compressed), pngChunk('IEND', Buffer.alloc(0))]);
+  console.log(`  ✓  ${dest}`);
 }
 
-mkdirSync('public/icons', { recursive: true });
+// Multi-size .ico from tiny PNGs.
+function favicon(dest) {
+  const sizes = [16, 32, 48];
+  const tmp = sizes.map(s => `/tmp/favicon_stripmeta_${s}.png`);
 
-const sizes = [[192, '192.png'], [512, '512.png'], [180, 'apple-touch.png']];
-for (const [size, filename] of sizes) {
-  writeFileSync(`public/icons/${filename}`, solidPng(size, TEAL));
-  console.log(`  → public/icons/${filename}`);
+  sizes.forEach((s, i) => {
+    const r = Math.max(2, Math.round(s * 0.12));
+    icon(s, tmp[i], { logoPct: 0.80, radiusPct: r / s, rounded: true });
+  });
+
+  run(`magick ${tmp.join(' ')} "${dest}"`);
+  console.log(`  ✓  ${dest}`);
 }
+
+console.log('Generating icons from logo_orig.png…\n');
+
+icon(512, 'public/icons/512.png');
+icon(512, 'public/icons/512-maskable.png', { logoPct: 0.72, rounded: false });
+icon(192, 'public/icons/192.png');
+icon(180, 'public/icons/apple-touch.png');
+favicon('public/favicon.ico');
+
+console.log('\nDone.');

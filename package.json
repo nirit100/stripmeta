@@ -12,7 +12,8 @@
     "astro": "astro",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
-    "bump": "node scripts/bump.mjs"
+    "bump": "node scripts/bump.mjs",
+    "gen-icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "astro": "^6.4.4",
