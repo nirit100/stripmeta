@@ -64,7 +64,7 @@ See [docs/environment-variables.md](docs/environment-variables.md) for a full li
 <details>
 <summary>Deployment & versioning notes</summary>
 
-Deploy-Prod only triggers when Tests pass on a `v*` tag push. Add `/no-deploy` to the tag's commit message to skip deployment despite a passing test run.
+Deploy-Prod triggers directly on a `v*` tag push. Add `/no-deploy` to the tag's commit message to skip deployment. Tests run on any push to main and on any PR.
 
 **Versioning:** The build embeds the current git description (`git describe --tags --always`) as the app version, visible in the footer and included in bug reports. On Cloudflare Pages, it falls back to `CF_PAGES_COMMIT_SHA` if git isn't available.
 
