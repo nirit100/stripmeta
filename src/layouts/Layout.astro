@@ -29,6 +29,8 @@ const privacyUrl    = optionalEnv('PUBLIC_PRIVACY_URL',   'Privacy link will be 
 const impressumUrl  = optionalEnv('PUBLIC_IMPRESSUM_URL', 'Impressum link will be hidden');
 const bugReportEnabled = !!import.meta.env.PUBLIC_BUG_REPORT_ENABLED;
 if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not set — bug report button will be hidden');
+
+const appVersion: string = __APP_VERSION__;
 ---
 
 <html lang="en">
@@ -85,13 +87,15 @@ if (!bugReportEnabled) console.warn('[stripmeta] PUBLIC_BUG_REPORT_ENABLED not s
              <span class="mx-1">·</span>
             <a href="/how-it-works" class="text-base-content/40 hover:text-base-content/70 transition-colors underline underline-offset-2 whitespace-nowrap">How it works</a>
           </p>
-          {(privacyUrl || impressumUrl) && (
-            <p class="m-0 text-[0.65rem] text-base-content/30">
+          <p class="m-0 text-[0.65rem] text-base-content/30 font-mono">
+            {(privacyUrl || impressumUrl) && <>
               {privacyUrl && <a href={privacyUrl} class="hover:text-base-content/60 transition-colors underline underline-offset-2 whitespace-nowrap">Privacy</a>}
               {privacyUrl && impressumUrl && <span class="mx-1">·</span>}
               {impressumUrl && <a href={impressumUrl} class="hover:text-base-content/60 transition-colors underline underline-offset-2 whitespace-nowrap">Impressum</a>}
-            </p>
-          )}
+              <span class="mx-1">·</span>
+            </>}
+            <span title="Version">{appVersion}</span>
+          </p>
         </div>
         <div class="flex items-center gap-2">
           {(bugReportEnabled || import.meta.env.DEV) && <button class="btn btn-xs btn-ghost js-open-bug-report">🐛 Report a bug</button>}

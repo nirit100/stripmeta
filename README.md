@@ -61,8 +61,27 @@ See [docs/environment-variables.md](docs/environment-variables.md) for a full li
 
 ### Deployment
 
-Basically a note to myself: Deploy-Prod workflow depends on succesful Tests workflow execution.
-Add `/no-deploy` to the main branch's head commit message to skip deployment.
+<details>
+<summary>Deployment & versioning notes</summary>
+
+Deploy-Prod only triggers when Tests pass on a `v*` tag push. Add `/no-deploy` to the tag's commit message to skip deployment despite a passing test run.
+
+**Versioning:** The build embeds the current git description (`git describe --tags --always`) as the app version, visible in the footer and included in bug reports. On Cloudflare Pages, it falls back to `CF_PAGES_COMMIT_SHA` if git isn't available.
+
+To cut a release, bump the version and tag it:
+
+```bash
+npm run bump           # patch: 0.0.1 → 0.0.2
+npm run bump minor     # minor: 0.0.1 → 0.1.0
+npm run bump major     # major: 0.0.1 → 1.0.0
+npm run bump 1.2.3     # explicit version
+
+git push && git push origin v<version>
+```
+
+Tagged builds show the tag (e.g. `v1.2.3`); untagged builds show the short commit hash.
+
+</details>
 
 ### On Donations
 

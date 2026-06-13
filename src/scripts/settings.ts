@@ -9,11 +9,11 @@ const toggleIncludeSkipped     = document.getElementById('toggle-include-skipped
 const toggleWarnUnload         = document.getElementById('toggle-warn-unload') as HTMLInputElement;
 const togglePersist            = document.getElementById('toggle-persist') as HTMLInputElement;
 const toggleNoGlass            = document.getElementById('toggle-no-glass') as HTMLInputElement;
-const clearStorageHint      = document.getElementById('clear-storage-hint')!;
-const btnClearStorage       = document.getElementById('btn-clear-storage') as HTMLButtonElement;
-const btnResetProcessing    = document.getElementById('btn-reset-processing') as HTMLButtonElement;
-const btnResetAppearance    = document.getElementById('btn-reset-appearance') as HTMLButtonElement;
-const btnResetTechnical     = document.getElementById('btn-reset-technical') as HTMLButtonElement;
+const clearStorageHint         = document.getElementById('clear-storage-hint')!;
+const btnClearStorage          = document.getElementById('btn-clear-storage') as HTMLButtonElement;
+const btnResetProcessing       = document.getElementById('btn-reset-processing') as HTMLButtonElement;
+const btnResetAppearance       = document.getElementById('btn-reset-appearance') as HTMLButtonElement;
+const btnResetTechnical        = document.getElementById('btn-reset-technical') as HTMLButtonElement;
 
 // — Cached state (initialized from localStorage, no DOM dependency) —
 
@@ -37,7 +37,7 @@ function lsRead(key: string, def: boolean): boolean {
 }
 
 const _state: SettingsState = {
-  paranoid:         lsRead('stripmeta-paranoid',              false),
+  paranoid:         lsRead('stripmeta-paranoid',               false),
   skipClean:        !lsRead('stripmeta-process-clean',         false),
   skipUnsupported:  !lsRead('stripmeta-process-unsupported',   false),
   skipExperimental: !lsRead('stripmeta-process-experimental',  true),
@@ -335,9 +335,9 @@ export function initSettings(): void {
       localStorage.setItem('stripmeta-process-unsupported',   (!_state.skipUnsupported) ? '1' : '0');
       localStorage.setItem('stripmeta-process-experimental',  (!_state.skipExperimental) ? '1' : '0');
       localStorage.setItem('stripmeta-include-skipped',       _state.includeSkipped ? '1' : '0');
-      localStorage.setItem('stripmeta-no-glass',            document.documentElement.classList.contains('no-glass') ? '1' : '0');
-      localStorage.setItem('stripmeta-warn-unload',         _state.warnUnload ? '1' : '0');
-      localStorage.setItem('stripmeta-auto-about',          _state.autoAbout ? '1' : '0');
+      localStorage.setItem('stripmeta-no-glass',              document.documentElement.classList.contains('no-glass') ? '1' : '0');
+      localStorage.setItem('stripmeta-warn-unload',           _state.warnUnload ? '1' : '0');
+      localStorage.setItem('stripmeta-auto-about',            _state.autoAbout ? '1' : '0');
       clearStorageHint.classList.remove('hint-visible');
     } else {
       localStorage.setItem('stripmeta-no-persist', '1');
@@ -428,9 +428,9 @@ export function initSettings(): void {
         warnUnload: toggleWarnUnload.checked,
         noGlass: toggleNoGlass.checked,
       };
-      toggleAutoAbout.checked  = true;
-      toggleWarnUnload.checked = !import.meta.env.DEV;
-      toggleNoGlass.checked    = false;
+      toggleAutoAbout.checked   = true;
+      toggleWarnUnload.checked  = !import.meta.env.DEV;
+      toggleNoGlass.checked     = false;
       toggleAutoAbout.disabled  = true;
       toggleWarnUnload.disabled = true;
       toggleNoGlass.disabled    = true;

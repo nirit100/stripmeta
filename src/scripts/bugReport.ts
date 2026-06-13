@@ -30,6 +30,8 @@ function fmtBytes(n: number): string {
 function getSettingsAndStats(): string {
   const on = (v: boolean) => v ? 'on' : 'off';
   const lines = [
+    `Version: ${__APP_VERSION__}`,
+    '',
     '— Settings —',
     `Paranoid mode: ${on(settings.paranoid)}`,
     `Process clean files: ${on(!settings.skipClean)}`,
