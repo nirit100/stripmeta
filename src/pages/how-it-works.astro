@@ -855,10 +855,95 @@ import Brand from "../components/Brand.astro";
       </div>
       <p class="text-base-content/60 text-sm leading-relaxed pl-10">
         Click <strong>Strip metadata</strong>. StripMeta processes every file
-        in your browser — no uploads, no waiting on a server. Once done, a
-        <strong>Save</strong> button appears. Click it to save the cleaned
-        files; multiple files are packaged as a ZIP archive.
+        in your browser — no uploads, no waiting on a server. Once done, click
+        <strong>Save as ZIP</strong> to download all cleaned files bundled in
+        one archive.
       </p>
+
+      <!-- Before: Strip metadata button -->
+      <div class="rounded-2xl border border-base-300 overflow-hidden shadow-sm">
+        <div
+          class="flex items-center px-3 py-2 bg-base-200 border-b border-base-300"
+        >
+          <div
+            class="flex-1 bg-base-300/60 rounded-full py-0.5 px-3 text-[0.6rem] text-base-content/30 text-center"
+          >
+            stripmeta.info
+          </div>
+        </div>
+        <div class="bg-base-100 p-3 flex flex-col gap-3">
+          {
+            [
+              {
+                name: "vacation.jpg",
+                size: "3.2 MB",
+                badges: [
+                  ["📍 GPS", "text-red-500/80 bg-red-500/8 border-red-500/20"],
+                  ["📅 Date", "text-blue-500/80 bg-blue-500/8 border-blue-500/20"],
+                  ["📱 iPhone 15", "text-base-content/40 bg-base-200 border-base-300"],
+                ],
+              },
+              {
+                name: "selfie.jpg",
+                size: "2.1 MB",
+                badges: [
+                  ["📍 GPS", "text-red-500/80 bg-red-500/8 border-red-500/20"],
+                  ["📅 Date", "text-blue-500/80 bg-blue-500/8 border-blue-500/20"],
+                ],
+              },
+            ].map(({ name, size, badges }) => (
+              <div class="flex items-center gap-2 px-3 py-2 rounded-xl border border-base-300 bg-base-100">
+                <div class="w-8 h-8 rounded-lg bg-base-200 shrink-0 flex items-center justify-center">
+                  <svg
+                    class="w-4 h-4 text-base-content/25"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16l4-4 4 4 4-6 4 6" />
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-medium truncate">{name}</p>
+                  <div class="flex flex-wrap items-center gap-1 mt-1">
+                    {badges.map(([label, cls]) => (
+                      <span class={`text-[0.55rem] font-medium px-1.5 py-0.5 rounded-full border ${cls}`}>
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <span class="text-[0.6rem] text-base-content/30 shrink-0">{size}</span>
+              </div>
+            ))
+          }
+          <div class="flex gap-2 px-1">
+            <div
+              class="btn btn-brand btn-sm pointer-events-none text-xs h-8 min-h-0 flex-1"
+            >
+              Strip metadata
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Down arrow between the two states -->
+      <div class="flex items-center justify-center">
+        <svg
+          class="w-5 h-5 text-base-content/25"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12l7 7 7-7" />
+        </svg>
+      </div>
+
+      <!-- After: Save as ZIP button -->
       <div class="rounded-2xl border border-base-300 overflow-hidden shadow-sm">
         <div
           class="flex items-center px-3 py-2 bg-base-200 border-b border-base-300"
@@ -884,20 +969,8 @@ import Brand from "../components/Brand.astro";
                     stroke="currentColor"
                     stroke-width="1.5"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M3 16l4-4 4 4 4-6 4 6"
-                    />
-                    <rect
-                      x="3"
-                      y="3"
-                      width="18"
-                      height="18"
-                      rx="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16l4-4 4 4 4-6 4 6" />
+                    <rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
                 </div>
                 <div class="flex-1 min-w-0">
@@ -912,7 +985,7 @@ import Brand from "../components/Brand.astro";
             <div
               class="btn btn-brand btn-sm pointer-events-none text-xs h-8 min-h-0 flex-1"
             >
-              Save ZIP
+              Save as ZIP
             </div>
             <div
               class="btn btn-ghost btn-sm pointer-events-none text-xs h-8 min-h-0"
