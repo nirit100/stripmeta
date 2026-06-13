@@ -5,7 +5,8 @@ import { siAstro, siTailwindcss, siDaisyui, siGithub, siPaypal, siBluesky, siSim
 
 const kofiId      = import.meta.env.PUBLIC_KOFI_ID    as string;
 const paypalUrl   = import.meta.env.PUBLIC_PAYPAL_URL as string;
-const githubUrl   = import.meta.env.PUBLIC_GITHUB_URL as string;
+const githubUrl      = import.meta.env.PUBLIC_GITHUB_URL        as string;
+const lonelyvoidUrl  = import.meta.env.PUBLIC_LONELYVOID_URL    as string;
 const bothDonations = !!kofiId && !!paypalUrl;
 
 const libs = [
@@ -91,19 +92,21 @@ const libs = [
         </div>
       </div>
 
-      <div class="px-5 py-4 flex items-center justify-center gap-4">
-        <div class="shrink-0 w-20 h-20 rounded-2xl bg-[#1d232a] p-1.5 flex items-center justify-center">
-          <img src="/logo_orig.png" alt="StripMeta logo" class="w-full h-full object-contain" />
+      {lonelyvoidUrl && (
+        <div class="px-5 py-4 flex items-center justify-center gap-4">
+          <div class="shrink-0 w-20 h-20 rounded-2xl bg-[#1d232a] p-1.5 flex items-center justify-center">
+            <img src="/logo_orig.png" alt="StripMeta logo" class="w-full h-full object-contain" />
+          </div>
+          <div class="text-sm text-base-content/70">
+            <p>Original logo and icon art by <em class="not-italic font-semibold text-base-content/90">lonelyvoid</em></p>
+            <a href={lonelyvoidUrl} target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-1.5 mt-2 text-xs text-base-content/60 hover:text-base-content/80 transition-colors">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill={`#${siBluesky.hex}`} aria-hidden="true"><path d={siBluesky.path}/></svg>
+              @lonelyvoid.bsky.social
+            </a>
+          </div>
         </div>
-        <div class="text-sm text-base-content/70">
-          <p>Original logo and icon art by <em class="not-italic font-semibold text-base-content/90">lonelyvoid</em></p>
-          <a href="https://bsky.app/profile/lonelyvoid.bsky.social" target="_blank" rel="noopener noreferrer"
-             class="inline-flex items-center gap-1.5 mt-2 text-xs text-base-content/60 hover:text-base-content/80 transition-colors">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill={`#${siBluesky.hex}`} aria-hidden="true"><path d={siBluesky.path}/></svg>
-            @lonelyvoid.bsky.social
-          </a>
-        </div>
-      </div>
+      )}
 
       <div class="px-5 py-4">
         <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35 mb-2.5">Built with</p>
