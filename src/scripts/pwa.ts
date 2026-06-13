@@ -57,8 +57,19 @@ if (isStandalone && 'serviceWorker' in navigator) {
       });
     });
 
-    // Browser checks on every page load automatically; poll hourly for long sessions.
-    setInterval(() => { if (navigator.onLine) reg.update(); }, 60 * 60 * 1000);
+    // iOS Safari sometimes installs a new SW silently without firing updatefound/statechange.
+    // Polling reg.waiting directly after each update() call catches those missed events.
+    function checkAndUpdate() {
+      if (!navigator.onLine) return;
+      reg.update().then(() => {
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+      });
+    }
+
+    setInterval(checkAndUpdate, 10 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkAndUpdate();
+    });
   });
 
   reload?.addEventListener('click', () => {
