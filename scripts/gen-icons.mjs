@@ -36,14 +36,13 @@ function icon(size, dest, { logoPct = 0.82, radiusPct = 0.15, rounded = true } =
   console.log(`  ✓  ${dest}`);
 }
 
-// Multi-size .ico from tiny PNGs.
+// Multi-size .ico — transparent background, no rounding (too small to matter).
 function favicon(dest) {
   const sizes = [16, 32, 48];
   const tmp = sizes.map(s => `/tmp/favicon_stripmeta_${s}.png`);
 
   sizes.forEach((s, i) => {
-    const r = Math.max(2, Math.round(s * 0.12));
-    icon(s, tmp[i], { logoPct: 0.80, radiusPct: r / s, rounded: true });
+    run(`magick "${LOGO}" -resize ${s}x${s} "${tmp[i]}"`);
   });
 
   run(`magick ${tmp.join(' ')} "${dest}"`);
