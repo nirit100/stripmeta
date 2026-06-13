@@ -1,3 +1,4 @@
+// @version __SW_VERSION__ (replaced at build time — makes the file byte-unique per deploy)
 // Bump both names whenever a deploy requires invalidating cached pages or static chunks.
 const CACHE_PAGES  = 'stripmeta-pages-v2';
 const CACHE_STATIC = 'stripmeta-static-v1';
