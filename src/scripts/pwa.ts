@@ -45,9 +45,14 @@ if (isStandalone && 'serviceWorker' in navigator) {
     toast?.classList.add('pwa-toast-show');
   }
 
+  function applyUpdate(sw: ServiceWorker) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+    sw.postMessage({ type: 'SKIP_WAITING' });
+  }
+
   navigator.serviceWorker.ready.then(reg => {
-    // Already waiting when the page loaded (e.g. user refreshed mid-update).
-    if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+    // SW was already waiting on startup — apply silently, no toast.
+    if (reg.waiting && navigator.serviceWorker.controller) applyUpdate(reg.waiting);
 
     reg.addEventListener('updatefound', () => {
       const newSW = reg.installing;
@@ -62,9 +67,7 @@ if (isStandalone && 'serviceWorker' in navigator) {
   });
 
   reload?.addEventListener('click', () => {
-    if (!waitingSW) return;
-    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
-    waitingSW.postMessage({ type: 'SKIP_WAITING' });
+    if (waitingSW) applyUpdate(waitingSW);
   });
 
   dismiss?.addEventListener('click', () => {
