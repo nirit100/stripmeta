@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { execSync } from 'child_process';
 
 function getAppVersion() {
+  try { execSync('git fetch --tags', { stdio: 'pipe' }); } catch { /* ignore */ }
   try {
     return execSync('git describe --tags --always --dirty', { stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim();
   } catch { /* fall through */ }
