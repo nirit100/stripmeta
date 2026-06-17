@@ -8,12 +8,14 @@ export interface SkipSettings {
   skipClean: boolean;
 }
 
+export type SkipReason = 'unsupported' | 'lossy' | 'experimental' | 'no-metadata';
+
 export function getSkipReason(
   file: File,
   settings: SkipSettings,
   levelOf: Map<File, WarningLevel>,
   metadataCache: Map<File, MetadataPreview>,
-): 'unsupported' | 'lossy' | 'experimental' | 'no-metadata' | null {
+): SkipReason | null {
   if (settings.skipUnsupported) {
     const level = levelOf.get(file);
     if (level === 'unsupported') return 'unsupported';

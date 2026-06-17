@@ -18,6 +18,7 @@ import { showGpsPopover } from './gpsPopover.ts';
 import { splitFilename } from '../lib/filename.ts';
 import { buildPreviewBadges } from '../lib/previewBadges.ts';
 import { computeBannerLines } from '../lib/banner.ts';
+import { computeDirStats, formatDirStat, dirStatusDot, isDirDimmed } from '../lib/dirStats.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -653,39 +654,21 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
 
   function updateCount() {
     const under = entriesUnder(entries, node.path);
-    const n = under.length;
-    let incompatible = 0, clean = 0, stripErrors = 0, done = 0;
-    for (const e of under) {
-      const r = getSkipReason(e.file);
-      if (r === 'unsupported' || r === 'lossy' || r === 'experimental') incompatible++;
-      else if (r === 'no-metadata') clean++;
-      if (state.errored.has(e.file)) stripErrors++;
-      if (state.done.has(e.file))   done++;
-    }
-    const skipped = incompatible + clean;
-    const ready = n - skipped;
-    let stat = `${n} file${n !== 1 ? 's' : ''}`;
-    if (n > 0 && levelOf.size > 0) {
-      const parts: string[] = [];
-      if (ready > 0)        parts.push(`${ready} ready`);
-      if (incompatible > 0) parts.push(`${incompatible} incompatible`);
-      if (clean > 0)        parts.push(`${clean} no metadata`);
-      if (stripErrors > 0)  parts.push(`${stripErrors} error${stripErrors !== 1 ? 's' : ''}`);
-      stat += ' · ' + (parts.length ? parts.join(', ') : 'all skipped');
-    }
-    countBadge.textContent = stat;
+    const stats = computeDirStats(under, { skipReason: getSkipReason, done: state.done, errored: state.errored });
+    const hasLevels = levelOf.size > 0;
 
-    // Status dot: green = all done (≥1), red = any errors, hidden = not run or all skipped
-    if (stripErrors > 0) {
-      statusDot.className = 'w-2 h-2 rounded-full shrink-0 bg-error';
-    } else if (done > 0) {
-      statusDot.className = 'w-2 h-2 rounded-full shrink-0 bg-success';
-    } else {
-      statusDot.className = 'w-2 h-2 rounded-full shrink-0 hidden';
-    }
+    countBadge.textContent = formatDirStat(stats, hasLevels);
+
+    // Status dot: green = something done, red = any errors, hidden = not run or all skipped
+    const dot = dirStatusDot(stats);
+    statusDot.className = dot === 'error'
+      ? 'w-2 h-2 rounded-full shrink-0 bg-error'
+      : dot === 'done'
+        ? 'w-2 h-2 rounded-full shrink-0 bg-success'
+        : 'w-2 h-2 rounded-full shrink-0 hidden';
 
     // Dim the row if no files are ready to strip
-    wrap.style.opacity = (n > 0 && levelOf.size > 0 && ready === 0) ? '0.45' : '';
+    wrap.style.opacity = isDirDimmed(stats, hasLevels) ? '0.45' : '';
   }
 
   dirCounters.set(node.path, updateCount);
