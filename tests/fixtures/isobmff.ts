@@ -23,7 +23,7 @@ function u16be(v: number): Uint8Array {
 function str4(s: string): Uint8Array {
   return new Uint8Array([s.charCodeAt(0), s.charCodeAt(1), s.charCodeAt(2), s.charCodeAt(3)]);
 }
-function concat(...parts: Uint8Array[]): Uint8Array {
+function concat(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const total = parts.reduce((s, p) => s + p.length, 0);
   const out = new Uint8Array(total);
   let pos = 0;
@@ -118,7 +118,7 @@ export function buildIsobmffFile({
   xmpData,
   irefEntries,
   mdatFirst = false,
-}: BuildOpts = {}): Uint8Array {
+}: BuildOpts = {}): Uint8Array<ArrayBuffer> {
   const img  = imageData ?? new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd]);
   const exif = exifData ?? null;
   const xmp  = xmpData  ?? null;
