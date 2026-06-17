@@ -15,6 +15,7 @@ import { registerErroredFile, clearErroredFiles } from '../lib/erroredFiles.ts';
 import { pooled, Semaphore } from '../lib/concurrency.ts';
 import { copyImageToClipboard, copyFailLabel } from './clipboard.ts';
 import { showGpsPopover } from './gpsPopover.ts';
+import { splitFilename } from '../lib/filename.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -516,19 +517,15 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   const nameEl = document.createElement('div');
   nameEl.className = 'text-sm font-medium leading-snug flex min-w-0';
 
-  const lastDot = file.name.lastIndexOf('.');
-  const hasExt  = lastDot > 0 && lastDot < file.name.length - 1;
-  const ext  = hasExt ? file.name.slice(lastDot) : '';
-  const base = hasExt ? file.name.slice(0, lastDot) : file.name;
-  const TAIL = 4;
+  const { head, tail } = splitFilename(file.name);
 
   const nameHead = document.createElement('span');
   nameHead.className = 'truncate min-w-0';
-  nameHead.textContent = base.length > TAIL ? base.slice(0, -TAIL) : '';
+  nameHead.textContent = head;
 
   const nameTail = document.createElement('span');
   nameTail.className = 'shrink-0 whitespace-nowrap';
-  nameTail.textContent = (base.length > TAIL ? base.slice(-TAIL) : base) + ext;
+  nameTail.textContent = tail;
 
   nameEl.append(nameHead, nameTail);
 
