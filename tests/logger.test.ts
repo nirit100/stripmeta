@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { LogEntry } from '../src/scripts/logger';
+import type { LogEntry } from '../src/lib/state/logger';
 
 // Each importFresh() resets module-level state (_entries, _listeners).
 async function importFresh() {
   vi.resetModules();
-  return import('../src/scripts/logger');
+  return import('../src/lib/state/logger');
 }
 
 const sample: LogEntry = {

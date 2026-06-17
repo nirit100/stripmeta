@@ -10,7 +10,7 @@ import { formatBytes } from '../lib/util/format.ts';
 import { skipStatusLabel } from '../lib/domain/skip.ts';
 import { openMetadataModal } from './modal.ts';
 import { settings, onSettingChange, collapseSettings, initSettings } from './settings.ts';
-import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
+import { logEntry, clearLog, getLog, onLogChange, humanizeError } from '../lib/state/logger.ts';
 import { registerErroredFile, clearErroredFiles } from '../lib/state/erroredFiles.ts';
 import { pooled, Semaphore } from '../lib/util/concurrency.ts';
 import { copyImageToClipboard, copyFailLabel } from './clipboard.ts';

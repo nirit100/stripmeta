@@ -1,4 +1,4 @@
-import { getLog } from './logger.ts';
+import { getLog } from '../lib/state/logger.ts';
 import { getErroredFiles } from '../lib/state/erroredFiles.ts';
 import { buildAnonMap } from '../lib/domain/anonMap.ts';
 import { settings } from './settings.ts';

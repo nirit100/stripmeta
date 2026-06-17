@@ -1,6 +1,6 @@
 import { readRichMetadata } from '../lib/stripMeta.ts';
 import type { StripperManager } from '../lib/stripMeta.ts';
-import { logEntry, humanizeError } from './logger.ts';
+import { logEntry, humanizeError } from '../lib/state/logger.ts';
 
 // Matches EXIF/PNG text keys that commonly carry personally identifiable data.
 // Strips punctuation/spaces before testing so "Creation Time", "By-Line", etc. all match.
