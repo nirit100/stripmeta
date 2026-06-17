@@ -1,6 +1,5 @@
 import { readMetadata, defaultStripperManager, paranoidStripperManager, browserCapabilities } from '../lib/stripMeta.ts';
 import { iconSvg } from '../lib/icons.ts';
-import { siGooglemaps, siOpenstreetmap, siApple } from 'simple-icons';
 import { computeToProcess, collectBlobs } from '../lib/stripPlan.ts';
 import type { FileEntry } from '../lib/stripPlan.ts';
 import { buildTree, collectEntries, entriesUnder } from '../lib/fileTree.ts';
@@ -14,6 +13,8 @@ import { settings, onSettingChange, collapseSettings, initSettings } from './set
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
 import { registerErroredFile, clearErroredFiles } from '../lib/erroredFiles.ts';
 import { pooled, Semaphore } from '../lib/concurrency.ts';
+import { copyImageToClipboard, copyFailLabel } from './clipboard.ts';
+import { showGpsPopover } from './gpsPopover.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -334,78 +335,12 @@ function applySkipStatus(file: File) {
   }
 }
 
-// — GPS map popover —
-
-function showGpsPopover(anchor: HTMLElement, lat: number, lon: number, coordStr: string) {
-  document.getElementById('gps-map-pop')?.remove();
-
-  const pop = document.createElement('div');
-  pop.id = 'gps-map-pop';
-  pop.className = 'fixed z-50 bg-base-200 border border-base-300 rounded-lg shadow-lg overflow-hidden min-w-[13rem]';
-
-  const header = document.createElement('div');
-  header.className = 'flex items-center gap-2 px-3 py-2 border-b border-base-300/60';
-  const pinIcon = document.createElement('span');
-  pinIcon.className = 'shrink-0 text-error/60';
-  pinIcon.innerHTML = iconSvg('map-pin', 'w-4 h-4 block', '1.5');
-  const coordText = document.createElement('span');
-  coordText.className = 'text-xs font-mono text-base-content/55 select-all';
-  coordText.textContent = coordStr;
-  header.append(pinIcon, coordText);
-  pop.appendChild(header);
-
-  const brandIcon = (path: string) =>
-    `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${path}"/></svg>`;
-
-  const services: [string, string, string][] = [
-    ['OpenStreetMap', `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=14`, siOpenstreetmap.path],
-    ['Google Maps',   `https://maps.google.com/?q=${lat},${lon}`,                       siGooglemaps.path],
-    ['Apple Maps',    `https://maps.apple.com/?q=${lat},${lon}`,                        siApple.path],
-  ];
-  for (const [name, url, path] of services) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.className = 'flex items-center gap-2.5 px-3 py-2.5 text-xs text-base-content/70 hover:bg-base-300 hover:text-base-content transition-colors';
-    const ico = document.createElement('span');
-    ico.className = 'shrink-0 flex items-center text-base-content/40';
-    ico.innerHTML = brandIcon(path);
-    const label = document.createElement('span');
-    label.textContent = name;
-    a.append(ico, label);
-    pop.appendChild(a);
-  }
-  document.body.appendChild(pop);
-
-  // Position below the badge; nudge left if it clips the right edge.
-  const rect = anchor.getBoundingClientRect();
-  pop.style.top  = `${rect.bottom + 4}px`;
-  const left = Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8);
-  pop.style.left = `${Math.max(8, left)}px`;
-
-  const dismiss = (e: MouseEvent) => {
-    if (!pop.contains(e.target as Node)) { pop.remove(); document.removeEventListener('click', dismiss, true); }
-  };
-  // Defer so this click doesn't immediately dismiss the popover.
-  setTimeout(() => document.addEventListener('click', dismiss, true), 0);
-}
-
 // — File card handler constants —
 
 const COPY_BTN_CLASS = 'btn btn-ghost btn-xs btn-circle text-base-content/65 hover:text-primary hover:bg-primary/10 tooltip tooltip-left transition-colors';
 const SVG_COPY_CLIP  = iconSvg('clipboard', 'w-3.5 h-3.5', '2');
 const SVG_COPY_CHECK = iconSvg('check',     'w-3.5 h-3.5', '2.5');
 const SVG_COPY_X     = iconSvg('x-mark',   'w-3.5 h-3.5', '2.5');
-
-// Firefox for Android rejects clipboard.write() with image data, throwing
-// NotAllowedError even for a ready PNG — image clipboard writes just aren't
-// supported there. Surface that as a clear message instead of a generic failure.
-function copyFailLabel(err: unknown): string {
-  return err instanceof DOMException && err.name === 'NotAllowedError'
-    ? "Can't copy images here"
-    : 'Failed';
-}
 
 // — Badge helper —
 
@@ -434,19 +369,7 @@ function attachCopyHandler(file: File, copyBtn: HTMLButtonElement, defaultTip: s
     copyBtn.disabled = true;
     copyBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span>';
     try {
-      // Resolve the blob before constructing ClipboardItem, bc Firefox does not
-      // accept Promise values in ClipboardItem, only resolved Blobs.
-      let clipBlob: Blob;
-      if (blob.type === 'image/png') {
-        clipBlob = blob;
-      } else {
-        const bmp = await createImageBitmap(blob);
-        const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-        canvas.getContext('2d')!.drawImage(bmp, 0, 0);
-        bmp.close();
-        clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
-      }
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
+      await copyImageToClipboard(blob);
       copyBtn.innerHTML = SVG_COPY_CHECK;
       copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-success tooltip tooltip-left transition-colors';
       copyBtn.dataset.tip = 'Copied!';
@@ -1254,17 +1177,7 @@ btnCopyResult.addEventListener('click', async () => {
   const originalHtml = btnCopyResult.innerHTML;
   btnCopyResult.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Copying…';
   try {
-    let clipBlob: Blob;
-    if (blob.type === 'image/png') {
-      clipBlob = blob;
-    } else {
-      const bmp = await createImageBitmap(blob);
-      const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-      canvas.getContext('2d')!.drawImage(bmp, 0, 0);
-      bmp.close();
-      clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
-    }
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
+    await copyImageToClipboard(blob);
     btnCopyResult.innerHTML = `${iconSvg('check', 'w-4 h-4', '2.5')} Copied!`;
     window.dispatchEvent(new CustomEvent('stripmeta:copied'));
   } catch (err) {
