@@ -1,18 +1,25 @@
 import { readMetadata, defaultStripperManager, paranoidStripperManager, browserCapabilities } from '../lib/stripMeta.ts';
 import { iconSvg } from '../lib/icons.ts';
-import { siGooglemaps, siOpenstreetmap, siApple } from 'simple-icons';
 import { computeToProcess, collectBlobs } from '../lib/stripPlan.ts';
 import type { FileEntry } from '../lib/stripPlan.ts';
 import { buildTree, collectEntries, entriesUnder } from '../lib/fileTree.ts';
 import type { DirNode } from '../lib/fileTree.ts';
 import { StripState } from '../lib/stripState.ts';
 import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stripMeta.ts';
-import { formatBytes, formatGps } from '../lib/format.ts';
-import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
+import { formatBytes } from '../lib/format.ts';
+import { getSkipReason as _getSkipReason, skipStatusLabel } from '../lib/skip.ts';
+import { isFlatMode, sortForFlatList } from '../lib/flatList.ts';
 import { openMetadataModal } from './modal.ts';
 import { settings, onSettingChange, collapseSettings, initSettings } from './settings.ts';
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
 import { registerErroredFile, clearErroredFiles } from '../lib/erroredFiles.ts';
+import { pooled, Semaphore } from '../lib/concurrency.ts';
+import { copyImageToClipboard, copyFailLabel } from './clipboard.ts';
+import { showGpsPopover } from './gpsPopover.ts';
+import { splitFilename } from '../lib/filename.ts';
+import { buildPreviewBadges } from '../lib/previewBadges.ts';
+import { computeBannerLines } from '../lib/banner.ts';
+import { computeDirStats, formatDirStat, dirStatusDot, isDirDimmed } from '../lib/dirStats.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -64,31 +71,14 @@ function activeManager(): StripperManager {
   return settings.paranoid ? paranoidStripperManager : defaultStripperManager;
 }
 
-const WARNING_ORDER: Record<WarningLevel, number> = { unsupported: 0, lossy: 1, experimental: 2, none: 3 };
-
-
 // — Data model —
 
 const sessionStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
 
-// Runs at most `limit` calls of `fn` concurrently, preserving result order.
-async function pooled<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  const queue = items.map((item, i) => ({ item, i }));
-  await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, async () => {
-    let next;
-    while ((next = queue.shift())) results[next.i] = await fn(next.item);
-  }));
-  return results;
-}
-
-// Semaphore for metadata reads — limits concurrent exifr parses to avoid OOM on mobile.
-let metaSlots = 6;
-const metaWaiters: Array<() => void> = [];
-function acquireMeta(): Promise<void> {
-  return metaSlots > 0 ? (metaSlots--, Promise.resolve()) : new Promise(r => metaWaiters.push(r));
-}
-function releaseMeta() { const w = metaWaiters.shift(); if (w) w(); else metaSlots++; }
+// Limits concurrent exifr parses to avoid OOM on mobile. Metadata reads fire
+// per card as cards render (and lazily as directories expand), so this gates an
+// open-ended stream rather than a fixed batch — hence a semaphore, not pooled().
+const metaSem = new Semaphore(6);
 
 let entries: FileEntry[] = [];
 let levelOf         = new Map<File, WarningLevel>();
@@ -336,72 +326,9 @@ function applySkipStatus(file: File) {
   if (!statusBadge) return;
   const reason = getSkipReason(file);
   row.classList.toggle('opacity-40', reason !== null);
-  if (reason === 'unsupported') {
-    statusBadge.hidden = true; // red ✕ Unsupported badge already covers this
-  } else {
-    statusBadge.hidden = false;
-    if (reason === 'lossy')             statusBadge.textContent = 'Skipped — lossy only';
-    else if (reason === 'experimental') statusBadge.textContent = 'Skipped — experimental';
-    else if (reason === 'no-metadata')  statusBadge.textContent = 'Skipped — no metadata';
-    else                                statusBadge.textContent = 'Ready';
-  }
-}
-
-// — GPS map popover —
-
-function showGpsPopover(anchor: HTMLElement, lat: number, lon: number, coordStr: string) {
-  document.getElementById('gps-map-pop')?.remove();
-
-  const pop = document.createElement('div');
-  pop.id = 'gps-map-pop';
-  pop.className = 'fixed z-50 bg-base-200 border border-base-300 rounded-lg shadow-lg overflow-hidden min-w-[13rem]';
-
-  const header = document.createElement('div');
-  header.className = 'flex items-center gap-2 px-3 py-2 border-b border-base-300/60';
-  const pinIcon = document.createElement('span');
-  pinIcon.className = 'shrink-0 text-error/60';
-  pinIcon.innerHTML = iconSvg('map-pin', 'w-4 h-4 block', '1.5');
-  const coordText = document.createElement('span');
-  coordText.className = 'text-xs font-mono text-base-content/55 select-all';
-  coordText.textContent = coordStr;
-  header.append(pinIcon, coordText);
-  pop.appendChild(header);
-
-  const brandIcon = (path: string) =>
-    `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${path}"/></svg>`;
-
-  const services: [string, string, string][] = [
-    ['OpenStreetMap', `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}&zoom=14`, siOpenstreetmap.path],
-    ['Google Maps',   `https://maps.google.com/?q=${lat},${lon}`,                       siGooglemaps.path],
-    ['Apple Maps',    `https://maps.apple.com/?q=${lat},${lon}`,                        siApple.path],
-  ];
-  for (const [name, url, path] of services) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.className = 'flex items-center gap-2.5 px-3 py-2.5 text-xs text-base-content/70 hover:bg-base-300 hover:text-base-content transition-colors';
-    const ico = document.createElement('span');
-    ico.className = 'shrink-0 flex items-center text-base-content/40';
-    ico.innerHTML = brandIcon(path);
-    const label = document.createElement('span');
-    label.textContent = name;
-    a.append(ico, label);
-    pop.appendChild(a);
-  }
-  document.body.appendChild(pop);
-
-  // Position below the badge; nudge left if it clips the right edge.
-  const rect = anchor.getBoundingClientRect();
-  pop.style.top  = `${rect.bottom + 4}px`;
-  const left = Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8);
-  pop.style.left = `${Math.max(8, left)}px`;
-
-  const dismiss = (e: MouseEvent) => {
-    if (!pop.contains(e.target as Node)) { pop.remove(); document.removeEventListener('click', dismiss, true); }
-  };
-  // Defer so this click doesn't immediately dismiss the popover.
-  setTimeout(() => document.addEventListener('click', dismiss, true), 0);
+  const { hidden, text } = skipStatusLabel(reason);
+  statusBadge.hidden = hidden;
+  if (!hidden) statusBadge.textContent = text;
 }
 
 // — File card handler constants —
@@ -410,15 +337,6 @@ const COPY_BTN_CLASS = 'btn btn-ghost btn-xs btn-circle text-base-content/65 hov
 const SVG_COPY_CLIP  = iconSvg('clipboard', 'w-3.5 h-3.5', '2');
 const SVG_COPY_CHECK = iconSvg('check',     'w-3.5 h-3.5', '2.5');
 const SVG_COPY_X     = iconSvg('x-mark',   'w-3.5 h-3.5', '2.5');
-
-// Firefox for Android rejects clipboard.write() with image data, throwing
-// NotAllowedError even for a ready PNG — image clipboard writes just aren't
-// supported there. Surface that as a clear message instead of a generic failure.
-function copyFailLabel(err: unknown): string {
-  return err instanceof DOMException && err.name === 'NotAllowedError'
-    ? "Can't copy images here"
-    : 'Failed';
-}
 
 // — Badge helper —
 
@@ -447,19 +365,7 @@ function attachCopyHandler(file: File, copyBtn: HTMLButtonElement, defaultTip: s
     copyBtn.disabled = true;
     copyBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span>';
     try {
-      // Resolve the blob before constructing ClipboardItem, bc Firefox does not
-      // accept Promise values in ClipboardItem, only resolved Blobs.
-      let clipBlob: Blob;
-      if (blob.type === 'image/png') {
-        clipBlob = blob;
-      } else {
-        const bmp = await createImageBitmap(blob);
-        const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-        canvas.getContext('2d')!.drawImage(bmp, 0, 0);
-        bmp.close();
-        clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
-      }
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
+      await copyImageToClipboard(blob);
       copyBtn.innerHTML = SVG_COPY_CHECK;
       copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-success tooltip tooltip-left transition-colors';
       copyBtn.dataset.tip = 'Copied!';
@@ -509,51 +415,28 @@ function attachRemoveHandler(
 
 async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detailsBtn: HTMLButtonElement): Promise<void> {
   const { file } = entry;
-  await acquireMeta();
+  await metaSem.acquire();
   try {
     const preview = await readMetadata(file);
 
-    if (preview.gps) {
-      const { latitude, longitude } = preview.gps;
-      const coordStr = formatGps(latitude, longitude);
-      const gpsBadge = document.createElement('button');
-      gpsBadge.type = 'button';
-      gpsBadge.className = 'badge badge-xs badge-error [--size:1.25rem] cursor-pointer tooltip tooltip-top';
-      gpsBadge.dataset.tip = coordStr;
-      const gpsInner = document.createElement('span');
-      gpsInner.className = 'truncate min-w-0';
-      gpsInner.textContent = '📍 GPS';
-      gpsBadge.appendChild(gpsInner);
-      gpsBadge.addEventListener('click', e => {
-        e.stopPropagation();
-        showGpsPopover(gpsBadge, latitude, longitude, coordStr);
-      });
-      badgesSlot.appendChild(gpsBadge);
-    }
-    if (preview.make || preview.model) {
-      const cam = [preview.make, preview.model].filter(Boolean).join(' ');
-      badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '📷 ' + cam, cam));
-    }
-    if (preview.serialNumber) {
-      badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
-    }
-    if (preview.dateTime) {
-      const d = preview.dateTime instanceof Date
-        ? preview.dateTime
-        : new Date(String(preview.dateTime).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
-      badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + (!isNaN(d.getTime()) ? d.toDateString() : String(preview.dateTime))));
-    }
-    if (preview.software) {
-      badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '🛠️ ' + preview.software, preview.software));
-    }
-    if (preview.artist) {
-      badgesSlot.appendChild(badge('badge-error max-w-[9rem]', '👤 ' + preview.artist, preview.artist));
-    }
-    if (preview.userComment) {
-      badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
-    }
-    if (preview.parseErrored) {
-      badgesSlot.appendChild(badge('badge-warning', '⚠ unreadable', 'Metadata could not be parsed'));
+    for (const b of buildPreviewBadges(preview)) {
+      if (b.kind === 'gps') {
+        const gpsBadge = document.createElement('button');
+        gpsBadge.type = 'button';
+        gpsBadge.className = 'badge badge-xs badge-error [--size:1.25rem] cursor-pointer tooltip tooltip-top';
+        gpsBadge.dataset.tip = b.coord;
+        const gpsInner = document.createElement('span');
+        gpsInner.className = 'truncate min-w-0';
+        gpsInner.textContent = '📍 GPS';
+        gpsBadge.appendChild(gpsInner);
+        gpsBadge.addEventListener('click', e => {
+          e.stopPropagation();
+          showGpsPopover(gpsBadge, b.lat, b.lon, b.coord);
+        });
+        badgesSlot.appendChild(gpsBadge);
+      } else {
+        badgesSlot.appendChild(badge(b.cls, b.text, b.tip));
+      }
     }
 
     metadataCache.set(file, preview);
@@ -569,7 +452,7 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
   } catch (err) {
     logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
   } finally {
-    releaseMeta();
+    metaSem.release();
   }
 }
 
@@ -606,19 +489,15 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   const nameEl = document.createElement('div');
   nameEl.className = 'text-sm font-medium leading-snug flex min-w-0';
 
-  const lastDot = file.name.lastIndexOf('.');
-  const hasExt  = lastDot > 0 && lastDot < file.name.length - 1;
-  const ext  = hasExt ? file.name.slice(lastDot) : '';
-  const base = hasExt ? file.name.slice(0, lastDot) : file.name;
-  const TAIL = 4;
+  const { head, tail } = splitFilename(file.name);
 
   const nameHead = document.createElement('span');
   nameHead.className = 'truncate min-w-0';
-  nameHead.textContent = base.length > TAIL ? base.slice(0, -TAIL) : '';
+  nameHead.textContent = head;
 
   const nameTail = document.createElement('span');
   nameTail.className = 'shrink-0 whitespace-nowrap';
-  nameTail.textContent = (base.length > TAIL ? base.slice(-TAIL) : base) + ext;
+  nameTail.textContent = tail;
 
   nameEl.append(nameHead, nameTail);
 
@@ -767,39 +646,21 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
 
   function updateCount() {
     const under = entriesUnder(entries, node.path);
-    const n = under.length;
-    let incompatible = 0, clean = 0, stripErrors = 0, done = 0;
-    for (const e of under) {
-      const r = getSkipReason(e.file);
-      if (r === 'unsupported' || r === 'lossy' || r === 'experimental') incompatible++;
-      else if (r === 'no-metadata') clean++;
-      if (state.errored.has(e.file)) stripErrors++;
-      if (state.done.has(e.file))   done++;
-    }
-    const skipped = incompatible + clean;
-    const ready = n - skipped;
-    let stat = `${n} file${n !== 1 ? 's' : ''}`;
-    if (n > 0 && levelOf.size > 0) {
-      const parts: string[] = [];
-      if (ready > 0)        parts.push(`${ready} ready`);
-      if (incompatible > 0) parts.push(`${incompatible} incompatible`);
-      if (clean > 0)        parts.push(`${clean} no metadata`);
-      if (stripErrors > 0)  parts.push(`${stripErrors} error${stripErrors !== 1 ? 's' : ''}`);
-      stat += ' · ' + (parts.length ? parts.join(', ') : 'all skipped');
-    }
-    countBadge.textContent = stat;
+    const stats = computeDirStats(under, { skipReason: getSkipReason, done: state.done, errored: state.errored });
+    const hasLevels = levelOf.size > 0;
 
-    // Status dot: green = all done (≥1), red = any errors, hidden = not run or all skipped
-    if (stripErrors > 0) {
-      statusDot.className = 'w-2 h-2 rounded-full shrink-0 bg-error';
-    } else if (done > 0) {
-      statusDot.className = 'w-2 h-2 rounded-full shrink-0 bg-success';
-    } else {
-      statusDot.className = 'w-2 h-2 rounded-full shrink-0 hidden';
-    }
+    countBadge.textContent = formatDirStat(stats, hasLevels);
+
+    // Status dot: green = something done, red = any errors, hidden = not run or all skipped
+    const dot = dirStatusDot(stats);
+    statusDot.className = dot === 'error'
+      ? 'w-2 h-2 rounded-full shrink-0 bg-error'
+      : dot === 'done'
+        ? 'w-2 h-2 rounded-full shrink-0 bg-success'
+        : 'w-2 h-2 rounded-full shrink-0 hidden';
 
     // Dim the row if no files are ready to strip
-    wrap.style.opacity = (n > 0 && levelOf.size > 0 && ready === 0) ? '0.45' : '';
+    wrap.style.opacity = isDirDimmed(stats, hasLevels) ? '0.45' : '';
   }
 
   dirCounters.set(node.path, updateCount);
@@ -885,18 +746,9 @@ function updateAllDirCounts() {
 
 // — Flat-mode sorting (only when no directory structure) —
 
-function isFlatMode() {
-  return entries.every(e => !e.path.includes('/'));
-}
-
 function syncFlatList() {
-  if (!isFlatMode()) return;
-  const sorted = [...entries].sort((a, b) => {
-    const aSkip = getSkipReason(a.file) !== null ? 1 : 0;
-    const bSkip = getSkipReason(b.file) !== null ? 1 : 0;
-    if (aSkip !== bSkip) return aSkip - bSkip;
-    return WARNING_ORDER[levelOf.get(a.file) ?? 'none'] - WARNING_ORDER[levelOf.get(b.file) ?? 'none'];
-  });
+  if (!isFlatMode(entries)) return;
+  const sorted = sortForFlatList(entries, { skipReason: getSkipReason, levelOf });
   for (const entry of sorted) {
     const row = rowOf.get(entry.file);
     if (row) fileList.appendChild(row); // reorder in-place
@@ -908,32 +760,13 @@ function syncFlatList() {
 
 function renderBanner() {
   const levels = [...levelOf.values()];
-  const lossy        = levels.filter(l => l === 'lossy').length;
-  const unsupported  = levels.filter(l => l === 'unsupported').length;
-  const experimental = levels.filter(l => l === 'experimental').length;
+  const lines = computeBannerLines({
+    lossy:        levels.filter(l => l === 'lossy').length,
+    unsupported:  levels.filter(l => l === 'unsupported').length,
+    experimental: levels.filter(l => l === 'experimental').length,
+  }, settings);
 
-  if (!lossy && !unsupported && !experimental) { fileWarningBanner.hidden = true; fileWarningBanner.innerHTML = ''; return; }
-
-  const lines: string[] = [];
-  if (unsupported) lines.push(`<span class="text-error font-medium">${unsupported} file${unsupported > 1 ? 's' : ''} cannot be processed</span> — format not supported in this browser.`);
-  if (lossy) {
-    const plural = lossy > 1;
-    if (!settings.paranoid && settings.skipUnsupported) {
-      lines.push(`<span class="text-warning font-medium">${lossy} file${plural ? 's' : ''} will be skipped</span> — no lossless handler exists for ${plural ? 'their' : 'its'} format${plural ? 's' : ''}.`);
-    } else {
-      const reason = settings.paranoid ? 'because paranoid mode is enabled.' : `no lossless handler exists for ${plural ? 'their' : 'its'} format${plural ? 's' : ''}.`;
-      lines.push(`<span class="text-warning font-medium">${lossy} file${plural ? 's' : ''} will be re-encoded as JPEG</span> — ${reason}`);
-    }
-  }
-
-  if (experimental) {
-    const p = experimental > 1;
-    if (settings.skipExperimental && !settings.paranoid) {
-      lines.push(`<span class="text-base-content/60 font-medium">${experimental} file${p ? 's' : ''} will be skipped</span> — experimental format${p ? 's' : ''} (HEIC/AVIF) disabled in settings.`);
-    } else {
-      lines.push(`<span class="text-warning font-medium">${experimental} file${p ? 's' : ''} will use an experimental handler</span> — review the output carefully before sharing.`);
-    }
-  }
+  if (lines.length === 0) { fileWarningBanner.hidden = true; fileWarningBanner.innerHTML = ''; return; }
 
   fileWarningBanner.hidden = false;
   fileWarningBanner.innerHTML = `<div class="flex flex-col gap-1 text-sm px-4 py-3 rounded-xl border border-base-300 text-base-content/70">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
@@ -1267,17 +1100,7 @@ btnCopyResult.addEventListener('click', async () => {
   const originalHtml = btnCopyResult.innerHTML;
   btnCopyResult.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Copying…';
   try {
-    let clipBlob: Blob;
-    if (blob.type === 'image/png') {
-      clipBlob = blob;
-    } else {
-      const bmp = await createImageBitmap(blob);
-      const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-      canvas.getContext('2d')!.drawImage(bmp, 0, 0);
-      bmp.close();
-      clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
-    }
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
+    await copyImageToClipboard(blob);
     btnCopyResult.innerHTML = `${iconSvg('check', 'w-4 h-4', '2.5')} Copied!`;
     window.dispatchEvent(new CustomEvent('stripmeta:copied'));
   } catch (err) {

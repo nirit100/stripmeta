@@ -1,4 +1,5 @@
 import { settings, onSettingChange } from './settings.ts';
+import { formatBytes } from '../lib/format.ts';
 
 const ABOUT_KEY  = 'stripmeta:about_shown_v1';
 const STATS_KEY  = 'stripmeta:stats_v1';
@@ -42,12 +43,6 @@ function loadStoredStats(): StripStats | null {
   try { return JSON.parse(raw) as StripStats; } catch { return null; }
 }
 
-function fmtBytes(n: number): string {
-  if (n < 1024)        return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
 function animateCount(el: HTMLElement, target: number, delayMs: number): void {
   window.setTimeout(() => {
     const t0 = performance.now();
@@ -68,9 +63,9 @@ function animateKb(el: HTMLElement, target: number, delayMs: number): void {
     const dur = 700;
     function tick(now: number) {
       const p = Math.min((now - t0) / dur, 1);
-      el.textContent = fmtBytes(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      el.textContent = formatBytes(Math.round(target * (1 - Math.pow(1 - p, 3))));
       if (p < 1) requestAnimationFrame(tick);
-      else el.textContent = fmtBytes(target);
+      else el.textContent = formatBytes(target);
     }
     requestAnimationFrame(tick);
   }, delayMs);
@@ -95,7 +90,7 @@ function renderStats(stats: StripStats, animate: boolean): void {
     if (statFiles) statFiles.textContent = stats.filesProcessed.toLocaleString();
     if (statGps)   statGps.textContent   = stats.gpsRemoved.toLocaleString();
     if (statDates) statDates.textContent = stats.datesRemoved.toLocaleString();
-    if (statKb)    statKb.textContent    = stats.bytesStripped > 0 ? fmtBytes(stats.bytesStripped) : '—';
+    if (statKb)    statKb.textContent    = stats.bytesStripped > 0 ? formatBytes(stats.bytesStripped) : '—';
   }
 
   if (statsDate) {

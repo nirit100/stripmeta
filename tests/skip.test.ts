@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getSkipReason } from '../src/lib/skip';
+import { getSkipReason, skipStatusLabel } from '../src/lib/skip';
 import type { SkipSettings } from '../src/lib/skip';
 import type { MetadataPreview } from '../src/lib/stripMeta';
 import type { WarningLevel } from '../src/lib/strippers/types';
@@ -97,5 +97,21 @@ describe('getSkipReason', () => {
     const levelOf = new Map<File, WarningLevel>([[file, 'unsupported']]);
     const cache = new Map<File, MetadataPreview>([[file, emptyMeta]]);
     expect(getSkipReason(file, allOff, levelOf, cache)).toBeNull();
+  });
+});
+
+describe('skipStatusLabel', () => {
+  it('hides the badge for unsupported (covered by the red ✕ badge)', () => {
+    expect(skipStatusLabel('unsupported')).toEqual({ hidden: true, text: '' });
+  });
+
+  it('labels each skip reason', () => {
+    expect(skipStatusLabel('lossy')).toEqual({ hidden: false, text: 'Skipped — lossy only' });
+    expect(skipStatusLabel('experimental')).toEqual({ hidden: false, text: 'Skipped — experimental' });
+    expect(skipStatusLabel('no-metadata')).toEqual({ hidden: false, text: 'Skipped — no metadata' });
+  });
+
+  it('shows "Ready" for a non-skipped (null) file', () => {
+    expect(skipStatusLabel(null)).toEqual({ hidden: false, text: 'Ready' });
   });
 });

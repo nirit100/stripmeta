@@ -8,8 +8,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const require = createRequire(import.meta.url);
-const piexif  = require('piexifjs');
+const piexif = createRequire(import.meta.url)('piexifjs');
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'tests', 'fixtures');
 

@@ -2,6 +2,7 @@ import { getLog } from './logger.ts';
 import { getErroredFiles } from '../lib/erroredFiles.ts';
 import { buildAnonMap } from '../lib/anonMap.ts';
 import { settings } from './settings.ts';
+import { formatBytes } from '../lib/format.ts';
 
 const modal = document.getElementById('bug-report-modal') as HTMLDialogElement | null;
 const logPreview = document.getElementById('bug-log-preview') as HTMLElement;
@@ -19,12 +20,6 @@ const settingsPreview = document.getElementById('bug-settings-preview') as HTMLE
 
 function escHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function getSettingsAndStats(): string {
@@ -50,7 +45,7 @@ function getSettingsAndStats(): string {
       if (s.filesProcessed) lines.push(`Files processed: ${s.filesProcessed}`);
       if (s.gpsRemoved)     lines.push(`GPS removed: ${s.gpsRemoved}`);
       if (s.datesRemoved)   lines.push(`Timestamps removed: ${s.datesRemoved}`);
-      if (s.bytesStripped)  lines.push(`Data stripped: ${fmtBytes(Number(s.bytesStripped))}`);
+      if (s.bytesStripped)  lines.push(`Data stripped: ${formatBytes(Number(s.bytesStripped))}`);
       if (s.date)           lines.push(`Last run: ${new Date(s.date as string).toLocaleDateString()}`);
     } catch { /* no stats */ }
   }
