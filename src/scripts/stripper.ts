@@ -13,6 +13,7 @@ import { openMetadataModal } from './modal.ts';
 import { settings, onSettingChange, collapseSettings, initSettings } from './settings.ts';
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
 import { registerErroredFile, clearErroredFiles } from '../lib/erroredFiles.ts';
+import { pooled, Semaphore } from '../lib/concurrency.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -71,24 +72,10 @@ const WARNING_ORDER: Record<WarningLevel, number> = { unsupported: 0, lossy: 1, 
 
 const sessionStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
 
-// Runs at most `limit` calls of `fn` concurrently, preserving result order.
-async function pooled<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  const queue = items.map((item, i) => ({ item, i }));
-  await Promise.all(Array.from({ length: Math.min(limit, queue.length) }, async () => {
-    let next;
-    while ((next = queue.shift())) results[next.i] = await fn(next.item);
-  }));
-  return results;
-}
-
-// Semaphore for metadata reads — limits concurrent exifr parses to avoid OOM on mobile.
-let metaSlots = 6;
-const metaWaiters: Array<() => void> = [];
-function acquireMeta(): Promise<void> {
-  return metaSlots > 0 ? (metaSlots--, Promise.resolve()) : new Promise(r => metaWaiters.push(r));
-}
-function releaseMeta() { const w = metaWaiters.shift(); if (w) w(); else metaSlots++; }
+// Limits concurrent exifr parses to avoid OOM on mobile. Metadata reads fire
+// per card as cards render (and lazily as directories expand), so this gates an
+// open-ended stream rather than a fixed batch — hence a semaphore, not pooled().
+const metaSem = new Semaphore(6);
 
 let entries: FileEntry[] = [];
 let levelOf         = new Map<File, WarningLevel>();
@@ -509,7 +496,7 @@ function attachRemoveHandler(
 
 async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detailsBtn: HTMLButtonElement): Promise<void> {
   const { file } = entry;
-  await acquireMeta();
+  await metaSem.acquire();
   try {
     const preview = await readMetadata(file);
 
@@ -569,7 +556,7 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
   } catch (err) {
     logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
   } finally {
-    releaseMeta();
+    metaSem.release();
   }
 }
 
