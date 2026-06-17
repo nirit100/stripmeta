@@ -1,4 +1,4 @@
-import { settings, onSettingChange } from './settings.ts';
+import { settings, onSettingChange } from '../lib/state/settings.ts';
 import { formatBytes } from '../lib/util/format.ts';
 
 const ABOUT_KEY  = 'stripmeta:about_shown_v1';

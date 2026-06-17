@@ -1,3 +1,8 @@
+import {
+  rawSettings, setSetting, notifyChange, persist,
+  enablePersist, disablePersist, clearStoredKeys, hasSavedSettings, noPersist,
+} from '../lib/state/settings.ts';
+
 // — DOM refs (only used inside initSettings) —
 
 const toggleAutoAbout          = document.getElementById('toggle-auto-about') as HTMLInputElement;
@@ -15,84 +20,7 @@ const btnResetProcessing       = document.getElementById('btn-reset-processing')
 const btnResetAppearance       = document.getElementById('btn-reset-appearance') as HTMLButtonElement;
 const btnResetTechnical        = document.getElementById('btn-reset-technical') as HTMLButtonElement;
 
-// — Cached state (initialized from localStorage, no DOM dependency) —
-
-interface SettingsState {
-  paranoid: boolean;
-  skipClean: boolean;
-  skipUnsupported: boolean;
-  skipExperimental: boolean;
-  includeSkipped: boolean;
-  warnUnload: boolean;
-  autoAbout: boolean;
-  persist: boolean;
-}
-
-const _noPersist = localStorage.getItem('stripmeta-no-persist') === '1';
-
-function lsRead(key: string, def: boolean): boolean {
-  if (_noPersist) return def;
-  const v = localStorage.getItem(key);
-  return v === null ? def : v === '1';
-}
-
-const _state: SettingsState = {
-  paranoid:         lsRead('stripmeta-paranoid',               false),
-  skipClean:        !lsRead('stripmeta-process-clean',         false),
-  skipUnsupported:  !lsRead('stripmeta-process-unsupported',   false),
-  skipExperimental: !lsRead('stripmeta-process-experimental',  true),
-  includeSkipped:   lsRead('stripmeta-include-skipped',        false),
-  warnUnload:       lsRead('stripmeta-warn-unload',            import.meta.env.DEV ? false : true),
-  autoAbout:        lsRead('stripmeta-auto-about',             true),
-  persist:          !_noPersist,
-};
-
-export const settings: Readonly<SettingsState> = {
-  get paranoid()          { return _state.paranoid; },
-  get skipClean()         { return _state.paranoid ? false : _state.skipClean; },
-  get skipUnsupported()   { return _state.skipUnsupported; },
-  get skipExperimental()  { return _state.paranoid ? false : _state.skipExperimental; },
-  get includeSkipped()    { return _state.includeSkipped; },
-  get warnUnload()        { return _state.warnUnload; },
-  get autoAbout()         { return _state.autoAbout; },
-  get persist()           { return _state.persist; },
-};
-
-// — Change subscriptions —
-
-type Listener = () => void;
-const _subscribers = new Map<keyof SettingsState, Listener[]>();
-
-export function onSettingChange(key: keyof SettingsState, fn: Listener): void {
-  const list = _subscribers.get(key);
-  if (list) list.push(fn);
-  else _subscribers.set(key, [fn]);
-}
-
-function notify(key: keyof SettingsState): void {
-  _subscribers.get(key)?.forEach(fn => fn());
-}
-
-// — Persistence helpers —
-
-const PERSIST_KEYS = [
-  'stripmeta-paranoid',
-  'stripmeta-process-clean',
-  'stripmeta-process-unsupported',
-  'stripmeta-process-experimental',
-  'stripmeta-include-skipped',
-  'stripmeta-no-glass',
-  'stripmeta-warn-unload',
-  'stripmeta-auto-about',
-] as const;
-
-function hasSavedSettings(): boolean {
-  return PERSIST_KEYS.some(k => localStorage.getItem(k) !== null);
-}
-
-function persist(key: string, value: boolean): void {
-  if (_state.persist) localStorage.setItem(key, value ? '1' : '0');
-}
+// — No-glass appearance (stored in the DOM class + localStorage, not in settings state) —
 
 function applyNoGlass(enabled: boolean): void {
   document.documentElement.classList.toggle('no-glass', enabled);
@@ -238,24 +166,24 @@ export function initSettings(): void {
   const body = _settingsBody = details.querySelector<HTMLElement>('.settings-body')!;
   const labelSkipClean = toggleSkipClean.closest('label')!;
 
-  // Sync toggle DOM state from _state
-  togglePersist.checked            = _state.persist;
-  toggleParanoid.checked           = _state.paranoid;
-  toggleSkipClean.checked          = !_state.skipClean;
-  toggleSkipUnsupported.checked    = !_state.skipUnsupported;
-  toggleSkipExperimental.checked   = !_state.skipExperimental;
-  toggleIncludeSkipped.checked     = _state.includeSkipped;
-  toggleWarnUnload.checked         = _state.warnUnload;
-  toggleAutoAbout.checked          = _state.autoAbout;
+  // Sync toggle DOM state from the stored (raw) settings
+  togglePersist.checked            = rawSettings.persist;
+  toggleParanoid.checked           = rawSettings.paranoid;
+  toggleSkipClean.checked          = !rawSettings.skipClean;
+  toggleSkipUnsupported.checked    = !rawSettings.skipUnsupported;
+  toggleSkipExperimental.checked   = !rawSettings.skipExperimental;
+  toggleIncludeSkipped.checked     = rawSettings.includeSkipped;
+  toggleWarnUnload.checked         = rawSettings.warnUnload;
+  toggleAutoAbout.checked          = rawSettings.autoAbout;
   toggleNoGlass.checked            = localStorage.getItem('stripmeta-no-glass') === '1';
 
   // Show stale-data hint if persist was already disabled and old data exists
-  if (_noPersist && hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
+  if (noPersist && hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
 
   const labelSkipExperimental = toggleSkipExperimental.closest('label')!;
 
   // Apply paranoid UI state on load (skipClean + skipExperimental forced; toggles locked checked)
-  if (_state.paranoid) {
+  if (rawSettings.paranoid) {
     toggleSkipClean.checked          = true;
     toggleSkipClean.disabled         = true;
     labelSkipClean.classList.add('opacity-40', 'pointer-events-none');
@@ -264,11 +192,11 @@ export function initSettings(): void {
     labelSkipExperimental.classList.add('opacity-40', 'pointer-events-none');
   }
 
-  // Event listeners — update _state, persist, notify
+  // Event listeners — drive the settings store
   toggleParanoid.addEventListener('change', () => {
-    _state.paranoid = toggleParanoid.checked;
-    persist('stripmeta-paranoid', _state.paranoid);
-    if (_state.paranoid) {
+    setSetting('paranoid', toggleParanoid.checked);
+    persist('stripmeta-paranoid', toggleParanoid.checked);
+    if (toggleParanoid.checked) {
       toggleSkipClean.checked          = true;
       toggleSkipClean.disabled         = true;
       labelSkipClean.classList.add('opacity-40', 'pointer-events-none');
@@ -276,77 +204,62 @@ export function initSettings(): void {
       toggleSkipExperimental.disabled  = true;
       labelSkipExperimental.classList.add('opacity-40', 'pointer-events-none');
     } else {
-      toggleSkipClean.checked          = !_state.skipClean;
+      toggleSkipClean.checked          = !rawSettings.skipClean;
       toggleSkipClean.disabled         = false;
       labelSkipClean.classList.remove('opacity-40', 'pointer-events-none');
-      toggleSkipExperimental.checked   = !_state.skipExperimental;
+      toggleSkipExperimental.checked   = !rawSettings.skipExperimental;
       toggleSkipExperimental.disabled  = false;
       labelSkipExperimental.classList.remove('opacity-40', 'pointer-events-none');
     }
-    notify('paranoid');
-    notify('skipClean');
-    notify('skipExperimental');
+    // Effective skipClean/skipExperimental flip with paranoid — notify their listeners too.
+    notifyChange('skipClean');
+    notifyChange('skipExperimental');
   });
 
   toggleSkipClean.addEventListener('change', () => {
-    _state.skipClean = !toggleSkipClean.checked;
+    setSetting('skipClean', !toggleSkipClean.checked);
     persist('stripmeta-process-clean', toggleSkipClean.checked);
-    notify('skipClean');
   });
 
   toggleSkipUnsupported.addEventListener('change', () => {
-    _state.skipUnsupported = !toggleSkipUnsupported.checked;
+    setSetting('skipUnsupported', !toggleSkipUnsupported.checked);
     persist('stripmeta-process-unsupported', toggleSkipUnsupported.checked);
-    notify('skipUnsupported');
   });
 
   toggleSkipExperimental.addEventListener('change', () => {
-    _state.skipExperimental = !toggleSkipExperimental.checked;
+    setSetting('skipExperimental', !toggleSkipExperimental.checked);
     persist('stripmeta-process-experimental', toggleSkipExperimental.checked);
-    notify('skipExperimental');
   });
 
   toggleIncludeSkipped.addEventListener('change', () => {
-    _state.includeSkipped = toggleIncludeSkipped.checked;
-    persist('stripmeta-include-skipped', _state.includeSkipped);
-    notify('includeSkipped');
+    setSetting('includeSkipped', toggleIncludeSkipped.checked);
+    persist('stripmeta-include-skipped', toggleIncludeSkipped.checked);
   });
 
   toggleWarnUnload.addEventListener('change', () => {
-    _state.warnUnload = toggleWarnUnload.checked;
-    persist('stripmeta-warn-unload', _state.warnUnload);
-    notify('warnUnload');
+    setSetting('warnUnload', toggleWarnUnload.checked);
+    persist('stripmeta-warn-unload', toggleWarnUnload.checked);
   });
 
   toggleAutoAbout.addEventListener('change', () => {
-    _state.autoAbout = toggleAutoAbout.checked;
-    persist('stripmeta-auto-about', _state.autoAbout);
-    notify('autoAbout');
+    setSetting('autoAbout', toggleAutoAbout.checked);
+    persist('stripmeta-auto-about', toggleAutoAbout.checked);
   });
 
   toggleNoGlass.addEventListener('change', () => applyNoGlass(toggleNoGlass.checked));
 
   togglePersist.addEventListener('change', () => {
-    _state.persist = togglePersist.checked;
-    if (_state.persist) {
-      localStorage.removeItem('stripmeta-no-persist');
-      localStorage.setItem('stripmeta-paranoid',              _state.paranoid ? '1' : '0');
-      localStorage.setItem('stripmeta-process-clean',         (!_state.skipClean) ? '1' : '0');
-      localStorage.setItem('stripmeta-process-unsupported',   (!_state.skipUnsupported) ? '1' : '0');
-      localStorage.setItem('stripmeta-process-experimental',  (!_state.skipExperimental) ? '1' : '0');
-      localStorage.setItem('stripmeta-include-skipped',       _state.includeSkipped ? '1' : '0');
-      localStorage.setItem('stripmeta-no-glass',              document.documentElement.classList.contains('no-glass') ? '1' : '0');
-      localStorage.setItem('stripmeta-warn-unload',           _state.warnUnload ? '1' : '0');
-      localStorage.setItem('stripmeta-auto-about',            _state.autoAbout ? '1' : '0');
+    if (togglePersist.checked) {
+      enablePersist(document.documentElement.classList.contains('no-glass'));
       clearStorageHint.classList.remove('hint-visible');
     } else {
-      localStorage.setItem('stripmeta-no-persist', '1');
+      disablePersist();
       if (hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
     }
   });
 
   btnClearStorage.addEventListener('click', () => {
-    PERSIST_KEYS.forEach(k => localStorage.removeItem(k));
+    clearStoredKeys();
     clearStorageHint.classList.remove('hint-visible');
     window.dispatchEvent(new CustomEvent('stripmeta:storageCleared'));
   });

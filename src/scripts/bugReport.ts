@@ -1,7 +1,7 @@
 import { getLog } from '../lib/state/logger.ts';
 import { getErroredFiles } from '../lib/state/erroredFiles.ts';
 import { buildAnonMap } from '../lib/domain/anonMap.ts';
-import { settings } from './settings.ts';
+import { settings } from '../lib/state/settings.ts';
 import { formatBytes } from '../lib/util/format.ts';
 
 const modal = document.getElementById('bug-report-modal') as HTMLDialogElement | null;

@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// settings.ts queries DOM elements at module level; they will be null in tests
-// (happy-dom returns null for unknown IDs). The refactored code no longer reads
-// DOM elements to compute settings values — only localStorage is used at init.
+// The settings store (lib/state/settings) is pure — only localStorage at init.
+// The DOM panel controller (scripts/settings) imports it; the two DOM tests
+// below pull initSettings from there, sharing the same freshly-reset store.
 
 async function importFresh() {
   vi.resetModules();
-  return import('../src/scripts/settings');
+  return import('../src/lib/state/settings');
 }
 
 function setLS(entries: Record<string, string>) {
@@ -175,7 +175,8 @@ describe('onSettingChange', () => {
       <button id="btn-reset-technical"></button>
     `;
 
-    const { settings, onSettingChange, initSettings } = await importFresh();
+    const { settings, onSettingChange } = await importFresh();
+    const { initSettings } = await import('../src/scripts/settings');
     initSettings();
 
     const listener = vi.fn();
@@ -208,7 +209,8 @@ describe('onSettingChange', () => {
       <button id="btn-reset-technical"></button>
     `;
 
-    const { settings, initSettings } = await importFresh();
+    const { settings } = await importFresh();
+    const { initSettings } = await import('../src/scripts/settings');
     initSettings();
 
     expect(settings.skipClean).toBe(true);
