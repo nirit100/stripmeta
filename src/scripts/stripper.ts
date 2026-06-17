@@ -2,13 +2,12 @@ import { readMetadata, defaultStripperManager, paranoidStripperManager, browserC
 import { iconSvg } from '../lib/icons.ts';
 import { computeToProcess, collectBlobs } from '../lib/stripPlan.ts';
 import type { FileEntry } from '../lib/stripPlan.ts';
-import { buildTree, collectEntries, entriesUnder } from '../lib/fileTree.ts';
+import { buildTree, collectEntries } from '../lib/fileTree.ts';
 import type { DirNode } from '../lib/fileTree.ts';
-import { StripState } from '../lib/stripState.ts';
-import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stripMeta.ts';
+import { FileStore } from '../lib/fileStore.ts';
+import type { WarningLevel, StripperManager } from '../lib/stripMeta.ts';
 import { formatBytes } from '../lib/format.ts';
-import { getSkipReason as _getSkipReason, skipStatusLabel } from '../lib/skip.ts';
-import { isFlatMode, sortForFlatList } from '../lib/flatList.ts';
+import { skipStatusLabel } from '../lib/skip.ts';
 import { openMetadataModal } from './modal.ts';
 import { settings, onSettingChange, collapseSettings, initSettings } from './settings.ts';
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
@@ -19,7 +18,7 @@ import { showGpsPopover } from './gpsPopover.ts';
 import { splitFilename } from '../lib/filename.ts';
 import { buildPreviewBadges } from '../lib/previewBadges.ts';
 import { computeBannerLines } from '../lib/banner.ts';
-import { computeDirStats, formatDirStat, dirStatusDot, isDirDimmed } from '../lib/dirStats.ts';
+import { formatDirStat, dirStatusDot, isDirDimmed } from '../lib/dirStats.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -48,7 +47,7 @@ const fileCountEl       = document.getElementById('file-count')!;
 const fileListArea      = document.getElementById('file-list-area')!;
 
 function updateFileListHeader() {
-  const n = entries.length;
+  const n = store.size;
   const visible = n > 0;
   fileListHeader.classList.toggle('hidden', !visible);
   fileCountEl.textContent = visible ? `${n} image${n !== 1 ? 's' : ''}` : '';
@@ -80,13 +79,9 @@ const sessionStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesS
 // open-ended stream rather than a fixed batch — hence a semaphore, not pooled().
 const metaSem = new Semaphore(6);
 
-let entries: FileEntry[] = [];
-let levelOf         = new Map<File, WarningLevel>();
-let canConvertPngOf = new Map<File, boolean>();
-let metadataCache = new Map<File, MetadataPreview>();
+const store = new FileStore();
 let heroCollapsed = false;
 let renderGen = 0;
-const state = new StripState();
 let pendingBlobs: { path: string; blob: Blob }[] = [];
 
 // DOM tracking
@@ -236,19 +231,15 @@ function detachEntry(entry: FileEntry) {
   const url = urlOf.get(entry.file);
   if (url) URL.revokeObjectURL(url);
   urlOf.delete(entry.file);
-  metadataCache.delete(entry.file);
-  levelOf.delete(entry.file);
-  canConvertPngOf.delete(entry.file);
   rowOf.delete(entry.file);
   copyBtnOf.delete(entry.file);
-  state.remove(entry.file);
-  entries = entries.filter(e => e !== entry);
+  store.remove(entry); // drops the entry, its model, and its strip state
 }
 
 function afterRemove() {
   collapseSettings();
   updateFileListHeader();
-  if (entries.length === 0) {
+  if (store.isEmpty) {
     fileList.classList.add('hidden');
     actions.classList.add('hidden');
     logSection.classList.add('hidden');
@@ -273,7 +264,7 @@ function removeEntry(entry: FileEntry) {
 
 function cleanEmptyDirs() {
   for (const [path, dirRow] of dirRowOf) {
-    const stillHasFiles = entries.some(e => e.path === path + '/' + e.path.split('/').at(-1) ||
+    const stillHasFiles = store.entries.some(e => e.path === path + '/' + e.path.split('/').at(-1) ||
       e.path.startsWith(path + '/'));
     if (!stillHasFiles) { dirRow.remove(); dirRowOf.delete(path); }
   }
@@ -315,11 +306,11 @@ function addSwipeToRemove(slideTarget: HTMLElement, removeTarget: HTMLElement, e
 // — Skip logic —
 
 function getSkipReason(file: File) {
-  return _getSkipReason(file, settings, levelOf, metadataCache);
+  return store.skipReason(file, settings);
 }
 
 function applySkipStatus(file: File) {
-  if (state.done.has(file) || state.errored.has(file)) return;
+  if (store.strip.done.has(file) || store.strip.errored.has(file)) return;
   const row = rowOf.get(file);
   if (!row) return;
   const statusBadge = row.querySelector<HTMLElement>('.status-badge');
@@ -359,7 +350,7 @@ function attachCopyHandler(file: File, copyBtn: HTMLButtonElement, defaultTip: s
   let busy = false;
   copyBtn.addEventListener('click', async () => {
     if (busy) return;
-    const blob = state.blobs.get(file);
+    const blob = store.strip.blobs.get(file);
     if (!blob) return;
     busy = true;
     copyBtn.disabled = true;
@@ -439,7 +430,7 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
       }
     }
 
-    metadataCache.set(file, preview);
+    store.setPreview(file, preview);
 
     if (preview.parseErrored && getSkipReason(file) === null) {
       logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata' });
@@ -524,10 +515,10 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   }
 
   const statusBadge = document.createElement('span');
-  if (state.done.has(file)) {
+  if (store.strip.done.has(file)) {
     statusBadge.className = 'badge badge-success badge-sm status-badge';
     statusBadge.textContent = 'Done';
-  } else if (state.errored.has(file)) {
+  } else if (store.strip.errored.has(file)) {
     statusBadge.className = 'badge badge-error badge-sm status-badge';
     statusBadge.textContent = 'Error';
   } else {
@@ -536,14 +527,14 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   }
   topRow.appendChild(statusBadge);
 
-  if (level !== 'unsupported' && canConvertPngOf.get(file) && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+  if (level !== 'unsupported' && store.canConvertPng(file) && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
     const copyBtn = document.createElement('button');
     copyBtn.type = 'button';
     copyBtn.className = COPY_BTN_CLASS;
     const defaultTip = file.type === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
     copyBtn.dataset.tip = defaultTip;
     copyBtn.innerHTML = SVG_COPY_CLIP;
-    copyBtn.hidden = !state.done.has(file);
+    copyBtn.hidden = !store.strip.done.has(file);
     copyBtnOf.set(file, copyBtn);
     attachCopyHandler(file, copyBtn, defaultTip);
     topRow.appendChild(copyBtn);
@@ -645,9 +636,8 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
   statusDot.className = 'w-2 h-2 rounded-full shrink-0 hidden';
 
   function updateCount() {
-    const under = entriesUnder(entries, node.path);
-    const stats = computeDirStats(under, { skipReason: getSkipReason, done: state.done, errored: state.errored });
-    const hasLevels = levelOf.size > 0;
+    const stats = store.dirStats(node.path, settings);
+    const hasLevels = store.classified;
 
     countBadge.textContent = formatDirStat(stats, hasLevels);
 
@@ -715,7 +705,7 @@ function materialiseDir(node: DirNode, container: HTMLElement) {
     renderDirRow(sub, false, container);
   }
   for (const entry of node.files) {
-    const level = levelOf.get(entry.file) ?? 'none';
+    const level = store.level(entry.file) ?? 'none';
     container.appendChild(renderFileCard(entry, level));
   }
 }
@@ -726,12 +716,9 @@ function removeDirNode(node: DirNode) {
     const url = urlOf.get(entry.file);
     if (url) URL.revokeObjectURL(url);
     urlOf.delete(entry.file);
-    metadataCache.delete(entry.file);
-    levelOf.delete(entry.file);
-    canConvertPngOf.delete(entry.file);
     rowOf.delete(entry.file);
   }
-  entries = entries.filter(e => !allEntries.includes(e));
+  store.removeFiles(allEntries.map(e => e.file));
   const wrap = dirRowOf.get(node.path);
   wrap?.remove();
   dirRowOf.delete(node.path);
@@ -747,8 +734,8 @@ function updateAllDirCounts() {
 // — Flat-mode sorting (only when no directory structure) —
 
 function syncFlatList() {
-  if (!isFlatMode(entries)) return;
-  const sorted = sortForFlatList(entries, { skipReason: getSkipReason, level: f => levelOf.get(f) });
+  if (!store.isFlat()) return;
+  const sorted = store.flatSorted(settings);
   for (const entry of sorted) {
     const row = rowOf.get(entry.file);
     if (row) fileList.appendChild(row); // reorder in-place
@@ -759,12 +746,7 @@ function syncFlatList() {
 // — Banner —
 
 function renderBanner() {
-  const levels = [...levelOf.values()];
-  const lines = computeBannerLines({
-    lossy:        levels.filter(l => l === 'lossy').length,
-    unsupported:  levels.filter(l => l === 'unsupported').length,
-    experimental: levels.filter(l => l === 'experimental').length,
-  }, settings);
+  const lines = computeBannerLines(store.bannerCounts(), settings);
 
   if (lines.length === 0) { fileWarningBanner.hidden = true; fileWarningBanner.innerHTML = ''; return; }
 
@@ -783,7 +765,7 @@ async function render() {
   dirCounters.clear();
   copyBtnOf.clear();
 
-  const visible = entries.length > 0;
+  const visible = !store.isEmpty;
   fileList.classList.toggle('hidden', !visible);
   actions.classList.toggle('hidden', !visible);
   logSection.classList.toggle('hidden', !visible);
@@ -795,7 +777,7 @@ async function render() {
   btnStrip.disabled = true;
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Analysing…';
 
-  const classified = await pooled(entries, 8, async e => {
+  const classified = await pooled(store.entries, 8, async e => {
     const level = await activeManager().classify(e.file);
     // Lossless (incl. experimental): output type = input type. Lossy (canvas): output is JPEG.
     const canConvertPng = level === 'lossy'
@@ -807,15 +789,15 @@ async function render() {
   // A newer render() call started while we were classifying — let it own the result.
   if (gen !== renderGen) return;
 
-  levelOf         = new Map(entries.map((e, i) => [e.file, classified[i]!.level]));
-  canConvertPngOf = new Map(entries.map((e, i) => [e.file, classified[i]!.canConvertPng]));
+  store.setClassification(new Map(store.entries.map((e, i) =>
+    [e.file, { level: classified[i]!.level, canConvertPng: classified[i]!.canConvertPng }])));
 
-  const tree = buildTree(entries);
-  const defaultExpanded = entries.length <= 10;
+  const tree = buildTree(store.entries);
+  const defaultExpanded = store.size <= 10;
 
   // Root-level files (no directory)
   for (const entry of tree.files) {
-    fileList.appendChild(renderFileCard(entry, levelOf.get(entry.file)!));
+    fileList.appendChild(renderFileCard(entry, store.level(entry.file)!));
   }
   // Directory nodes
   for (const sub of tree.subdirs.values()) {
@@ -850,14 +832,11 @@ async function* scanDirectoryEntry(entry: FileSystemEntry): AsyncGenerator<FileE
 }
 
 async function addEntries(incoming: FileEntry[]) {
-  const images = incoming.filter(e => e.file.type.startsWith('image/'));
-  const existing = new Set(entries.map(e => e.file));
-  const fresh = images.filter(e => !existing.has(e.file));
-  const wasEmpty = entries.length === 0;
-  entries = [...entries, ...fresh];
+  const wasEmpty = store.isEmpty;
+  store.add(incoming.filter(e => e.file.type.startsWith('image/')));
   collapseSettings();
   await render();
-  if (wasEmpty && entries.length > 0) {
+  if (wasEmpty && !store.isEmpty) {
     requestAnimationFrame(() => fileListArea.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 }
@@ -869,16 +848,16 @@ function fromFileList(fileList: FileList | File[], getPath: (f: File) => string)
 // — Strip & download —
 
 async function stripAndDownload() {
-  if (!entries.length) return;
+  if (store.isEmpty) return;
   collapseSettings();
 
   // Preserve done state; clear only errors so they get retried.
-  state.resetErrors();
+  store.strip.resetErrors();
   clearErroredFiles();
   pendingBlobs = [];
   btnDownload.hidden = true;
 
-  const toProcess = computeToProcess(entries, getSkipReason, state.done);
+  const toProcess = computeToProcess(store.entries, getSkipReason, store.strip.done);
 
   let hadErrors = false;
 
@@ -895,17 +874,17 @@ async function stripAndDownload() {
         stripProgressEl.textContent = `${++doneCount} / ${toProcess.length} — ${file.name}`;
         const blob = await activeManager().strip(file);
         sessionStats.filesProcessed++;
-        const preview = metadataCache.get(file);
+        const preview = store.preview(file);
         if (preview?.gps)      sessionStats.gpsRemoved++;
         if (preview?.dateTime) sessionStats.datesRemoved++;
         sessionStats.bytesStripped += Math.max(0, file.size - blob.size);
-        state.markDone(file, blob);
+        store.strip.markDone(file, blob);
         const copyBtn = copyBtnOf.get(file);
         if (copyBtn) copyBtn.hidden = false;
         if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
       } catch (err) {
         hadErrors = true;
-        state.markError(file);
+        store.strip.markError(file);
         registerErroredFile(file, path);
         if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
         logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
@@ -914,11 +893,11 @@ async function stripAndDownload() {
   }
 
   // Collect blobs: done files + optionally skipped.
-  const blobs = collectBlobs(entries, getSkipReason, state.done, state.blobs, settings.includeSkipped);
+  const blobs = collectBlobs(store.entries, getSkipReason, store.strip.done, store.strip.blobs, settings.includeSkipped);
 
   // Update skip badges (done/error badges are already set above).
-  for (const { file } of entries) {
-    if (!state.done.has(file) && getSkipReason(file) !== null) {
+  for (const { file } of store.entries) {
+    if (!store.strip.done.has(file) && getSkipReason(file) !== null) {
       const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
       if (statusBadge) {
         if (settings.includeSkipped) {
@@ -1047,14 +1026,10 @@ btnClear.addEventListener('click', () => {
   collapseSettings();
   for (const url of urlOf.values()) URL.revokeObjectURL(url);
   urlOf.clear();
-  entries = [];
-  levelOf.clear();
-  canConvertPngOf.clear();
-  metadataCache.clear();
+  store.clear();
   dirRowOf.clear();
   dirCounters.clear();
   copyBtnOf.clear();
-  state.invalidate();
   pendingBlobs = [];
   btnDownload.hidden = true;
   clearLog();
@@ -1122,14 +1097,14 @@ btnCopyResult.addEventListener('click', async () => {
 
 onSettingChange('paranoid', () => {
   // Strip algorithm changed — cached blobs are stale.
-  state.invalidate();
+  store.strip.invalidate();
   pendingBlobs = [];
   for (const btn of copyBtnOf.values()) btn.hidden = true;
   render();
 });
 
 function maybeRestoreStripButton() {
-  const hasUndone = entries.some(e => getSkipReason(e.file) === null && !state.done.has(e.file));
+  const hasUndone = store.hasPendingStrippable(settings);
   if (hasUndone && !btnDownload.hidden) {
     btnDownload.hidden = true;
     btnStrip.hidden = false;
@@ -1137,12 +1112,12 @@ function maybeRestoreStripButton() {
   }
 }
 
-onSettingChange('skipClean',        () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
-onSettingChange('skipUnsupported',  () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
-onSettingChange('skipExperimental', () => { for (const e of entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); renderBanner(); maybeRestoreStripButton(); });
+onSettingChange('skipClean',        () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
+onSettingChange('skipUnsupported',  () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
+onSettingChange('skipExperimental', () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); renderBanner(); maybeRestoreStripButton(); });
 
 window.addEventListener('beforeunload', e => {
-  if (settings.warnUnload && entries.length > 0) e.preventDefault();
+  if (settings.warnUnload && !store.isEmpty) e.preventDefault();
 });
 
 // — Floating action buttons —
