@@ -17,6 +17,7 @@ import { copyImageToClipboard, copyFailLabel } from './clipboard.ts';
 import { showGpsPopover } from './gpsPopover.ts';
 import { splitFilename } from '../lib/filename.ts';
 import { buildPreviewBadges } from '../lib/previewBadges.ts';
+import { computeBannerLines } from '../lib/banner.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -793,32 +794,13 @@ function syncFlatList() {
 
 function renderBanner() {
   const levels = [...levelOf.values()];
-  const lossy        = levels.filter(l => l === 'lossy').length;
-  const unsupported  = levels.filter(l => l === 'unsupported').length;
-  const experimental = levels.filter(l => l === 'experimental').length;
+  const lines = computeBannerLines({
+    lossy:        levels.filter(l => l === 'lossy').length,
+    unsupported:  levels.filter(l => l === 'unsupported').length,
+    experimental: levels.filter(l => l === 'experimental').length,
+  }, settings);
 
-  if (!lossy && !unsupported && !experimental) { fileWarningBanner.hidden = true; fileWarningBanner.innerHTML = ''; return; }
-
-  const lines: string[] = [];
-  if (unsupported) lines.push(`<span class="text-error font-medium">${unsupported} file${unsupported > 1 ? 's' : ''} cannot be processed</span> — format not supported in this browser.`);
-  if (lossy) {
-    const plural = lossy > 1;
-    if (!settings.paranoid && settings.skipUnsupported) {
-      lines.push(`<span class="text-warning font-medium">${lossy} file${plural ? 's' : ''} will be skipped</span> — no lossless handler exists for ${plural ? 'their' : 'its'} format${plural ? 's' : ''}.`);
-    } else {
-      const reason = settings.paranoid ? 'because paranoid mode is enabled.' : `no lossless handler exists for ${plural ? 'their' : 'its'} format${plural ? 's' : ''}.`;
-      lines.push(`<span class="text-warning font-medium">${lossy} file${plural ? 's' : ''} will be re-encoded as JPEG</span> — ${reason}`);
-    }
-  }
-
-  if (experimental) {
-    const p = experimental > 1;
-    if (settings.skipExperimental && !settings.paranoid) {
-      lines.push(`<span class="text-base-content/60 font-medium">${experimental} file${p ? 's' : ''} will be skipped</span> — experimental format${p ? 's' : ''} (HEIC/AVIF) disabled in settings.`);
-    } else {
-      lines.push(`<span class="text-warning font-medium">${experimental} file${p ? 's' : ''} will use an experimental handler</span> — review the output carefully before sharing.`);
-    }
-  }
+  if (lines.length === 0) { fileWarningBanner.hidden = true; fileWarningBanner.innerHTML = ''; return; }
 
   fileWarningBanner.hidden = false;
   fileWarningBanner.innerHTML = `<div class="flex flex-col gap-1 text-sm px-4 py-3 rounded-xl border border-base-300 text-base-content/70">${lines.map(l => `<p>${l}</p>`).join('')}</div>`;
