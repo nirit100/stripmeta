@@ -13,7 +13,7 @@ export function isFlatMode(entries: FileEntry[]): boolean {
 
 export interface FlatSortDeps {
   skipReason: (file: File) => SkipReason | null;
-  levelOf: Map<File, WarningLevel>;
+  level: (file: File) => WarningLevel | undefined;
 }
 
 /**
@@ -26,6 +26,6 @@ export function sortForFlatList(entries: FileEntry[], deps: FlatSortDeps): FileE
     const aSkip = deps.skipReason(a.file) !== null ? 1 : 0;
     const bSkip = deps.skipReason(b.file) !== null ? 1 : 0;
     if (aSkip !== bSkip) return aSkip - bSkip;
-    return WARNING_ORDER[deps.levelOf.get(a.file) ?? 'none'] - WARNING_ORDER[deps.levelOf.get(b.file) ?? 'none'];
+    return WARNING_ORDER[deps.level(a.file) ?? 'none'] - WARNING_ORDER[deps.level(b.file) ?? 'none'];
   });
 }

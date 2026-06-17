@@ -748,7 +748,7 @@ function updateAllDirCounts() {
 
 function syncFlatList() {
   if (!isFlatMode(entries)) return;
-  const sorted = sortForFlatList(entries, { skipReason: getSkipReason, levelOf });
+  const sorted = sortForFlatList(entries, { skipReason: getSkipReason, level: f => levelOf.get(f) });
   for (const entry of sorted) {
     const row = rowOf.get(entry.file);
     if (row) fileList.appendChild(row); // reorder in-place

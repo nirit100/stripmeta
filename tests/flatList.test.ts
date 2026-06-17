@@ -22,9 +22,10 @@ describe('isFlatMode', () => {
 
 describe('sortForFlatList', () => {
   function deps(skip: Map<FileEntry, SkipReason | null>, levels: Map<FileEntry, WarningLevel>): FlatSortDeps {
+    const levelMap = new Map([...levels].map(([e, l]) => [e.file, l]));
     return {
       skipReason: f => [...skip].find(([e]) => e.file === f)?.[1] ?? null,
-      levelOf: new Map([...levels].map(([e, l]) => [e.file, l])),
+      level: f => levelMap.get(f),
     };
   }
 
@@ -57,7 +58,7 @@ describe('sortForFlatList', () => {
 
   it('defaults missing levels to "none"', () => {
     const a = entry('a.jpg'), b = entry('b.jpg');
-    const out = sortForFlatList([a, b], { skipReason: () => null, levelOf: new Map() });
+    const out = sortForFlatList([a, b], { skipReason: () => null, level: () => undefined });
     expect(out).toHaveLength(2); // no throw; both treated as 'none'
   });
 });
