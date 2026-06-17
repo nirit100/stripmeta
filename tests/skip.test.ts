@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getSkipReason, skipStatusLabel } from '../src/lib/skip';
-import type { SkipSettings } from '../src/lib/skip';
+import { getSkipReason, skipStatusLabel } from '../src/lib/domain/skip';
+import type { SkipSettings } from '../src/lib/domain/skip';
 import type { MetadataPreview } from '../src/lib/stripMeta';
 import type { WarningLevel } from '../src/lib/strippers/types';
 

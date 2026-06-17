@@ -1,13 +1,13 @@
-import type { FileEntry } from './stripPlan.ts';
-import type { WarningLevel, MetadataPreview } from './stripMeta.ts';
-import type { SkipSettings, SkipReason } from './skip.ts';
-import type { LevelCounts } from './banner.ts';
-import type { DirStats } from './dirStats.ts';
-import { getSkipReason } from './skip.ts';
+import type { FileEntry } from '../domain/stripPlan.ts';
+import type { WarningLevel, MetadataPreview } from '../stripMeta.ts';
+import type { SkipSettings, SkipReason } from '../domain/skip.ts';
+import type { LevelCounts } from '../view/banner.ts';
+import type { DirStats } from '../domain/dirStats.ts';
+import { getSkipReason } from '../domain/skip.ts';
 import { StripState } from './stripState.ts';
-import { computeDirStats } from './dirStats.ts';
-import { isFlatMode, sortForFlatList } from './flatList.ts';
-import { entriesUnder } from './fileTree.ts';
+import { computeDirStats } from '../domain/dirStats.ts';
+import { isFlatMode, sortForFlatList } from '../domain/flatList.ts';
+import { entriesUnder } from '../domain/fileTree.ts';
 
 /** Per-file analysis: classification result plus the metadata preview once read. */
 export interface FileModel {

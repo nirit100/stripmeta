@@ -1,5 +1,5 @@
 import { settings, onSettingChange } from './settings.ts';
-import { formatBytes } from '../lib/format.ts';
+import { formatBytes } from '../lib/util/format.ts';
 
 const ABOUT_KEY  = 'stripmeta:about_shown_v1';
 const STATS_KEY  = 'stripmeta:stats_v1';

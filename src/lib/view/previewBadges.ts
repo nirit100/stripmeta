@@ -1,5 +1,5 @@
-import type { MetadataPreview } from './stripMeta.ts';
-import { formatGps } from './format.ts';
+import type { MetadataPreview } from '../stripMeta.ts';
+import { formatGps } from '../util/format.ts';
 
 // A presentation-neutral description of one preview badge. The DOM layer turns
 // these into elements: 'gps' becomes an interactive button (opens the map

@@ -1,8 +1,8 @@
 import { getLog } from './logger.ts';
-import { getErroredFiles } from '../lib/erroredFiles.ts';
-import { buildAnonMap } from '../lib/anonMap.ts';
+import { getErroredFiles } from '../lib/state/erroredFiles.ts';
+import { buildAnonMap } from '../lib/domain/anonMap.ts';
 import { settings } from './settings.ts';
-import { formatBytes } from '../lib/format.ts';
+import { formatBytes } from '../lib/util/format.ts';
 
 const modal = document.getElementById('bug-report-modal') as HTMLDialogElement | null;
 const logPreview = document.getElementById('bug-log-preview') as HTMLElement;

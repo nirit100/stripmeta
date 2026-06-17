@@ -1,5 +1,5 @@
-import type { WarningLevel } from './strippers/types.ts';
-import type { MetadataPreview } from './stripMeta.ts';
+import type { WarningLevel } from '../strippers/types.ts';
+import type { MetadataPreview } from '../stripMeta.ts';
 
 export interface SkipSettings {
   paranoid: boolean;

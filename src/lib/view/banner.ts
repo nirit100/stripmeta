@@ -1,4 +1,4 @@
-import type { SkipSettings } from './skip.ts';
+import type { SkipSettings } from '../domain/skip.ts';
 
 export interface LevelCounts {
   lossy: number;

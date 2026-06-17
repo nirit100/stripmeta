@@ -1,5 +1,5 @@
 import type { FileEntry } from './stripPlan.ts';
-import type { WarningLevel } from './strippers/types.ts';
+import type { WarningLevel } from '../strippers/types.ts';
 import type { SkipReason } from './skip.ts';
 
 // Sort key for files within the same skip bucket: strippable first, then the

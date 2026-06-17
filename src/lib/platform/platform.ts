@@ -1,4 +1,4 @@
-import type { PlatformCapabilities } from './strippers/types.ts';
+import type { PlatformCapabilities } from '../strippers/types.ts';
 
 // Formats all modern browsers can canvas-decode without probing.
 const BASELINE = new Set([

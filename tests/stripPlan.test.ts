@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { computeToProcess, collectBlobs } from '../src/lib/stripPlan';
-import type { FileEntry } from '../src/lib/stripPlan';
+import { computeToProcess, collectBlobs } from '../src/lib/domain/stripPlan';
+import type { FileEntry } from '../src/lib/domain/stripPlan';
 
 function makeFile(name = 'photo.jpg'): File {
   return new File(['x'], name, { type: 'image/jpeg' });

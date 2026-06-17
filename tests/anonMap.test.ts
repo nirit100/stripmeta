@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildAnonMap } from '../src/lib/anonMap.ts';
+import { buildAnonMap } from '../src/lib/domain/anonMap.ts';
 import type { LogEntry } from '../src/scripts/logger.ts';
 
 function entry(filePath: string): LogEntry {

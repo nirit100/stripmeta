@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { FileStore } from '../src/lib/fileStore';
-import type { FileEntry } from '../src/lib/stripPlan';
-import type { SkipSettings } from '../src/lib/skip';
+import { FileStore } from '../src/lib/state/fileStore';
+import type { FileEntry } from '../src/lib/domain/stripPlan';
+import type { SkipSettings } from '../src/lib/domain/skip';
 import type { MetadataPreview } from '../src/lib/stripMeta';
 
 let seq = 0;

@@ -1,4 +1,4 @@
-import type { LogEntry } from '../scripts/logger.ts';
+import type { LogEntry } from '../../scripts/logger.ts';
 
 export function buildAnonMap(entries: readonly LogEntry[]): Map<string, string> {
   const fileMap = new Map<string, string>();    // full path -> anon path

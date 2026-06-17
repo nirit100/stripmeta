@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { computeDirStats, formatDirStat, dirStatusDot, isDirDimmed, type DirStatsDeps } from '../src/lib/dirStats';
-import type { FileEntry } from '../src/lib/stripPlan';
-import type { SkipReason } from '../src/lib/skip';
+import { computeDirStats, formatDirStat, dirStatusDot, isDirDimmed, type DirStatsDeps } from '../src/lib/domain/dirStats';
+import type { FileEntry } from '../src/lib/domain/stripPlan';
+import type { SkipReason } from '../src/lib/domain/skip';
 
 let id = 0;
 function entry(): FileEntry {

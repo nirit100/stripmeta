@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { pooled, Semaphore } from '../src/lib/concurrency';
+import { pooled, Semaphore } from '../src/lib/util/concurrency';
 
 const tick = () => new Promise<void>(r => setTimeout(r, 0));
 

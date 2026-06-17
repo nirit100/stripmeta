@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { registerErroredFile, clearErroredFiles, getErroredFiles } from '../src/lib/erroredFiles';
+import { registerErroredFile, clearErroredFiles, getErroredFiles } from '../src/lib/state/erroredFiles';
 
 function makeFile(name = 'photo.jpg'): File {
   return new File(['x'], name, { type: 'image/jpeg' });

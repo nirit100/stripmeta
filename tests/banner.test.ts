@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { computeBannerLines, type LevelCounts } from '../src/lib/banner';
-import type { SkipSettings } from '../src/lib/skip';
+import { computeBannerLines, type LevelCounts } from '../src/lib/view/banner';
+import type { SkipSettings } from '../src/lib/domain/skip';
 
 function settings(over: Partial<SkipSettings> = {}): SkipSettings {
   return { paranoid: false, skipUnsupported: false, skipExperimental: false, skipClean: false, ...over };

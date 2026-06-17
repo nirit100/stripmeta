@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildTree, collectEntries, entriesUnder } from '../src/lib/fileTree';
-import type { FileEntry } from '../src/lib/stripPlan';
+import { buildTree, collectEntries, entriesUnder } from '../src/lib/domain/fileTree';
+import type { FileEntry } from '../src/lib/domain/stripPlan';
 
 function makeFile(name = 'photo.jpg'): File {
   return new File(['x'], name, { type: 'image/jpeg' });

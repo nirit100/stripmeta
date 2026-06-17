@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatBytes, formatGps } from '../src/lib/format';
+import { formatBytes, formatGps } from '../src/lib/util/format';
 
 describe('formatBytes', () => {
   it('formats bytes under 1 KB', () => {

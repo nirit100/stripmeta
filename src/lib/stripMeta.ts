@@ -7,12 +7,12 @@ import { webpStripper } from './strippers/webp.ts';
 import { heicStripper } from './strippers/heic.ts';
 import { avifStripper } from './strippers/avif.ts';
 import { canvasStripper } from './strippers/canvas.ts';
-import { browserCapabilities } from './platform.ts';
+import { browserCapabilities } from './platform/platform.ts';
 import { readExifBytes } from './strippers/isobmff.ts';
 
 export type { StripperHandler, WarningLevel } from './strippers/types.ts';
 export { StripperManager };
-export { browserCapabilities } from './platform.ts';
+export { browserCapabilities } from './platform/platform.ts';
 
 // Handlers are tried in registration order; first match wins.
 // canvasStripper must be last — it defers to capabilities to decide support.

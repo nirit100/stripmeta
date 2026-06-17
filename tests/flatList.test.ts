@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { isFlatMode, sortForFlatList, type FlatSortDeps } from '../src/lib/flatList';
-import type { FileEntry } from '../src/lib/stripPlan';
+import { isFlatMode, sortForFlatList, type FlatSortDeps } from '../src/lib/domain/flatList';
+import type { FileEntry } from '../src/lib/domain/stripPlan';
 import type { WarningLevel } from '../src/lib/strippers/types';
-import type { SkipReason } from '../src/lib/skip';
+import type { SkipReason } from '../src/lib/domain/skip';
 
 function entry(path: string): FileEntry {
   return { file: new File(['x'], path.split('/').at(-1)!, { type: 'image/jpeg' }), path };

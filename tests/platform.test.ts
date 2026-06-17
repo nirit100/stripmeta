@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BrowserCapabilities } from '../src/lib/platform';
+import { BrowserCapabilities } from '../src/lib/platform/platform';
 
 describe('BrowserCapabilities', () => {
   let caps: BrowserCapabilities;

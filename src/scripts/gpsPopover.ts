@@ -1,4 +1,4 @@
-import { iconSvg } from '../lib/icons.ts';
+import { iconSvg } from '../lib/view/icons.ts';
 import { siGooglemaps, siOpenstreetmap, siApple } from 'simple-icons';
 
 const brandIcon = (path: string) =>

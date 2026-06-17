@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { StripState } from '../src/lib/stripState';
+import { StripState } from '../src/lib/state/stripState';
 
 function makeFile(name = 'photo.jpg'): File {
   return new File(['x'], name, { type: 'image/jpeg' });

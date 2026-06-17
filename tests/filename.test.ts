@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { splitFilename } from '../src/lib/filename';
+import { splitFilename } from '../src/lib/util/filename';
 
 // Invariant: head + tail always reconstructs the original name.
 function roundtrips(name: string, tailLen?: number): boolean {
