@@ -411,6 +411,15 @@ const SVG_COPY_CLIP  = iconSvg('clipboard', 'w-3.5 h-3.5', '2');
 const SVG_COPY_CHECK = iconSvg('check',     'w-3.5 h-3.5', '2.5');
 const SVG_COPY_X     = iconSvg('x-mark',   'w-3.5 h-3.5', '2.5');
 
+// Firefox for Android rejects clipboard.write() with image data, throwing
+// NotAllowedError even for a ready PNG — image clipboard writes just aren't
+// supported there. Surface that as a clear message instead of a generic failure.
+function copyFailLabel(err: unknown): string {
+  return err instanceof DOMException && err.name === 'NotAllowedError'
+    ? "Can't copy images here"
+    : 'Failed';
+}
+
 // — Badge helper —
 
 function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-top'): HTMLElement {
@@ -459,7 +468,7 @@ function attachCopyHandler(file: File, copyBtn: HTMLButtonElement, defaultTip: s
       console.error('[copy]', err);
       copyBtn.innerHTML = SVG_COPY_X;
       copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-error tooltip tooltip-left transition-colors';
-      copyBtn.dataset.tip = 'Failed';
+      copyBtn.dataset.tip = copyFailLabel(err);
       setTimeout(() => {
         copyBtn.innerHTML = SVG_COPY_CLIP;
         copyBtn.className = COPY_BTN_CLASS;
@@ -1273,7 +1282,7 @@ btnCopyResult.addEventListener('click', async () => {
     window.dispatchEvent(new CustomEvent('stripmeta:copied'));
   } catch (err) {
     console.error('[copy]', err);
-    btnCopyResult.innerHTML = `${iconSvg('x-mark', 'w-4 h-4', '2.5')} Failed`;
+    btnCopyResult.innerHTML = `${iconSvg('x-mark', 'w-4 h-4', '2.5')} ${copyFailLabel(err)}`;
     setTimeout(() => {
       btnCopyResult.innerHTML = originalHtml;
       btnCopyResult.disabled = false;
