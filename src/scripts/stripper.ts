@@ -6,7 +6,7 @@ import { buildTree, collectEntries, entriesUnder } from '../lib/fileTree.ts';
 import type { DirNode } from '../lib/fileTree.ts';
 import { StripState } from '../lib/stripState.ts';
 import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stripMeta.ts';
-import { formatBytes, formatGps } from '../lib/format.ts';
+import { formatBytes } from '../lib/format.ts';
 import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
 import { openMetadataModal } from './modal.ts';
 import { settings, onSettingChange, collapseSettings, initSettings } from './settings.ts';
@@ -16,6 +16,7 @@ import { pooled, Semaphore } from '../lib/concurrency.ts';
 import { copyImageToClipboard, copyFailLabel } from './clipboard.ts';
 import { showGpsPopover } from './gpsPopover.ts';
 import { splitFilename } from '../lib/filename.ts';
+import { buildPreviewBadges } from '../lib/previewBadges.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -424,47 +425,24 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
   try {
     const preview = await readMetadata(file);
 
-    if (preview.gps) {
-      const { latitude, longitude } = preview.gps;
-      const coordStr = formatGps(latitude, longitude);
-      const gpsBadge = document.createElement('button');
-      gpsBadge.type = 'button';
-      gpsBadge.className = 'badge badge-xs badge-error [--size:1.25rem] cursor-pointer tooltip tooltip-top';
-      gpsBadge.dataset.tip = coordStr;
-      const gpsInner = document.createElement('span');
-      gpsInner.className = 'truncate min-w-0';
-      gpsInner.textContent = '📍 GPS';
-      gpsBadge.appendChild(gpsInner);
-      gpsBadge.addEventListener('click', e => {
-        e.stopPropagation();
-        showGpsPopover(gpsBadge, latitude, longitude, coordStr);
-      });
-      badgesSlot.appendChild(gpsBadge);
-    }
-    if (preview.make || preview.model) {
-      const cam = [preview.make, preview.model].filter(Boolean).join(' ');
-      badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '📷 ' + cam, cam));
-    }
-    if (preview.serialNumber) {
-      badgesSlot.appendChild(badge('badge-warning', 'S/N', preview.serialNumber));
-    }
-    if (preview.dateTime) {
-      const d = preview.dateTime instanceof Date
-        ? preview.dateTime
-        : new Date(String(preview.dateTime).replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
-      badgesSlot.appendChild(badge('badge-neutral font-mono', '📅 ' + (!isNaN(d.getTime()) ? d.toDateString() : String(preview.dateTime))));
-    }
-    if (preview.software) {
-      badgesSlot.appendChild(badge('badge-neutral max-w-[9rem]', '🛠️ ' + preview.software, preview.software));
-    }
-    if (preview.artist) {
-      badgesSlot.appendChild(badge('badge-error max-w-[9rem]', '👤 ' + preview.artist, preview.artist));
-    }
-    if (preview.userComment) {
-      badgesSlot.appendChild(badge('badge-warning', '💬 Comment', preview.userComment));
-    }
-    if (preview.parseErrored) {
-      badgesSlot.appendChild(badge('badge-warning', '⚠ unreadable', 'Metadata could not be parsed'));
+    for (const b of buildPreviewBadges(preview)) {
+      if (b.kind === 'gps') {
+        const gpsBadge = document.createElement('button');
+        gpsBadge.type = 'button';
+        gpsBadge.className = 'badge badge-xs badge-error [--size:1.25rem] cursor-pointer tooltip tooltip-top';
+        gpsBadge.dataset.tip = b.coord;
+        const gpsInner = document.createElement('span');
+        gpsInner.className = 'truncate min-w-0';
+        gpsInner.textContent = '📍 GPS';
+        gpsBadge.appendChild(gpsInner);
+        gpsBadge.addEventListener('click', e => {
+          e.stopPropagation();
+          showGpsPopover(gpsBadge, b.lat, b.lon, b.coord);
+        });
+        badgesSlot.appendChild(gpsBadge);
+      } else {
+        badgesSlot.appendChild(badge(b.cls, b.text, b.tip));
+      }
     }
 
     metadataCache.set(file, preview);
