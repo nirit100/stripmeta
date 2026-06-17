@@ -438,15 +438,19 @@ function attachCopyHandler(file: File, copyBtn: HTMLButtonElement, defaultTip: s
     copyBtn.disabled = true;
     copyBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span>';
     try {
-      const clipPromise: Promise<Blob> = blob.type === 'image/png'
-        ? Promise.resolve(blob)
-        : createImageBitmap(blob).then(bmp => {
-            const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-            canvas.getContext('2d')!.drawImage(bmp, 0, 0);
-            bmp.close();
-            return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
-          });
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipPromise })]);
+      // Resolve the blob before constructing ClipboardItem, bc Firefox does not
+      // accept Promise values in ClipboardItem, only resolved Blobs.
+      let clipBlob: Blob;
+      if (blob.type === 'image/png') {
+        clipBlob = blob;
+      } else {
+        const bmp = await createImageBitmap(blob);
+        const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+        canvas.getContext('2d')!.drawImage(bmp, 0, 0);
+        bmp.close();
+        clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+      }
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
       copyBtn.innerHTML = SVG_COPY_CHECK;
       copyBtn.className = 'btn btn-ghost btn-xs btn-circle text-success tooltip tooltip-left transition-colors';
       copyBtn.dataset.tip = 'Copied!';
@@ -1254,15 +1258,17 @@ btnCopyResult.addEventListener('click', async () => {
   const originalHtml = btnCopyResult.innerHTML;
   btnCopyResult.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Copying…';
   try {
-    const clipPromise: Promise<Blob> = blob.type === 'image/png'
-      ? Promise.resolve(blob)
-      : createImageBitmap(blob).then(bmp => {
-          const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
-          canvas.getContext('2d')!.drawImage(bmp, 0, 0);
-          bmp.close();
-          return new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
-        });
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipPromise })]);
+    let clipBlob: Blob;
+    if (blob.type === 'image/png') {
+      clipBlob = blob;
+    } else {
+      const bmp = await createImageBitmap(blob);
+      const canvas = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+      canvas.getContext('2d')!.drawImage(bmp, 0, 0);
+      bmp.close();
+      clipBlob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+    }
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': clipBlob })]);
     btnCopyResult.innerHTML = `${iconSvg('check', 'w-4 h-4', '2.5')} Copied!`;
     window.dispatchEvent(new CustomEvent('stripmeta:copied'));
   } catch (err) {
