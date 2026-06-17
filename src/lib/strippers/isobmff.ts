@@ -486,6 +486,43 @@ export function readExifBytes(input: Uint8Array): Uint8Array | null {
   return raw.slice(tiffStart);
 }
 
+/** Item IDs whose content carries privacy metadata: Exif and XMP ('mime' + rdf+xml). */
+function selectRemovableItems(infeList: InfeInfo[]): Set<number> {
+  return new Set(infeList.filter(e =>
+    e.itemType === 'Exif' ||
+    (e.itemType === 'mime' && e.mimeContentType === 'application/rdf+xml'),
+  ).map(e => e.itemId));
+}
+
+/** Rebuilds the iinf header bytes with an updated box size and decremented entry_count. */
+function rebuildIinfHeader(data: Uint8Array, iinf: Box, removedCount: number, removedBytes: number): Uint8Array {
+  // ISO 14496-12 §8.11.6.1 — entry_count is u16 for version 0, u32 otherwise.
+  const entryCountSize = r8(data, iinf.offset + iinf.headerSize) === 0 ? 2 : 4;
+  const oldEntryCount  = entryCountSize === 2 ? r16(data, fc(iinf)) : r32(data, fc(iinf));
+  const hdr = data.slice(iinf.offset, iinf.offset + iinf.headerSize + 4 + entryCountSize);
+  w32(hdr, 0, iinf.size - removedBytes);
+  if (entryCountSize === 2) w16(hdr, iinf.headerSize + 4, oldEntryCount - removedCount);
+  else                      w32(hdr, iinf.headerSize + 4, oldEntryCount - removedCount);
+  return hdr;
+}
+
+/** Rebuilds the iloc prefix bytes (header + nibbles + item_count) with updated size/count. */
+function rebuildIlocHeader(data: Uint8Array, iloc: Box, lay: IlocLayout, newItemCount: number, removedBytes: number): Uint8Array {
+  const pre = data.slice(iloc.offset, iloc.offset + iloc.headerSize + 4 + 2 + lay.itemCountSize);
+  w32(pre, 0, iloc.size - removedBytes);
+  if (lay.itemCountSize === 2) w16(pre, iloc.headerSize + 4 + 2, newItemCount);
+  else                         w32(pre, iloc.headerSize + 4 + 2, newItemCount);
+  return pre;
+}
+
+/** Concatenates a list of byte chunks into a single contiguous Uint8Array. */
+function concatParts(parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((acc, p) => acc + p.length, 0));
+  let pos = 0;
+  for (const p of parts) { out.set(p, pos); pos += p.length; }
+  return out;
+}
+
 export function stripExifItem(input: Uint8Array): Uint8Array {
   // ── 1. Locate meta box ───────────────────────────────────────────────────
   // ISO 14496-12 §8.11.1: meta can appear at the file level or inside moov/trak/udta.
@@ -505,10 +542,7 @@ export function stripExifItem(input: Uint8Array): Uint8Array {
 
   // ── 3. Identify items to remove (Exif + XMP) ────────────────────────────
   const infeList  = parseIinf(input, iinf);
-  const removeIds = new Set(infeList.filter(e =>
-    e.itemType === 'Exif' ||
-    (e.itemType === 'mime' && e.mimeContentType === 'application/rdf+xml'),
-  ).map(e => e.itemId));
+  const removeIds = selectRemovableItems(infeList);
   if (removeIds.size === 0) return input;
 
   const ilocLay     = parseIlocLayout(input, iloc);
@@ -548,29 +582,11 @@ export function stripExifItem(input: Uint8Array): Uint8Array {
 
   // ── 6. Rebuild ───────────────────────────────────────────────────────────
 
-  // 6a. New iinf content
-  const { version: iinfVersion } = { version: r8(input, iinf.offset + iinf.headerSize) };
-  const entryCountSize = iinfVersion === 0 ? 2 : 4;
-  const oldEntryCount  = entryCountSize === 2
-    ? r16(input, fc(iinf)) : r32(input, fc(iinf));
-  const newEntryCount  = oldEntryCount - removeIds.size;
-  const newIinfSize    = iinf.size - removedInfeSize;
+  // 6a. New iinf header (size + decremented entry_count)
+  const iinfHdr = rebuildIinfHeader(input, iinf, removeIds.size, removedInfeSize);
 
-  const iinfHdrLen = iinf.headerSize + 4 + entryCountSize;
-  const iinfHdr    = input.slice(iinf.offset, iinf.offset + iinfHdrLen);
-  w32(iinfHdr, 0, newIinfSize);
-  if (entryCountSize === 2) w16(iinfHdr, iinf.headerSize + 4, newEntryCount);
-  else                      w32(iinfHdr, iinf.headerSize + 4, newEntryCount);
-
-  // 6b. New iloc content
-  const newIlocSize  = iloc.size - removedIlocBytes;
-  const newItemCount = keepItems.length;
-  const ilocPreLen   = iloc.headerSize + 4 + 2 + ilocLay.itemCountSize;
-  const ilocPre      = input.slice(iloc.offset, iloc.offset + ilocPreLen);
-  w32(ilocPre, 0, newIlocSize);
-  if (ilocLay.itemCountSize === 2) w16(ilocPre, iloc.headerSize + 4 + 2, newItemCount);
-  else                             w32(ilocPre, iloc.headerSize + 4 + 2, newItemCount);
-
+  // 6b. New iloc prefix (size + item_count) and rewritten entries
+  const ilocPre = rebuildIlocHeader(input, iloc, ilocLay, keepItems.length, removedIlocBytes);
   const newIlocEntries = keepItems.map(it => rewriteIlocEntry(it, ilocLay, metaDelta, metaEnd));
 
   // 6c. New meta header (update size only; version/flags unchanged)
@@ -615,10 +631,5 @@ export function stripExifItem(input: Uint8Array): Uint8Array {
   }
   parts.push(tail);
 
-  // Concatenate all parts
-  const totalSize = parts.reduce((acc, p) => acc + p.length, 0);
-  const out = new Uint8Array(totalSize);
-  let pos = 0;
-  for (const p of parts) { out.set(p, pos); pos += p.length; }
-  return out;
+  return concatParts(parts);
 }
