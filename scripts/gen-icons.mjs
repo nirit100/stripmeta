@@ -52,7 +52,10 @@ function favicon(dest) {
 console.log('Generating icons from logo_orig.png…\n');
 
 icon(512, 'public/icons/512.png');
-icon(512, 'public/icons/512-maskable.png', { logoPct: 0.72, rounded: false });
+// Maskable: logo must fit the Android safe zone (central 80%-diameter circle).
+// A square logo fits that circle only at <= 0.8/sqrt(2) ~= 0.566 of the canvas,
+// so anything larger gets its corners clipped by a circular launcher mask.
+icon(512, 'public/icons/512-maskable.png', { logoPct: 0.56, rounded: false });
 icon(192, 'public/icons/192.png');
 icon(180, 'public/icons/apple-touch.png');
 favicon('public/favicon.ico');
