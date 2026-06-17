@@ -7,7 +7,8 @@ import type { DirNode } from '../lib/fileTree.ts';
 import { StripState } from '../lib/stripState.ts';
 import type { WarningLevel, MetadataPreview, StripperManager } from '../lib/stripMeta.ts';
 import { formatBytes } from '../lib/format.ts';
-import { getSkipReason as _getSkipReason } from '../lib/skip.ts';
+import { getSkipReason as _getSkipReason, skipStatusLabel } from '../lib/skip.ts';
+import { isFlatMode, sortForFlatList } from '../lib/flatList.ts';
 import { openMetadataModal } from './modal.ts';
 import { settings, onSettingChange, collapseSettings, initSettings } from './settings.ts';
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from './logger.ts';
@@ -69,9 +70,6 @@ function setScanState(active: boolean, count = 0) {
 function activeManager(): StripperManager {
   return settings.paranoid ? paranoidStripperManager : defaultStripperManager;
 }
-
-const WARNING_ORDER: Record<WarningLevel, number> = { unsupported: 0, lossy: 1, experimental: 2, none: 3 };
-
 
 // — Data model —
 
@@ -328,15 +326,9 @@ function applySkipStatus(file: File) {
   if (!statusBadge) return;
   const reason = getSkipReason(file);
   row.classList.toggle('opacity-40', reason !== null);
-  if (reason === 'unsupported') {
-    statusBadge.hidden = true; // red ✕ Unsupported badge already covers this
-  } else {
-    statusBadge.hidden = false;
-    if (reason === 'lossy')             statusBadge.textContent = 'Skipped — lossy only';
-    else if (reason === 'experimental') statusBadge.textContent = 'Skipped — experimental';
-    else if (reason === 'no-metadata')  statusBadge.textContent = 'Skipped — no metadata';
-    else                                statusBadge.textContent = 'Ready';
-  }
+  const { hidden, text } = skipStatusLabel(reason);
+  statusBadge.hidden = hidden;
+  if (!hidden) statusBadge.textContent = text;
 }
 
 // — File card handler constants —
@@ -754,18 +746,9 @@ function updateAllDirCounts() {
 
 // — Flat-mode sorting (only when no directory structure) —
 
-function isFlatMode() {
-  return entries.every(e => !e.path.includes('/'));
-}
-
 function syncFlatList() {
-  if (!isFlatMode()) return;
-  const sorted = [...entries].sort((a, b) => {
-    const aSkip = getSkipReason(a.file) !== null ? 1 : 0;
-    const bSkip = getSkipReason(b.file) !== null ? 1 : 0;
-    if (aSkip !== bSkip) return aSkip - bSkip;
-    return WARNING_ORDER[levelOf.get(a.file) ?? 'none'] - WARNING_ORDER[levelOf.get(b.file) ?? 'none'];
-  });
+  if (!isFlatMode(entries)) return;
+  const sorted = sortForFlatList(entries, { skipReason: getSkipReason, levelOf });
   for (const entry of sorted) {
     const row = rowOf.get(entry.file);
     if (row) fileList.appendChild(row); // reorder in-place

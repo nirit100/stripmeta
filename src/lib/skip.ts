@@ -35,3 +35,18 @@ export function getSkipReason(
   }
   return null;
 }
+
+/**
+ * The status-badge presentation for a skip reason. 'unsupported' is hidden
+ * (the red ✕ Unsupported badge already conveys it); a null reason means the
+ * file is strippable ("Ready").
+ */
+export function skipStatusLabel(reason: SkipReason | null): { hidden: boolean; text: string } {
+  switch (reason) {
+    case 'unsupported':  return { hidden: true,  text: '' };
+    case 'lossy':        return { hidden: false, text: 'Skipped — lossy only' };
+    case 'experimental': return { hidden: false, text: 'Skipped — experimental' };
+    case 'no-metadata':  return { hidden: false, text: 'Skipped — no metadata' };
+    default:             return { hidden: false, text: 'Ready' };
+  }
+}
