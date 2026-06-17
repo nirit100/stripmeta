@@ -27,7 +27,8 @@ export class StripperManager {
     return 'unsupported';
   }
 
-  strip(file: File): Promise<Blob> {
-    return this.resolve(file).then(h => h.strip(file));
+  async strip(file: File): Promise<Blob> {
+    const handler = await this.resolve(file);
+    return handler.strip(file);
   }
 }
