@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { buildAnonMap } from '../src/lib/domain/anonMap.ts';
-import type { LogEntry } from '../src/scripts/logger.ts';
+import { buildAnonMap, type FileRef } from '../src/lib/domain/anonMap.ts';
 
-function entry(filePath: string): LogEntry {
-  return { level: 'error', fileName: filePath.split(/[\\/]/).pop()!, filePath, message: 'err' };
+function entry(filePath: string): FileRef {
+  return { fileName: filePath.split(/[\\/]/).pop()!, filePath };
 }
 
 describe('buildAnonMap', () => {
@@ -46,14 +45,13 @@ describe('buildAnonMap', () => {
   });
 
   it('falls back to filePath over fileName', () => {
-    const e: LogEntry = { level: 'error', fileName: 'photo.jpg', filePath: 'trip/photo.jpg', message: 'err' };
-    const map = buildAnonMap([e]);
+    const map = buildAnonMap([entry('trip/photo.jpg')]);
     expect(map.has('trip/photo.jpg')).toBe(true);
     expect(map.has('photo.jpg')).toBe(false);
   });
 
   it('uses fileName when filePath is empty', () => {
-    const e: LogEntry = { level: 'warning', fileName: 'photo.jpg', filePath: '', message: 'err' };
+    const e: FileRef = { fileName: 'photo.jpg', filePath: '' };
     const map = buildAnonMap([e]);
     expect(map.get('photo.jpg')).toBe('image_1.jpg');
   });

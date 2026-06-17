@@ -1,6 +1,14 @@
-import type { LogEntry } from '../../scripts/logger.ts';
+/**
+ * The minimal shape buildAnonMap needs from each entry — a file path and name.
+ * A logger LogEntry satisfies this structurally, so callers pass log entries
+ * directly without coupling this pure module to the logger.
+ */
+export interface FileRef {
+  filePath: string;
+  fileName: string;
+}
 
-export function buildAnonMap(entries: readonly LogEntry[]): Map<string, string> {
+export function buildAnonMap(entries: readonly FileRef[]): Map<string, string> {
   const fileMap = new Map<string, string>();    // full path -> anon path
   const segmentMap = new Map<string, string>(); // individual segment -> anon segment
   let fileN = 0;
