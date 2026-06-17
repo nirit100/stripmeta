@@ -10,11 +10,14 @@ export interface SkipSettings {
 
 export type SkipReason = 'unsupported' | 'lossy' | 'experimental' | 'no-metadata';
 
+// Read-only lookups, satisfied by both a Map and a FileStore adapter.
+export interface Lookup<V> { get(file: File): V | undefined; }
+
 export function getSkipReason(
   file: File,
   settings: SkipSettings,
-  levelOf: Map<File, WarningLevel>,
-  metadataCache: Map<File, MetadataPreview>,
+  levelOf: Lookup<WarningLevel>,
+  metadataCache: Lookup<MetadataPreview>,
 ): SkipReason | null {
   if (settings.skipUnsupported) {
     const level = levelOf.get(file);
