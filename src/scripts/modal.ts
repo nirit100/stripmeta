@@ -4,10 +4,21 @@ import { logEntry, humanizeError } from '../lib/state/logger.ts';
 
 // Matches EXIF/PNG text keys that commonly carry personally identifiable data.
 // Strips punctuation/spaces before testing so "Creation Time", "By-Line", etc. all match.
-const PII_RE = /gps|latit|longit|altit|serial|make|model|artist|author|creator|owner|copyright|byline|comment|caption|description|subject|keyword|title|software|uniqueid|datetime|createdate|createtime|creationtime|modifydate|timestamp/;
+const PII_RE = /gps|latit|longit|altit|location|city|country|province|serial|make|model|host|artist|author|creator|owner|person|copyright|rights|byline|credit|source|comment|caption|description|subject|keyword|title|software|uniqueid|documentid|instanceid|email|contact|date|creationtime|timestamp/;
+
+// Keys the regex catches but that are camera telemetry, not identifying data.
+// Compared against the same normalized form as PII_RE (lowercase, letters only).
+const OVERMATCHES = new Set([
+  'subjectdistance',      // autofocus distance, via `subject`
+  'subjectdistancerange', // autofocus distance bucket, via `subject`
+  'subjectarea',          // metering area, via `subject`
+  'subjectlocation',      // metering area (alt name), via `subject` + `location`
+  'lightsource',          // white-balance setting, via `source`
+]);
 
 function isPiiKey(key: string): boolean {
-  return PII_RE.test(key.toLowerCase().replace(/[^a-z]/g, ''));
+  const norm = key.toLowerCase().replace(/[^a-z]/g, '');
+  return PII_RE.test(norm) && !OVERMATCHES.has(norm);
 }
 
 const modal = document.getElementById('metadata-modal') as HTMLDialogElement;
