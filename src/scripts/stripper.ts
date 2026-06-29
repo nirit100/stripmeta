@@ -454,26 +454,36 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
 
 /** The card thumbnail: a decoded preview when enabled, or an icon placeholder that never decodes the file. */
 function makeThumb(file: File): HTMLElement {
+  let thumb: HTMLElement;
   if (settings.showPreviews) {
     const objUrl = URL.createObjectURL(file);
     urlOf.set(file, objUrl);
     const img = document.createElement('img');
-    img.className = 'file-thumb w-12 h-12 rounded object-cover shrink-0 bg-base-300 cursor-zoom-in';
+    img.className = 'file-thumb w-12 h-12 rounded object-cover shrink-0 bg-base-300';
     img.src = objUrl;
     img.alt = '';
     img.draggable = false;
     img.loading = 'lazy';
-    img.setAttribute('role', 'button');
-    img.setAttribute('aria-label', `Open preview of ${file.name}`);
-    img.addEventListener('click', () =>
-      openLightbox(file, navEntries(), { onReveal: revealFile, resolveUrl: f => urlOf.get(f) }));
-    return img;
+    thumb = img;
   } else {
     const ph = document.createElement('div');
     ph.className = 'file-thumb w-12 h-12 rounded shrink-0 bg-base-300 flex items-center justify-center text-base-content/30';
     ph.innerHTML = iconSvg('eye-slash', 'w-5 h-5', '1.5');
-    return ph;
+    thumb = ph;
   }
+  // Tapping any thumbnail opens the full-screen viewer. With previews off the file
+  // isn't decoded until this click — an explicit, on-demand action, not bulk decoding.
+  thumb.classList.add('cursor-zoom-in');
+  thumb.setAttribute('role', 'button');
+  thumb.setAttribute('aria-label', `Open preview of ${file.name}`);
+  thumb.title = 'Open preview';
+  thumb.addEventListener('click', () =>
+    openLightbox(file, navEntries(), {
+      onReveal: revealFile,
+      onShowMetadata: f => openMetadataModal(f, activeManager()),
+      resolveUrl: f => urlOf.get(f),
+    }));
+  return thumb;
 }
 
 function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
