@@ -13,18 +13,19 @@ const toggleSkipExperimental   = document.getElementById('toggle-skip-experiment
 const toggleIncludeSkipped     = document.getElementById('toggle-include-skipped') as HTMLInputElement;
 const toggleWarnUnload         = document.getElementById('toggle-warn-unload') as HTMLInputElement;
 const togglePersist            = document.getElementById('toggle-persist') as HTMLInputElement;
-const toggleNoGlass            = document.getElementById('toggle-no-glass') as HTMLInputElement;
+const toggleGlass              = document.getElementById('toggle-glass') as HTMLInputElement;
 const clearStorageHint         = document.getElementById('clear-storage-hint')!;
 const btnClearStorage          = document.getElementById('btn-clear-storage') as HTMLButtonElement;
 const btnResetProcessing       = document.getElementById('btn-reset-processing') as HTMLButtonElement;
 const btnResetAppearance       = document.getElementById('btn-reset-appearance') as HTMLButtonElement;
 const btnResetTechnical        = document.getElementById('btn-reset-technical') as HTMLButtonElement;
 
-// — No-glass appearance (stored in the DOM class + localStorage, not in settings state) —
+// — Glass appearance (stored in the DOM class + localStorage, not in settings state).
+//   The toggle is positive (on = effects enabled); the `no-glass` class/key invert it. —
 
-function applyNoGlass(enabled: boolean): void {
-  document.documentElement.classList.toggle('no-glass', enabled);
-  persist('stripmeta-no-glass', enabled);
+function applyGlass(enabled: boolean): void {
+  document.documentElement.classList.toggle('no-glass', !enabled);
+  persist('stripmeta-no-glass', !enabled);
 }
 
 // — Changed-from-default stars —
@@ -37,7 +38,7 @@ const DEFAULT_CHECKED: Record<string, boolean> = {
   'toggle-include-skipped':   false,
   'toggle-auto-about':        true,
   'toggle-warn-unload':       !import.meta.env.DEV,
-  'toggle-no-glass':          false,
+  'toggle-glass':             true,
   'toggle-persist':           true,
 };
 
@@ -57,7 +58,7 @@ function refreshStars(): void {
 function refreshResetButtons(): void {
   const groups: Array<[HTMLButtonElement | null, string[]]> = [
     [btnResetProcessing, ['toggle-paranoid', 'toggle-skip-clean', 'toggle-skip-unsupported', 'toggle-skip-experimental', 'toggle-include-skipped']],
-    [btnResetAppearance, ['toggle-auto-about', 'toggle-warn-unload', 'toggle-no-glass']],
+    [btnResetAppearance, ['toggle-auto-about', 'toggle-warn-unload', 'toggle-glass']],
     [btnResetTechnical,  ['toggle-persist']],
   ];
   for (const [btn, ids] of groups) {
@@ -175,7 +176,7 @@ export function initSettings(): void {
   toggleIncludeSkipped.checked     = rawSettings.includeSkipped;
   toggleWarnUnload.checked         = rawSettings.warnUnload;
   toggleAutoAbout.checked          = rawSettings.autoAbout;
-  toggleNoGlass.checked            = localStorage.getItem('stripmeta-no-glass') === '1';
+  toggleGlass.checked              = localStorage.getItem('stripmeta-no-glass') !== '1';
 
   // Show stale-data hint if persist was already disabled and old data exists
   if (noPersist && hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
@@ -246,7 +247,7 @@ export function initSettings(): void {
     persist('stripmeta-auto-about', toggleAutoAbout.checked);
   });
 
-  toggleNoGlass.addEventListener('change', () => applyNoGlass(toggleNoGlass.checked));
+  toggleGlass.addEventListener('change', () => applyGlass(toggleGlass.checked));
 
   togglePersist.addEventListener('change', () => {
     if (togglePersist.checked) {
@@ -268,7 +269,7 @@ export function initSettings(): void {
 
   // Saved visual state for abort (captured on first click)
   let procSaved = { paranoid: false, skipClean: false, skipUnsupported: false, skipExperimental: true, includeSkipped: false, cleanDisabled: false, expDisabled: false };
-  let appSaved  = { autoAbout: true, warnUnload: true, noGlass: false };
+  let appSaved  = { autoAbout: true, warnUnload: true, glass: true };
   let techSaved = { persist: true };
 
   setupReset(
@@ -339,32 +340,32 @@ export function initSettings(): void {
       appSaved = {
         autoAbout: toggleAutoAbout.checked,
         warnUnload: toggleWarnUnload.checked,
-        noGlass: toggleNoGlass.checked,
+        glass: toggleGlass.checked,
       };
       toggleAutoAbout.checked   = true;
       toggleWarnUnload.checked  = !import.meta.env.DEV;
-      toggleNoGlass.checked     = false;
+      toggleGlass.checked       = true;
       toggleAutoAbout.disabled  = true;
       toggleWarnUnload.disabled = true;
-      toggleNoGlass.disabled    = true;
+      toggleGlass.disabled      = true;
     },
     () => {
       toggleAutoAbout.disabled  = false;
       toggleWarnUnload.disabled = false;
-      toggleNoGlass.disabled    = false;
+      toggleGlass.disabled      = false;
       toggleAutoAbout.dispatchEvent(new Event('change'));
       toggleWarnUnload.dispatchEvent(new Event('change'));
-      toggleNoGlass.dispatchEvent(new Event('change'));
+      toggleGlass.dispatchEvent(new Event('change'));
     },
     () => {
       toggleAutoAbout.checked   = appSaved.autoAbout;
       toggleAutoAbout.disabled  = false;
       toggleWarnUnload.checked  = appSaved.warnUnload;
       toggleWarnUnload.disabled = false;
-      toggleNoGlass.checked     = appSaved.noGlass;
-      toggleNoGlass.disabled    = false;
+      toggleGlass.checked       = appSaved.glass;
+      toggleGlass.disabled      = false;
     },
-    ['star-auto-about', 'star-warn-unload', 'star-no-glass'],
+    ['star-auto-about', 'star-warn-unload', 'star-glass'],
   );
 
   setupReset(
