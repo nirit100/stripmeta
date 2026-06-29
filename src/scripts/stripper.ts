@@ -9,6 +9,7 @@ import type { WarningLevel, StripperManager } from '../lib/stripMeta.ts';
 import { formatBytes } from '../lib/util/format.ts';
 import { skipStatusLabel } from '../lib/domain/skip.ts';
 import { openMetadataModal } from './modal.ts';
+import { openLightbox } from './lightbox.ts';
 import { settings, onSettingChange } from '../lib/state/settings.ts';
 import { collapseSettings, initSettings } from './settings.ts';
 import { logEntry, clearLog, getLog, onLogChange, humanizeError } from '../lib/state/logger.ts';
@@ -90,6 +91,7 @@ const rowOf          = new Map<File, HTMLElement>();
 const urlOf          = new Map<File, string>();
 const dirRowOf       = new Map<string, HTMLElement>();
 const dirCounters    = new Map<string, () => void>(); // path -> update fn for the stat label
+const dirExpanders   = new Map<string, () => void>(); // path -> expand fn (for reveal-in-list)
 const copyBtnOf      = new Map<File, HTMLButtonElement>();
 
 // — Directory breadcrumb
@@ -452,6 +454,7 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
 
 /** The card thumbnail: a decoded preview when enabled, or an icon placeholder that never decodes the file. */
 function makeThumb(file: File): HTMLElement {
+  let thumb: HTMLElement;
   if (settings.showPreviews) {
     const objUrl = URL.createObjectURL(file);
     urlOf.set(file, objUrl);
@@ -461,13 +464,26 @@ function makeThumb(file: File): HTMLElement {
     img.alt = '';
     img.draggable = false;
     img.loading = 'lazy';
-    return img;
+    thumb = img;
   } else {
     const ph = document.createElement('div');
     ph.className = 'file-thumb w-12 h-12 rounded shrink-0 bg-base-300 flex items-center justify-center text-base-content/30';
     ph.innerHTML = iconSvg('eye-slash', 'w-5 h-5', '1.5');
-    return ph;
+    thumb = ph;
   }
+  // Tapping any thumbnail opens the full-screen viewer. With previews off the file
+  // isn't decoded until this click — an explicit, on-demand action, not bulk decoding.
+  thumb.classList.add('cursor-zoom-in');
+  thumb.setAttribute('role', 'button');
+  thumb.setAttribute('aria-label', `Open preview of ${file.name}`);
+  thumb.title = 'Open preview';
+  thumb.addEventListener('click', () =>
+    openLightbox(file, navEntries(), {
+      onReveal: revealFile,
+      onShowMetadata: f => openMetadataModal(f, activeManager()),
+      resolveUrl: f => urlOf.get(f),
+    }));
+  return thumb;
 }
 
 function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
@@ -705,6 +721,7 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
   header.addEventListener('click', () => {
     children.hidden ? expand() : collapse();
   });
+  dirExpanders.set(node.path, expand);
 
   wrap.append(header, children);
   container.appendChild(wrap);
@@ -715,12 +732,14 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
 }
 
 function materialiseDir(node: DirNode, container: HTMLElement) {
-  for (const sub of node.subdirs.values()) {
-    renderDirRow(sub, false, container);
-  }
+  // Files first, then subdirs — matches the root render order and collectEntries,
+  // so lightbox prev/next follows the same order the user sees.
   for (const entry of node.files) {
     const level = store.level(entry.file) ?? 'none';
     container.appendChild(renderFileCard(entry, level));
+  }
+  for (const sub of node.subdirs.values()) {
+    renderDirRow(sub, false, container);
   }
 }
 
@@ -737,6 +756,31 @@ function removeDirNode(node: DirNode) {
   wrap?.remove();
   dirRowOf.delete(node.path);
   afterRemove();
+}
+
+// — Lightbox integration —
+
+/** All files in render/visual order (files-then-subdirs DFS) — the prev/next set. */
+function navEntries(): FileEntry[] {
+  return collectEntries(buildTree(store.entries));
+}
+
+/** Reveal a file in the list: expand its ancestor folders, scroll to its card, flash it. */
+function revealFile(file: File): void {
+  const entry = store.entries.find(e => e.file === file);
+  if (!entry) return;
+  // Expand each ancestor top-down (materialises lazily) so the card exists.
+  const parts = entry.path.split('/');
+  let prefix = '';
+  for (let i = 0; i < parts.length - 1; i++) {
+    prefix = prefix ? `${prefix}/${parts[i]}` : parts[i]!;
+    dirExpanders.get(prefix)?.();
+  }
+  const row = rowOf.get(file);
+  if (!row) return;
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('reveal-flash');
+  setTimeout(() => row.classList.remove('reveal-flash'), 1200);
 }
 
 // — Directory counts —
@@ -777,6 +821,7 @@ async function render() {
   rowOf.clear();
   dirRowOf.clear();
   dirCounters.clear();
+  dirExpanders.clear();
   copyBtnOf.clear();
 
   const visible = !store.isEmpty;

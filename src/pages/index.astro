@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Brand from '../components/Brand.astro';
 import Settings from '../components/Settings.astro';
+import Lightbox from '../components/Lightbox.astro';
 
 const bugReportEnabled = !!import.meta.env.PUBLIC_BUG_REPORT_ENABLED;
 ---
@@ -145,6 +146,8 @@ const bugReportEnabled = !!import.meta.env.PUBLIC_BUG_REPORT_ENABLED;
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
+
+<Lightbox />
 
 <script>
   import '../scripts/stripper.ts';
