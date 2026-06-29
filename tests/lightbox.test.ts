@@ -9,7 +9,7 @@ import {
 // the index math and clamping — where off-by-ones and sign errors hide — are unit
 // tested here.
 
-// ─── stepIndex (prev/next with wrap-around) ────────────────────────────────────
+// ─── stepIndex (prev/next, clamped — no wrap) ──────────────────────────────────
 
 describe('stepIndex', () => {
   it('advances forward', () => {
@@ -17,16 +17,16 @@ describe('stepIndex', () => {
     expect(stepIndex(1, 3, 1)).toBe(2);
   });
 
-  it('wraps forward past the end to the start', () => {
-    expect(stepIndex(2, 3, 1)).toBe(0);
+  it('clamps at the last index (no wrap forward)', () => {
+    expect(stepIndex(2, 3, 1)).toBe(2);
   });
 
   it('goes backward', () => {
     expect(stepIndex(2, 3, -1)).toBe(1);
   });
 
-  it('wraps backward past the start to the end', () => {
-    expect(stepIndex(0, 3, -1)).toBe(2);
+  it('clamps at the first index (no wrap backward)', () => {
+    expect(stepIndex(0, 3, -1)).toBe(0);
   });
 
   it('stays put with a single item', () => {

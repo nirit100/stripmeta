@@ -1,23 +1,31 @@
 // Full-screen photo viewer (lightbox). Self-contained: it receives the ordered
 // entry list and callbacks from the caller and knows nothing about the file
 // store. Native <dialog> gives top-layer rendering, ESC close and focus trap;
-// this module adds navigation, full-gesture zoom/pan, and object-URL lifecycle.
+// this module adds a finger-following swipe carousel, full-gesture zoom/pan, and
+// object-URL lifecycle.
+//
+// The stage holds a 3-pane track (prev / current / next). Swiping or hitting
+// prev/next slides the track and then re-centers after swapping the panes'
+// images — seamless because the destination pane already shows the next photo.
+// Zoom/pan transform the centre image only and are disabled mid-swipe.
 
 import type { FileEntry } from '../lib/domain/stripPlan.ts';
 
 export interface LightboxOptions {
   /** Reveal the file in the underlying list (called before the viewer closes). */
   onReveal?: (file: File) => void;
+  /** Open the metadata view for the file (the viewer stays open underneath). */
+  onShowMetadata?: (file: File) => void;
   /** Reuse an already-decoded object URL (e.g. the thumbnail's) for instant display. */
   resolveUrl?: (file: File) => string | undefined;
 }
 
 // — Pure helpers (exported for tests) —
 
-/** Next index with wrap-around; safe for empty lists. */
+/** Step the index by `dir`, clamped to the valid range (no wrap). Safe for empty lists. */
 export function stepIndex(current: number, len: number, dir: 1 | -1): number {
   if (len <= 0) return 0;
-  return (current + dir + len) % len;
+  return Math.min(len - 1, Math.max(0, current + dir));
 }
 
 export const MIN_SCALE = 1;
@@ -52,13 +60,17 @@ export function clampPan(
 const TAP_MOVE_PX = 8;     // movement under this counts as a tap, not a drag
 const SWIPE_PX = 55;       // horizontal travel to trigger prev/next
 const DOUBLE_TAP_MS = 300;
+const SLIDE_MS = 260;
+const EDGE_RESIST = 0.35;  // rubber-band factor when dragging past the first/last image
 
 let inited = false;
 let dialog: HTMLDialogElement;
-let img: HTMLImageElement;
+let img: HTMLImageElement;          // centre pane (zoom/pan target) = panes[1]
+let panes: HTMLImageElement[] = []; // the three pane images, in current DOM order
 let stage: HTMLElement;
+let track: HTMLElement;
 let nameEl: HTMLElement;
-let fallback: HTMLElement;
+let pathEl: HTMLElement;
 let zoomLabel: HTMLElement;
 let btnPrev: HTMLButtonElement, btnNext: HTMLButtonElement;
 
@@ -68,9 +80,27 @@ let opts: LightboxOptions = {};
 
 const ownUrls = new Map<File, string>();   // URLs we created and must revoke on close
 let scale = 1, tx = 0, ty = 0;
+let trackX = 0;                             // current track translateX (px)
+let animating = false;                      // true while a slide transition is running
 
 const noGlass = () => document.documentElement.classList.contains('no-glass');
 const currentFile = () => entries[index]?.file;
+const hasPrev = () => index > 0;
+const hasNext = () => index < entries.length - 1;
+const stageW = () => stage.clientWidth;
+const centerX = () => -stageW();            // track offset that centres the middle pane
+
+/** Whether a client point lands on the visible image (not the dark surround). */
+function pointOnImage(x: number, y: number): boolean {
+  if (img.style.visibility === 'hidden') return false;
+  const r = img.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+function toggleZoomAt(x: number, y: number): void {
+  if (scale > 1) resetZoom(true);
+  else zoomTo(DOUBLE_TAP_SCALE, x, y, true);
+}
 
 function urlFor(file: File): string {
   const shared = opts.resolveUrl?.(file);
@@ -79,6 +109,8 @@ function urlFor(file: File): string {
   if (!own) { own = URL.createObjectURL(file); ownUrls.set(file, own); }
   return own;
 }
+
+// — Zoom / pan (centre image) —
 
 function applyTransform(animate = false): void {
   img.style.transition = animate && !noGlass() ? 'transform 0.2s ease' : 'none';
@@ -125,42 +157,101 @@ function zoomToCenter(next: number): void {
   zoomTo(next, r.left + r.width / 2, r.top + r.height / 2, true);
 }
 
-function setNavDisabled(): void {
-  const solo = entries.length <= 1;
-  btnPrev.disabled = solo;
-  btnNext.disabled = solo;
+// — Track / panes / navigation —
+
+function setTrack(x: number): void {
+  trackX = x;
+  track.style.transform = `translateX(${x}px)`;
 }
 
-function show(i: number): void {
-  index = i;
-  const file = currentFile();
-  if (!file) return;
-  nameEl.textContent = file.name;
-  resetZoom();
-  fallback.classList.add('hidden');
-  fallback.classList.remove('flex');
-  img.style.visibility = '';
-  img.onerror = () => {
-    img.style.visibility = 'hidden';
-    fallback.classList.remove('hidden');
-    fallback.classList.add('flex');
+/** Animate the track to `x`; resolves when settled (instant when reduced-motion). */
+function slideTo(x: number): Promise<void> {
+  const from = trackX;
+  if (from === x || noGlass()) { setTrack(x); return Promise.resolve(); }
+  const anim = track.animate(
+    [{ transform: `translateX(${from}px)` }, { transform: `translateX(${x}px)` }],
+    { duration: SLIDE_MS, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' },
+  );
+  setTrack(x);
+  return anim.finished.then(() => undefined, () => undefined);
+}
+
+/** The per-pane "can't preview" fallback (sibling of the pane's <img>). */
+function fbOf(el: HTMLImageElement): HTMLElement {
+  return el.parentElement!.querySelector('.lb-fallback') as HTMLElement;
+}
+
+/** Load `file` into a pane image, revealing that pane's fallback if it can't decode. */
+function setPane(el: HTMLImageElement, file: File | undefined): void {
+  const fb = fbOf(el);
+  fb.classList.add('hidden');
+  fb.classList.remove('flex');
+  if (!file) { el.removeAttribute('src'); el.style.visibility = 'hidden'; return; }
+  el.style.visibility = '';
+  el.onerror = () => {
+    el.style.visibility = 'hidden';
+    fb.classList.remove('hidden');
+    fb.classList.add('flex');
   };
-  img.src = urlFor(file);
-  setNavDisabled();
-  preloadNeighbours();
+  el.src = urlFor(file);
 }
 
-function preloadNeighbours(): void {
-  if (entries.length <= 1) return;
-  for (const dir of [-1, 1] as const) {
-    const f = entries[stepIndex(index, entries.length, dir)]?.file;
-    if (f) { const im = new Image(); im.src = urlFor(f); }
-  }
+function updateMeta(): void {
+  const entry = entries[index];
+  if (!entry) return;
+  nameEl.textContent = entry.file.name;
+  // Show the full path underneath when it adds info (i.e. the file is in a folder).
+  const showPath = !!entry.path && entry.path !== entry.file.name;
+  pathEl.textContent = showPath ? entry.path : '';
+  pathEl.classList.toggle('hidden', !showPath);
+}
+
+function setNavDisabled(): void {
+  btnPrev.disabled = !hasPrev();
+  btnNext.disabled = !hasNext();
+}
+
+/** Render the current index into the centre pane and its neighbours, centred. */
+function render(): void {
+  img = panes[1]!;
+  resetZoom();
+  updateMeta();
+  setPane(panes[0]!, entries[index - 1]?.file);
+  setPane(panes[1]!, entries[index]?.file);
+  setPane(panes[2]!, entries[index + 1]?.file);
+  setTrack(centerX());
+  setNavDisabled();
+}
+
+/**
+ * Commit a swipe/step by rotating the pane elements so the just-revealed
+ * neighbour *becomes* the centre. The centred pane is never reloaded, so its
+ * content (image or fallback) can't flash; only the newly exposed end pane loads.
+ */
+function commit(dir: 1 | -1): void {
+  if (dir > 0) track.appendChild(track.firstElementChild!);                       // left pane → end
+  else track.insertBefore(track.lastElementChild!, track.firstElementChild);      // right pane → front
+  panes = (Array.from(track.children) as HTMLElement[]).map(w => w.querySelector('img')!);
+  img = panes[1]!;
+  index += dir;
+  setTrack(centerX());            // re-centre instantly; the centred pane doesn't move on screen
+  resetZoom();
+  updateMeta();
+  if (dir > 0) setPane(panes[2]!, entries[index + 1]?.file);
+  else         setPane(panes[0]!, entries[index - 1]?.file);
+  setNavDisabled();
+}
+
+function transitionTo(dir: 1 | -1, targetX: number): void {
+  if (animating) return;
+  resetZoom();          // unzoom the outgoing image so it isn't left scaled as a neighbour
+  animating = true;
+  slideTo(targetX).then(() => { commit(dir); animating = false; });
 }
 
 function navigate(dir: 1 | -1): void {
-  if (entries.length <= 1) return;
-  show(stepIndex(index, entries.length, dir));
+  if (stepIndex(index, entries.length, dir) === index) return;   // already at an end
+  transitionTo(dir, dir > 0 ? centerX() - stageW() : centerX() + stageW());
 }
 
 function close(): void { dialog.close(); }
@@ -168,7 +259,7 @@ function close(): void { dialog.close(); }
 function cleanup(): void {
   for (const url of ownUrls.values()) URL.revokeObjectURL(url);
   ownUrls.clear();
-  img.removeAttribute('src');
+  for (const el of panes) el.removeAttribute('src');
   entries = [];
   opts = {};
 }
@@ -189,6 +280,7 @@ function midpoint(a: { x: number; y: number }, b: { x: number; y: number }) {
 }
 
 function onPointerDown(e: PointerEvent): void {
+  if (animating) return;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   try { stage.setPointerCapture(e.pointerId); } catch { /* ignore */ }
 
@@ -220,11 +312,14 @@ function onPointerMove(e: PointerEvent): void {
   const dx = e.clientX - downX, dy = e.clientY - downY;
   if (!moved && Math.hypot(dx, dy) > TAP_MOVE_PX) moved = true;
 
-  if (scale > 1) {            // pan
+  if (scale > 1) {                 // pan the zoomed image
     tx = panTx + dx;
     ty = panTy + dy;
     clampCurrentPan();
     applyTransform();
+  } else if (moved) {              // drag the carousel (finger-following)
+    const resist = (dx > 0 && !hasPrev()) || (dx < 0 && !hasNext()) ? EDGE_RESIST : 1;
+    setTrack(centerX() + dx * resist);
   }
 }
 
@@ -247,25 +342,28 @@ function onPointerUp(e: PointerEvent): void {
   if (pinchDist > 0) { pinchDist = 0; return; }
 
   if (!moved) {
-    // Tap. On the backdrop (not the image) → close. On the image → double-tap zooms
-    // (touch/pen only; mouse double-click is handled by the native dblclick listener).
-    if (e.target !== img) { close(); return; }
+    // Tap. Pointer capture retargets events to the stage, so hit-test by coordinate
+    // rather than e.target. Off the image (dark surround) → close; on the image →
+    // double-tap zooms (touch/pen only; mouse uses the native dblclick listener).
+    if (!pointOnImage(lastX, lastY)) { close(); return; }
     if (e.pointerType === 'mouse') return;
     const now = Date.now();
-    if (now - lastTapTime < DOUBLE_TAP_MS) {
-      lastTapTime = 0;
-      if (scale > 1) resetZoom(true);
-      else zoomTo(DOUBLE_TAP_SCALE, e.clientX, e.clientY, true);
-    } else {
-      lastTapTime = now;
-    }
+    if (now - lastTapTime < DOUBLE_TAP_MS) { lastTapTime = 0; toggleZoomAt(lastX, lastY); }
+    else lastTapTime = now;
     return;
   }
 
-  // A drag: horizontal swipe navigates when not zoomed.
+  // End of a carousel drag: commit to a neighbour past the threshold, else settle back.
   if (scale <= 1) {
     const dx = lastX - downX, dy = lastY - downY;
-    if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy)) navigate(dx < 0 ? 1 : -1);
+    if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy)) {
+      const dir = dx < 0 ? 1 : -1;
+      if (stepIndex(index, entries.length, dir) !== index) {
+        transitionTo(dir, dir > 0 ? centerX() - stageW() : centerX() + stageW());
+        return;
+      }
+    }
+    slideTo(centerX());            // snap back to the current image
   }
 }
 
@@ -293,10 +391,12 @@ export function initLightbox(): void {
   inited = true;
 
   dialog = d as HTMLDialogElement;
-  img = document.getElementById('lb-img') as HTMLImageElement;
   stage = document.getElementById('lb-stage')!;
+  track = document.getElementById('lb-track')!;
+  panes = (Array.from(track.children) as HTMLElement[]).map(w => w.querySelector('img')!);
+  img = panes[1]!;
   nameEl = document.getElementById('lb-name')!;
-  fallback = document.getElementById('lb-fallback')!;
+  pathEl = document.getElementById('lb-path')!;
   zoomLabel = document.getElementById('lb-zoom-level')!;
   btnPrev = document.getElementById('lb-prev') as HTMLButtonElement;
   btnNext = document.getElementById('lb-next') as HTMLButtonElement;
@@ -306,6 +406,10 @@ export function initLightbox(): void {
   document.getElementById('lb-zoom-in')!.addEventListener('click', () => zoomToCenter(scale * ZOOM_STEP));
   document.getElementById('lb-zoom-out')!.addEventListener('click', () => zoomToCenter(scale / ZOOM_STEP));
   document.getElementById('lb-close')!.addEventListener('click', close);
+  document.getElementById('lb-info')!.addEventListener('click', () => {
+    const f = currentFile();
+    if (f) opts.onShowMetadata?.(f);   // opens over the viewer; reuses the metadata modal
+  });
   document.getElementById('lb-reveal')!.addEventListener('click', () => {
     const f = currentFile();
     close();
@@ -318,12 +422,12 @@ export function initLightbox(): void {
   stage.addEventListener('pointercancel', onPointerUp);
   stage.addEventListener('wheel', onWheel, { passive: false });
   stage.addEventListener('dblclick', e => {
-    if (e.target !== img) return;
+    if (!pointOnImage(e.clientX, e.clientY)) return;
     e.preventDefault();
-    if (scale > 1) resetZoom(true);
-    else zoomTo(DOUBLE_TAP_SCALE, e.clientX, e.clientY, true);
+    toggleZoomAt(e.clientX, e.clientY);
   });
-  img.addEventListener('load', () => clampCurrentPan());
+  // Any pane can become the centre after a rotation, so clamp on each one's load.
+  for (const p of panes) p.addEventListener('load', () => clampCurrentPan());
   dialog.addEventListener('keydown', onKeyDown);
   dialog.addEventListener('close', cleanup);
 }
@@ -335,8 +439,8 @@ export function openLightbox(file: File, list: FileEntry[], options: LightboxOpt
   entries = list;
   opts = options;
   pointers.clear();
-  pinchDist = 0; moved = false; lastTapTime = 0;
-  const i = entries.findIndex(e => e.file === file);
+  pinchDist = 0; moved = false; lastTapTime = 0; animating = false;
+  index = Math.max(0, entries.findIndex(e => e.file === file));
   if (!dialog.open) dialog.showModal();
-  show(i < 0 ? 0 : i);
+  render();
 }
