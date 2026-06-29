@@ -450,6 +450,26 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
 
 // — File card —
 
+/** The card thumbnail: a decoded preview when enabled, or an icon placeholder that never decodes the file. */
+function makeThumb(file: File): HTMLElement {
+  if (settings.showPreviews) {
+    const objUrl = URL.createObjectURL(file);
+    urlOf.set(file, objUrl);
+    const img = document.createElement('img');
+    img.className = 'file-thumb w-12 h-12 rounded object-cover shrink-0 bg-base-300';
+    img.src = objUrl;
+    img.alt = '';
+    img.draggable = false;
+    img.loading = 'lazy';
+    return img;
+  } else {
+    const ph = document.createElement('div');
+    ph.className = 'file-thumb w-12 h-12 rounded shrink-0 bg-base-300 flex items-center justify-center text-base-content/30';
+    ph.innerHTML = iconSvg('eye-slash', 'w-5 h-5', '1.5');
+    return ph;
+  }
+}
+
 function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   const { file } = entry;
   const row = document.createElement('div');
@@ -466,14 +486,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   const body = document.createElement('div');
   body.className = 'card-body p-4 flex-row items-start gap-3 bg-base-200 relative';
 
-  const objUrl = URL.createObjectURL(file);
-  urlOf.set(file, objUrl);
-  const thumb = document.createElement('img');
-  thumb.className = 'w-12 h-12 rounded object-cover shrink-0 bg-base-300';
-  thumb.src = objUrl;
-  thumb.alt = '';
-  thumb.draggable = false;
-  thumb.loading = 'lazy';
+  const thumb = makeThumb(file);
 
   const left = document.createElement('div');
   left.className = 'flex-1 min-w-0 self-stretch flex flex-col justify-between';
@@ -1116,6 +1129,16 @@ function maybeRestoreStripButton() {
 onSettingChange('skipClean',        () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
 onSettingChange('skipUnsupported',  () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
 onSettingChange('skipExperimental', () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); renderBanner(); maybeRestoreStripButton(); });
+
+onSettingChange('showPreviews', () => {
+  // Swap thumbnails in place — no reclassification needed. Revoke any decoded
+  // preview before replacing so toggling off frees its memory.
+  for (const [file, row] of rowOf) {
+    const url = urlOf.get(file);
+    if (url) { URL.revokeObjectURL(url); urlOf.delete(file); }
+    row.querySelector('.file-thumb')?.replaceWith(makeThumb(file));
+  }
+});
 
 window.addEventListener('beforeunload', e => {
   if (settings.warnUnload && !store.isEmpty) e.preventDefault();

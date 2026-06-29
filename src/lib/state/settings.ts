@@ -10,6 +10,7 @@ export interface SettingsState {
   includeSkipped: boolean;
   warnUnload: boolean;
   autoAbout: boolean;
+  showPreviews: boolean;
   persist: boolean;
 }
 
@@ -32,6 +33,7 @@ const _state: SettingsState = {
   includeSkipped:   lsRead('stripmeta-include-skipped',        false),
   warnUnload:       lsRead('stripmeta-warn-unload',            import.meta.env.DEV ? false : true),
   autoAbout:        lsRead('stripmeta-auto-about',             true),
+  showPreviews:     lsRead('stripmeta-show-previews',          true),
   persist:          !noPersist,
 };
 
@@ -44,6 +46,7 @@ export const settings: Readonly<SettingsState> = {
   get includeSkipped()    { return _state.includeSkipped; },
   get warnUnload()        { return _state.warnUnload; },
   get autoAbout()         { return _state.autoAbout; },
+  get showPreviews()      { return _state.showPreviews; },
   get persist()           { return _state.persist; },
 };
 
@@ -83,6 +86,7 @@ const PERSIST_KEYS = [
   'stripmeta-no-glass',
   'stripmeta-warn-unload',
   'stripmeta-auto-about',
+  'stripmeta-show-previews',
 ] as const;
 
 /** True if any persisted setting key exists in localStorage. */
@@ -110,6 +114,7 @@ export function enablePersist(noGlass: boolean): void {
   localStorage.setItem('stripmeta-no-glass',              noGlass ? '1' : '0');
   localStorage.setItem('stripmeta-warn-unload',           _state.warnUnload ? '1' : '0');
   localStorage.setItem('stripmeta-auto-about',            _state.autoAbout ? '1' : '0');
+  localStorage.setItem('stripmeta-show-previews',         _state.showPreviews ? '1' : '0');
 }
 
 /** Disable persistence; future writes are suppressed and saved values ignored on next load. */

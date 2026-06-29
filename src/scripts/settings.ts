@@ -6,6 +6,7 @@ import {
 // — DOM refs (only used inside initSettings) —
 
 const toggleAutoAbout          = document.getElementById('toggle-auto-about') as HTMLInputElement;
+const toggleShowPreviews       = document.getElementById('toggle-show-previews') as HTMLInputElement;
 const toggleParanoid           = document.getElementById('toggle-paranoid') as HTMLInputElement;
 const toggleSkipClean          = document.getElementById('toggle-skip-clean') as HTMLInputElement;
 const toggleSkipUnsupported    = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
@@ -39,6 +40,7 @@ const DEFAULT_CHECKED: Record<string, boolean> = {
   'toggle-auto-about':        true,
   'toggle-warn-unload':       !import.meta.env.DEV,
   'toggle-glass':             true,
+  'toggle-show-previews':     true,
   'toggle-persist':           true,
 };
 
@@ -58,7 +60,7 @@ function refreshStars(): void {
 function refreshResetButtons(): void {
   const groups: Array<[HTMLButtonElement | null, string[]]> = [
     [btnResetProcessing, ['toggle-paranoid', 'toggle-skip-clean', 'toggle-skip-unsupported', 'toggle-skip-experimental', 'toggle-include-skipped']],
-    [btnResetAppearance, ['toggle-auto-about', 'toggle-warn-unload', 'toggle-glass']],
+    [btnResetAppearance, ['toggle-auto-about', 'toggle-warn-unload', 'toggle-glass', 'toggle-show-previews']],
     [btnResetTechnical,  ['toggle-persist']],
   ];
   for (const [btn, ids] of groups) {
@@ -176,6 +178,7 @@ export function initSettings(): void {
   toggleIncludeSkipped.checked     = rawSettings.includeSkipped;
   toggleWarnUnload.checked         = rawSettings.warnUnload;
   toggleAutoAbout.checked          = rawSettings.autoAbout;
+  toggleShowPreviews.checked       = rawSettings.showPreviews;
   toggleGlass.checked              = localStorage.getItem('stripmeta-no-glass') !== '1';
 
   // Show stale-data hint if persist was already disabled and old data exists
@@ -247,6 +250,11 @@ export function initSettings(): void {
     persist('stripmeta-auto-about', toggleAutoAbout.checked);
   });
 
+  toggleShowPreviews.addEventListener('change', () => {
+    setSetting('showPreviews', toggleShowPreviews.checked);
+    persist('stripmeta-show-previews', toggleShowPreviews.checked);
+  });
+
   toggleGlass.addEventListener('change', () => applyGlass(toggleGlass.checked));
 
   togglePersist.addEventListener('change', () => {
@@ -269,7 +277,7 @@ export function initSettings(): void {
 
   // Saved visual state for abort (captured on first click)
   let procSaved = { paranoid: false, skipClean: false, skipUnsupported: false, skipExperimental: true, includeSkipped: false, cleanDisabled: false, expDisabled: false };
-  let appSaved  = { autoAbout: true, warnUnload: true, glass: true };
+  let appSaved  = { autoAbout: true, warnUnload: true, glass: true, showPreviews: true };
   let techSaved = { persist: true };
 
   setupReset(
@@ -341,31 +349,38 @@ export function initSettings(): void {
         autoAbout: toggleAutoAbout.checked,
         warnUnload: toggleWarnUnload.checked,
         glass: toggleGlass.checked,
+        showPreviews: toggleShowPreviews.checked,
       };
-      toggleAutoAbout.checked   = true;
-      toggleWarnUnload.checked  = !import.meta.env.DEV;
-      toggleGlass.checked       = true;
-      toggleAutoAbout.disabled  = true;
-      toggleWarnUnload.disabled = true;
-      toggleGlass.disabled      = true;
+      toggleAutoAbout.checked     = true;
+      toggleWarnUnload.checked    = !import.meta.env.DEV;
+      toggleGlass.checked         = true;
+      toggleShowPreviews.checked  = true;
+      toggleAutoAbout.disabled    = true;
+      toggleWarnUnload.disabled   = true;
+      toggleGlass.disabled        = true;
+      toggleShowPreviews.disabled = true;
     },
     () => {
-      toggleAutoAbout.disabled  = false;
-      toggleWarnUnload.disabled = false;
-      toggleGlass.disabled      = false;
+      toggleAutoAbout.disabled    = false;
+      toggleWarnUnload.disabled   = false;
+      toggleGlass.disabled        = false;
+      toggleShowPreviews.disabled = false;
       toggleAutoAbout.dispatchEvent(new Event('change'));
       toggleWarnUnload.dispatchEvent(new Event('change'));
       toggleGlass.dispatchEvent(new Event('change'));
+      toggleShowPreviews.dispatchEvent(new Event('change'));
     },
     () => {
-      toggleAutoAbout.checked   = appSaved.autoAbout;
-      toggleAutoAbout.disabled  = false;
-      toggleWarnUnload.checked  = appSaved.warnUnload;
-      toggleWarnUnload.disabled = false;
-      toggleGlass.checked       = appSaved.glass;
-      toggleGlass.disabled      = false;
+      toggleAutoAbout.checked     = appSaved.autoAbout;
+      toggleAutoAbout.disabled    = false;
+      toggleWarnUnload.checked    = appSaved.warnUnload;
+      toggleWarnUnload.disabled   = false;
+      toggleGlass.checked         = appSaved.glass;
+      toggleGlass.disabled        = false;
+      toggleShowPreviews.checked  = appSaved.showPreviews;
+      toggleShowPreviews.disabled = false;
     },
-    ['star-auto-about', 'star-warn-unload', 'star-glass'],
+    ['star-auto-about', 'star-warn-unload', 'star-glass', 'star-show-previews'],
   );
 
   setupReset(

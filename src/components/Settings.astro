@@ -101,6 +101,16 @@ import Icon from './Icon.astro';
       </div>
       <input type="checkbox" id="toggle-glass" class="toggle toggle-sm shrink-0" checked />
     </label>
+    <label class="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+      <div class="flex items-start gap-3">
+        <Icon name="eye-slash" class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+        <div>
+          <p class="text-sm font-medium">Image previews <span id="star-show-previews" class="hidden ml-1.5 text-warning">*</span></p>
+          <p class="text-xs text-base-content/50">Shows a thumbnail of each file. Turn off to skip decoding images entirely — lighter on memory for large batches.</p>
+        </div>
+      </div>
+      <input type="checkbox" id="toggle-show-previews" class="toggle toggle-sm shrink-0" checked />
+    </label>
     <div class="flex items-center justify-between px-4 pt-3 pb-1">
       <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/40">🛠️ Technical stuff</p>
       <button id="btn-reset-technical" type="button" class="shrink-0 text-[0.65rem] font-medium transition-colors text-base-content/30 hover:text-base-content/60">Reset</button>
