@@ -75,6 +75,19 @@ html.no-glass .glass-elem {
   pointer-events: none;
 }
 
+/* Reveal-in-list flash: briefly ring + tint a card jumped to from the photo viewer */
+@keyframes reveal-flash {
+  0%   { box-shadow: 0 0 0 2px var(--color-primary); background-color: color-mix(in oklch, var(--color-primary) 14%, transparent); }
+  100% { box-shadow: 0 0 0 2px transparent; background-color: transparent; }
+}
+.reveal-flash {
+  animation: reveal-flash 1.2s ease-out forwards;
+}
+html.no-glass .reveal-flash {
+  animation: none;
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
 /* Shine sweep keyframe */
 @keyframes card-shine {
   from { transform: translateX(-100%); }
