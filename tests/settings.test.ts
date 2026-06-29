@@ -167,7 +167,8 @@ describe('onSettingChange', () => {
       <input type="checkbox" id="toggle-warn-unload" />
       <input type="checkbox" id="toggle-auto-about" />
       <input type="checkbox" id="toggle-persist" checked />
-      <input type="checkbox" id="toggle-no-glass" />
+      <input type="checkbox" id="toggle-glass" checked />
+      <input type="checkbox" id="toggle-show-previews" checked />
       <span id="clear-storage-hint"></span>
       <button id="btn-clear-storage"></button>
       <button id="btn-reset-processing"></button>
@@ -201,7 +202,8 @@ describe('onSettingChange', () => {
       <input type="checkbox" id="toggle-warn-unload" checked />
       <input type="checkbox" id="toggle-auto-about" checked />
       <input type="checkbox" id="toggle-persist" checked />
-      <input type="checkbox" id="toggle-no-glass" />
+      <input type="checkbox" id="toggle-glass" checked />
+      <input type="checkbox" id="toggle-show-previews" checked />
       <span id="clear-storage-hint"></span>
       <button id="btn-clear-storage"></button>
       <button id="btn-reset-processing"></button>
