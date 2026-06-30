@@ -1,0 +1,204 @@
+---
+import Layout from "../layouts/Layout.astro";
+import changelog from "../data/changelog.json";
+import type { ChangelogEntry } from "../lib/util/changelog.ts";
+
+const entries = changelog as ChangelogEntry[];
+---
+
+<Layout
+  title="Changelog — StripMeta"
+  description="What's changed in StripMeta, version by version."
+>
+  <section class="cl-hero w-full max-w-2xl mx-auto flex flex-col gap-2 text-center">
+    <div class="text-xs font-semibold uppercase tracking-widest text-base-content/35">Changelog</div>
+    <h1 class="text-4xl font-extrabold tracking-tight">What's changed</h1>
+  </section>
+
+  <ol class="cl-timeline w-full max-w-2xl mx-auto mt-10">
+    {entries.map((entry, i) => (
+      <li class:list={["cl-entry", { "cl-entry--latest": i === 0 }]} style={`--i: ${i}`}>
+        <span class="cl-dot">{i === 0 && <span class="cl-ping" />}</span>
+        <details id={`v${entry.version}`} open={i === 0} class="cl-details group">
+          <summary class="cl-summary">
+            <span class="cl-version font-mono font-semibold text-base-content">v{entry.version}</span>
+            {i === 0 && <span class="cl-pill">Latest</span>}
+            <span class="cl-chev ml-auto text-base-content/30 transition-transform group-open:rotate-90">&rsaquo;</span>
+          </summary>
+          <div class="cl-body">
+            {entry.notes
+              ? <p class="text-sm text-base-content/70 whitespace-pre-line">{entry.notes}</p>
+              : entry.sections.length
+                ? entry.sections.map(sec => (
+                    <div class="cl-section">
+                      <p class="cl-section-title">{sec.title}</p>
+                      <ul class="cl-items">
+                        {sec.items.map(item => (
+                          <li>
+                            <span>{item.text}</span>
+                            {item.details.length > 0 && (
+                              <ul class="cl-subitems">
+                                {item.details.map(d => <li>{d}</li>)}
+                              </ul>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                : <p class="text-sm text-base-content/50 italic">Maintenance and internal improvements.</p>
+            }
+          </div>
+        </details>
+      </li>
+    ))}
+  </ol>
+</Layout>
+
+<style>
+  .cl-timeline { list-style: none; padding: 0; margin: 0; }
+
+  /* Each entry draws its own rail segment, so the line is continuous top→bottom. */
+  .cl-entry {
+    position: relative;
+    padding-left: 2rem;
+    padding-bottom: 0.5rem;
+  }
+  .cl-entry::before {
+    content: "";
+    position: absolute;
+    left: 0.5rem;
+    top: 0.85rem;
+    bottom: -0.15rem;
+    width: 2px;
+    background: linear-gradient(to bottom, #14b8a6, #0891b2);
+    opacity: 0.4;
+  }
+  .cl-entry:last-child::before {
+    background: linear-gradient(to bottom, #14b8a6, transparent);
+  }
+
+  /* Node dot, sitting on the rail. Hollow by default. */
+  .cl-dot {
+    position: absolute;
+    left: calc(0.5rem - 4px);
+    top: 0.6rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: var(--color-base-100);
+    border: 2px solid color-mix(in oklch, #14b8a6 70%, transparent);
+    z-index: 1;
+  }
+  /* Latest node is filled with the brand gradient and gently pings. */
+  .cl-entry--latest .cl-dot {
+    border: none;
+    background: var(--brand-gradient);
+  }
+  .cl-ping {
+    position: absolute;
+    inset: -2px;
+    border-radius: 9999px;
+    background: #14b8a6;
+    opacity: 0.6;
+    animation: cl-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  @keyframes cl-ping {
+    75%, 100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  .cl-details {
+    border-radius: 0.75rem;
+    transition: background-color 0.15s;
+  }
+  .cl-details[open] { background: color-mix(in oklch, var(--color-base-200) 35%, transparent); }
+
+  .cl-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+  }
+  .cl-summary::-webkit-details-marker { display: none; }
+  .cl-summary:hover { background: color-mix(in oklch, var(--color-base-200) 50%, transparent); }
+  .cl-chev { font-size: 1.1rem; line-height: 1; }
+  .cl-version { line-height: 1; }
+
+  .cl-pill {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #fff;
+    background: var(--brand-gradient);
+    padding: 0.2rem 0.45rem;
+    border-radius: 9999px;
+  }
+
+  .cl-body { padding: 0.25rem 0.75rem 0.75rem; }
+  .cl-section + .cl-section { margin-top: 0.85rem; }
+  .cl-section-title {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: color-mix(in oklch, var(--color-base-content) 35%, transparent);
+    margin-bottom: 0.35rem;
+  }
+  .cl-items {
+    list-style: disc;
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.875rem;
+    color: color-mix(in oklch, var(--color-base-content) 75%, transparent);
+  }
+  .cl-subitems {
+    list-style: circle;
+    padding-left: 1.1rem;
+    margin-top: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.8rem;
+    color: color-mix(in oklch, var(--color-base-content) 50%, transparent);
+  }
+
+  /* Deep link (/changelog#v0.5.3) — highlight the targeted node. */
+  .cl-entry:target .cl-dot { box-shadow: 0 0 0 4px color-mix(in oklch, #14b8a6 25%, transparent); }
+
+  /* Page-load entrance: hero fades up, entries cascade down the spine. */
+  @keyframes cl-fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .cl-hero {
+    animation: cl-fade-up 0.5s ease-out backwards;
+  }
+  .cl-entry {
+    animation: cl-fade-up 0.45s ease-out backwards;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+  html.no-glass .cl-hero,
+  html.no-glass .cl-entry {
+    animation: none;
+  }
+</style>
+
+<script is:inline>
+  // Open a deep-linked version on load (:target can't toggle <details> open).
+  const id = location.hash.slice(1);
+  if (id) document.getElementById(id)?.setAttribute('open', '');
+</script>
+
+<script>
+  import '../scripts/changelog-page.ts';
+</script>
