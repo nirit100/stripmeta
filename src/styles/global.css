@@ -77,7 +77,7 @@ html.no-glass .glass-elem {
 
 /* Reveal-in-list flash: briefly ring + tint a card jumped to from the photo viewer */
 @keyframes reveal-flash {
-  0%   { box-shadow: 0 0 0 2px var(--color-primary); background-color: color-mix(in oklch, var(--color-primary) 14%, transparent); }
+  0%   { box-shadow: 0 0 0 2px var(--color-teal-500); background-color: color-mix(in oklch, var(--color-teal-500) 14%, transparent); }
   100% { box-shadow: 0 0 0 2px transparent; background-color: transparent; }
 }
 .reveal-flash {
@@ -85,7 +85,7 @@ html.no-glass .glass-elem {
 }
 html.no-glass .reveal-flash {
   animation: none;
-  box-shadow: 0 0 0 2px var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-teal-500);
 }
 
 /* Shine sweep keyframe */
