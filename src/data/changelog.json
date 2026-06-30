@@ -1,5 +1,45 @@
 [
   {
+    "version": "0.6.0",
+    "date": "2026-06-30",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Features",
+        "items": [
+          {
+            "text": "add /changelog timeline page",
+            "details": []
+          },
+          {
+            "text": "\"what's new\" reveal for installed PWA users",
+            "details": []
+          },
+          {
+            "text": "generate changelog.json from git history at bump time",
+            "details": []
+          },
+          {
+            "text": "full screen photo preview",
+            "details": [
+              "open from any thumbnail + metadata action",
+              "swipe carousel, zoom & metadata/path UI",
+              "open the photo viewer from file-card thumbnails",
+              "add full-screen photo viewer (lightbox)"
+            ]
+          },
+          {
+            "text": "add option to disable image previews",
+            "details": [
+              "clearer description",
+              "hide thumbnails"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.5.4",
     "date": "2026-06-25",
     "notes": null,
