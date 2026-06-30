@@ -1,0 +1,533 @@
+[
+  {
+    "version": "0.5.4",
+    "date": "2026-06-25",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Features",
+        "items": [
+          {
+            "text": "highlighting regex in details extended, exceptions added",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.5.3",
+    "date": "2026-06-17",
+    "notes": null,
+    "sections": []
+  },
+  {
+    "version": "0.5.2",
+    "date": "2026-06-17",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "update bug report file attachment message",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.5.1",
+    "date": "2026-06-17",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "the grand refactor continued",
+            "details": [
+              "add FileStore session data model (tested, unwired)"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.5.0",
+    "date": "2026-06-17",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "the grand refactor",
+            "details": [
+              "clear astro check type errors"
+            ]
+          },
+          {
+            "text": "firefox android copy to clipboard",
+            "details": [
+              "improve clipboard handling for JPEG blobs on Firefox for Android"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.4.5",
+    "date": "2026-06-17",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "(hopefully) copy to clipboard on Firefox on Android",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.4.4",
+    "date": "2026-06-13",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "streamline service worker update handling for standalone mode",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.4.3",
+    "date": "2026-06-13",
+    "notes": null,
+    "sections": []
+  },
+  {
+    "version": "0.4.2",
+    "date": "2026-06-13",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "stamp build version into sw.js so updates are detected",
+            "details": []
+          },
+          {
+            "text": "improve service worker update handling for iOS Safari",
+            "details": []
+          },
+          {
+            "text": "hide margin on bottom if empty",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.4.1",
+    "date": "2026-06-13",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "include experimental files setting in bug report stats",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.4.0",
+    "date": "2026-06-13",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "add before state mockup in step 3 in how-it-works page",
+            "details": []
+          },
+          {
+            "text": "add error handling for git fetch in getAppVersion function",
+            "details": []
+          },
+          {
+            "text": "hide default marker for summary elements on Safari",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "version": "0.3.1",
+    "date": "2026-06-13",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Features",
+        "items": [
+          {
+            "text": "update deployment workflow to trigger on v* tag pushes and clarify README instructions",
+            "details": []
+          },
+          {
+            "text": "pwa",
+            "details": [
+              "add PUBLIC_LONELYVOID_URL for artist profile link in About modal",
+              "update favicon and logo assets, improve icon handling, and enhance AboutModal with additional brand icons",
+              "update icon",
+              "simplify theme color handling and improve responsiveness to system color scheme changes",
+              "implement PWA installation and manual instructions modals with improved user prompts",
+              "update PWA installation prompts and improve user experience with modal handling",
+              "enhance PWA update handling with toast notifications and service worker improvements",
+              "implement PWA update notification banner and service worker handling",
+              "responsive navbar/footer breakpoints and narrow-viewport floor",
+              "add placeholder logo.svg and integrate it into the Brand component and layout for PWA support",
+              "implement PWA installation prompt and enhance theme color handling"
+            ]
+          },
+          {
+            "text": "implement versioning system and update deployment workflow to trigger on versioned tags",
+            "details": []
+          },
+          {
+            "text": "add star indicators for default settings and refresh functionality for reset buttons",
+            "details": []
+          },
+          {
+            "text": "enhance reset functionality with blinking effect and additional reset buttons in settings",
+            "details": []
+          },
+          {
+            "text": "add reset buttons for processing, appearance, and technical settings",
+            "details": []
+          },
+          {
+            "text": "add experimental format skip function",
+            "details": []
+          },
+          {
+            "text": "asibmff",
+            "details": [
+              "add support for reading EXIF data from ISOBMFF files and enhance metadata handling for HEIC/AVIF formats",
+              "remove PNG conversion capability from detached file entries",
+              "clear PNG conversion cache on directory removal and clear actions",
+              "enhance support for HEIC and AVIF formats by improving file type checks and adding XMP metadata stripping",
+              "enhance warning level classification and update clipboard functionality to respect browser capabilities",
+              "update file input to support HEIC and AVIF formats",
+              "add support for HEIC and AVIF metadata stripping"
+            ]
+          },
+          {
+            "text": "add limitations section to how-it-works page and update index with progress note",
+            "details": []
+          },
+          {
+            "text": "add WebP EXIF parsing support and update related tests",
+            "details": []
+          },
+          {
+            "text": "add deployment workflow triggered by successful test completion on main",
+            "details": []
+          },
+          {
+            "text": "add GitHub Actions workflow for testing",
+            "details": []
+          },
+          {
+            "text": "enhance download button with icon and update text for clarity",
+            "details": []
+          },
+          {
+            "text": "add \"Privacy by architecture\" section with data flow diagram and explanations",
+            "details": []
+          },
+          {
+            "text": "responsive navbar/footer breakpoints, inline logo, and narrow-viewport floor",
+            "details": []
+          },
+          {
+            "text": "enhance metadata handling with hasAnyMetadata flag and update related logic",
+            "details": []
+          },
+          {
+            "text": "add corrupt EXIF fixture and enhance readRichMetadata error handling",
+            "details": []
+          },
+          {
+            "text": "better tooltips, GPS links",
+            "details": []
+          },
+          {
+            "text": "add \"Copy to clipboard\" button and functionality for single image results",
+            "details": []
+          },
+          {
+            "text": "implement stripPlan and stripState modules",
+            "details": []
+          },
+          {
+            "text": "enhance BugReportModal and Settings with development mode checks and warnings",
+            "details": []
+          },
+          {
+            "text": "add settings and stats display to BugReportModal and update settings management",
+            "details": []
+          },
+          {
+            "text": "change to information-circle icon to About button and update donation links with icons",
+            "details": []
+          },
+          {
+            "text": "add simple-icons dependency and update AboutModal with additional libraries",
+            "details": []
+          },
+          {
+            "text": "add folder warning modal for large folder selection on mobile devices",
+            "details": []
+          },
+          {
+            "text": "add clarification about Cloudflare bot challenge in bug report submission",
+            "details": []
+          },
+          {
+            "text": "add buildAnonMap function for anonymizing file paths and implement tests",
+            "details": []
+          },
+          {
+            "text": "implement bug reporting functionality with email integration",
+            "details": []
+          },
+          {
+            "text": "add progress indicator for stripping process and update log visibility",
+            "details": []
+          },
+          {
+            "text": "enhance scanning feedback and update directory status indicators",
+            "details": []
+          },
+          {
+            "text": "add \"How it works\" page and integrate navigation buttons in layout",
+            "details": []
+          },
+          {
+            "text": "add clear stats button in AboutModal",
+            "details": []
+          },
+          {
+            "text": "add Icon component and integrate icons in Settings panel",
+            "details": []
+          },
+          {
+            "text": "update donation links to use environment variables for Ko-fi and PayPal",
+            "details": []
+          },
+          {
+            "text": "improve About modal and integrate statistics display",
+            "details": []
+          },
+          {
+            "text": "scroll settings into view when opened",
+            "details": []
+          },
+          {
+            "text": "add some animations for fanciness and adapt settings toggles to disable them",
+            "details": []
+          },
+          {
+            "text": "highlight fields with personally identifiable data in metadata modal",
+            "details": []
+          },
+          {
+            "text": "add option to include skipped files in download and persist setting",
+            "details": []
+          },
+          {
+            "text": "add collapseSettings function to enhance settings panel behavior",
+            "details": []
+          },
+          {
+            "text": "add warning before leaving with loaded files and persist setting",
+            "details": []
+          },
+          {
+            "text": "add settings persistence with local storage and enhance clear storage functionality",
+            "details": []
+          },
+          {
+            "text": "implement 'no glass' mode to disable backdrop effects and enhance UI accessibility",
+            "details": []
+          },
+          {
+            "text": "enhance text visibility in UI components by adjusting color classes",
+            "details": []
+          },
+          {
+            "text": "enhance directory breadcrumb styling and implement floating action buttons for improved navigation",
+            "details": []
+          },
+          {
+            "text": "add directory breadcrumb for improved navigation and visibility",
+            "details": []
+          },
+          {
+            "text": "update dateTime type in MetadataPreview to support Date objects and enhance metadata handling",
+            "details": []
+          },
+          {
+            "text": "improve file skip status handling and enhance file name display in file cards",
+            "details": []
+          },
+          {
+            "text": "enhance drop zone functionality with scan state indication and improved file handling",
+            "details": []
+          },
+          {
+            "text": "replace chevron element with SVG for improved rendering and accessibility",
+            "details": []
+          },
+          {
+            "text": "implement logging functionality with UI for error and warning display",
+            "details": []
+          },
+          {
+            "text": "enhance file input options with folder selection and improved UI for file uploads",
+            "details": []
+          }
+        ]
+      },
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "add tests badge to README for CI visibility",
+            "details": []
+          },
+          {
+            "text": "improve error handling and logging in metadata reading functions",
+            "details": []
+          },
+          {
+            "text": "brand component spacing",
+            "details": []
+          },
+          {
+            "text": "log metadata read errors only when applicable",
+            "details": []
+          },
+          {
+            "text": "paranoid mode, refactor settings",
+            "details": []
+          },
+          {
+            "text": "maybe fix Yann's bug",
+            "details": []
+          },
+          {
+            "text": "clarify warning message about local storage for settings and stats",
+            "details": []
+          },
+          {
+            "text": "not overwriting saved stats with session only stats any more",
+            "details": []
+          },
+          {
+            "text": "bugs around settings/stats persistence and auto modal",
+            "details": []
+          },
+          {
+            "text": "adjust layout for Kofi button and improve styling for donation links",
+            "details": []
+          },
+          {
+            "text": "add validation for bug report submission when no error log is available",
+            "details": []
+          },
+          {
+            "text": "adjusted tone in how it works page",
+            "details": []
+          },
+          {
+            "text": "improve error handling for bug report submission, add response for too many requests",
+            "details": []
+          },
+          {
+            "text": "remove mention of Cloudflare bot challenge from bug report submission text",
+            "details": []
+          },
+          {
+            "text": "made tagline ellips instead of linebreak",
+            "details": []
+          },
+          {
+            "text": "update PayPal URL variable reference in AboutModal",
+            "details": []
+          },
+          {
+            "text": "update environment variable references",
+            "details": []
+          },
+          {
+            "text": "disable animation for elements in no-glass mode",
+            "details": []
+          },
+          {
+            "text": "adjust animation condition for statistics rendering",
+            "details": []
+          },
+          {
+            "text": "improve styling of the file warning banner",
+            "details": []
+          },
+          {
+            "text": "better coloring in the modal (amber-on-amber was a stupid idea)",
+            "details": []
+          },
+          {
+            "text": "handle error state in stripAndDownload function to prevent donation popup showing when errors occurred",
+            "details": []
+          },
+          {
+            "text": "adjust footer text color again",
+            "details": []
+          },
+          {
+            "text": "update .gitignore to include TODO.txt and refine test image patterns",
+            "details": []
+          },
+          {
+            "text": "handle non-JPEG data URLs in jpegStripper for better compatibility with \"disguised JPEGs\" (grrrr android)",
+            "details": []
+          },
+          {
+            "text": "update favicon link from SVG to ICO format for better compatibility",
+            "details": []
+          }
+        ]
+      }
+    ]
+  }
+]
