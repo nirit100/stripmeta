@@ -23,7 +23,7 @@ function writeSeen(version: string): void {
   try { localStorage.setItem(SEEN_KEY, version); } catch { /* storage blocked — ignore */ }
 }
 
-function renderEntries(entries: ChangelogEntry[]): DocumentFragment {
+export function renderEntries(entries: ChangelogEntry[]): DocumentFragment {
   const frag = document.createDocumentFragment();
   for (const entry of entries) {
     const section = document.createElement('section');
@@ -74,6 +74,24 @@ function renderEntries(entries: ChangelogEntry[]): DocumentFragment {
   return frag;
 }
 
+/** Marks the baseline version the entries above were diffed against. */
+export function renderCurrentVersionPin(version: string): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'flex items-center gap-2 pt-3 mt-1 border-t border-base-300/60';
+
+  const ver = document.createElement('p');
+  ver.className = 'font-mono font-semibold text-base-content';
+  ver.textContent = `v${version}`;
+  wrap.append(ver);
+
+  const tag = document.createElement('span');
+  tag.className = 'text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35';
+  tag.textContent = "you're here";
+  wrap.append(tag);
+
+  return wrap;
+}
+
 if (isStandalone) {
   const modal = document.getElementById('changelog-modal') as HTMLDialogElement | null;
   const body  = document.getElementById('changelog-modal-body') as HTMLElement | null;
@@ -87,7 +105,7 @@ if (isStandalone) {
     writeSeen(CURRENT);
   } else if (fresh.length && modal && body) {
     badge?.classList.remove('hidden');
-    body.replaceChildren(renderEntries(fresh));
+    body.replaceChildren(renderEntries(fresh), renderCurrentVersionPin(seen));
     modal.addEventListener('close', () => {
       writeSeen(CURRENT);
       badge?.classList.add('hidden');
