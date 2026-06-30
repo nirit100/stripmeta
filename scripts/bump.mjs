@@ -4,6 +4,7 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { execSync } from 'child_process';
+import { generateChangelog } from './gen-changelog.mjs';
 
 const type = process.argv[2] ?? 'patch';
 
@@ -40,7 +41,11 @@ try {
 pkg.version = next;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 
-execSync(`git add package.json`);
+// Regenerate the changelog so the new version's section is baked into the
+// tagged commit. Generated here (full clone) — never at deploy time.
+generateChangelog({ pendingVersion: next });
+
+execSync(`git add package.json src/data/changelog.json`);
 execSync(`git commit -m "chore: bump to ${tag}"`);
 execSync(`git tag ${tag}`);
 

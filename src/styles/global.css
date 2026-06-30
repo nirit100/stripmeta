@@ -147,14 +147,21 @@ html.no-glass .reveal-flash {
 
 /* Brand gradient — slightly darker in light mode for legibility */
 :root {
-  --brand-gradient: linear-gradient(to right, #10b981, #0d9488, #0891b2);
+  --brand-from: #10b981;
+  --brand-via: #0d9488;
+  --brand-to: #0891b2;
+  --brand-gradient: linear-gradient(to right, var(--brand-from), var(--brand-via), var(--brand-to));
 }
 [data-theme="dark"] {
-  --brand-gradient: linear-gradient(to right, #34d399, #14b8a6, #06b6d4);
+  --brand-from: #34d399;
+  --brand-via: #14b8a6;
+  --brand-to: #06b6d4;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand-gradient: linear-gradient(to right, #34d399, #14b8a6, #06b6d4);
+    --brand-from: #34d399;
+    --brand-via: #14b8a6;
+    --brand-to: #06b6d4;
   }
 }
 

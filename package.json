@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "bump": "node scripts/bump.mjs",
+    "gen-changelog": "node scripts/gen-changelog.mjs",
     "gen-icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
