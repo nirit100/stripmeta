@@ -5,6 +5,15 @@
     "notes": null,
     "sections": [
       {
+        "title": "Features",
+        "items": [
+          {
+            "text": "you're here in popup",
+            "details": []
+          }
+        ]
+      },
+      {
         "title": "Fixes",
         "items": [
           {
