@@ -71,11 +71,11 @@ const entries = changelog as ChangelogEntry[];
     top: 0.85rem;
     bottom: -0.15rem;
     width: 2px;
-    background: linear-gradient(to bottom, #14b8a6, #0891b2);
+    background: linear-gradient(to bottom, var(--brand-via), var(--brand-to));
     opacity: 0.4;
   }
   .cl-entry:last-child::before {
-    background: linear-gradient(to bottom, #14b8a6, transparent);
+    background: linear-gradient(to bottom, var(--brand-via), transparent);
   }
 
   /* Node dot, sitting on the rail. Hollow by default. */
@@ -87,7 +87,7 @@ const entries = changelog as ChangelogEntry[];
     height: 10px;
     border-radius: 9999px;
     background: var(--color-base-100);
-    border: 2px solid color-mix(in oklch, #14b8a6 70%, transparent);
+    border: 2px solid color-mix(in oklch, var(--brand-via) 70%, transparent);
     z-index: 1;
   }
   /* Latest node is filled with the brand gradient and gently pings. */
@@ -99,7 +99,7 @@ const entries = changelog as ChangelogEntry[];
     position: absolute;
     inset: -2px;
     border-radius: 9999px;
-    background: #14b8a6;
+    background: var(--brand-via);
     opacity: 0.6;
     animation: cl-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
@@ -173,7 +173,7 @@ const entries = changelog as ChangelogEntry[];
   }
 
   /* Deep link (/changelog#v0.5.3) — highlight the targeted node. */
-  .cl-entry:target .cl-dot { box-shadow: 0 0 0 4px color-mix(in oklch, #14b8a6 25%, transparent); }
+  .cl-entry:target .cl-dot { box-shadow: 0 0 0 4px color-mix(in oklch, var(--brand-via) 25%, transparent); }
 
   /* Page-load entrance: hero fades up, entries cascade down the spine. */
   @keyframes cl-fade-up {
