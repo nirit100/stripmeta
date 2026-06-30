@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.6.1",
+    "date": "2026-06-30",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "use teal instead of default theme color for reveal-in-list flash",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.0",
     "date": "2026-06-30",
     "notes": null,
@@ -8,16 +24,12 @@
         "title": "Features",
         "items": [
           {
-            "text": "add /changelog timeline page",
-            "details": []
-          },
-          {
-            "text": "\"what's new\" reveal for installed PWA users",
-            "details": []
-          },
-          {
-            "text": "generate changelog.json from git history at bump time",
-            "details": []
+            "text": "changelog display",
+            "details": [
+              "add /changelog timeline page",
+              "\"what's new\" reveal for installed PWA users",
+              "generate changelog.json from git history at bump time"
+            ]
           },
           {
             "text": "full screen photo preview",
