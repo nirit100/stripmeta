@@ -3,3 +3,6 @@
 
 /manifest.webmanifest
   Cache-Control: no-cache
+
+/changelog.json
+  Cache-Control: no-cache

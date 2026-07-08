@@ -2,8 +2,14 @@
 // version link to /changelog instead and are never interrupted.
 //
 // On load: if the running build is newer than the last version the user
-// acknowledged, ping the version number and open a modal listing everything
-// new (across skipped updates). Acknowledging sets the baseline.
+// acknowledged (i.e. an update was applied since they last looked), ping the
+// footer version number with a dot — once. The baseline is bumped on the same
+// load, so the dot shows only on this first post-update load and is gone on the
+// next reload. A one-time nudge, never a nag; the popup is never auto-opened.
+//
+// The popup opens only from the "What's new" link in the update toast, which
+// fetches the newest deployed /changelog.json to preview the incoming version's
+// notes before the update is applied.
 
 import changelog from '../data/changelog.json';
 import { entriesNewerThan, type ChangelogEntry } from '../lib/util/changelog.ts';
@@ -92,26 +98,45 @@ export function renderCurrentVersionPin(version: string): HTMLElement {
   return wrap;
 }
 
-if (isStandalone) {
+/**
+ * Fetch the newest deployed changelog and open the "what's new" modal previewing
+ * everything the running build doesn't have yet. Called from the update toast's
+ * "What's new" link — the new deploy is already live server-side, so this shows
+ * the incoming version's notes without applying the update. Does not acknowledge.
+ */
+async function openWhatsNew(): Promise<void> {
   const modal = document.getElementById('changelog-modal') as HTMLDialogElement | null;
   const body  = document.getElementById('changelog-modal-body') as HTMLElement | null;
-  const badge = document.getElementById('changelog-badge') as HTMLElement | null;
+  if (!modal || !body) return;
 
-  const seen = readSeen();
-  const fresh = entriesNewerThan(changelog as ChangelogEntry[], seen);
+  let data = changelog as ChangelogEntry[];
+  try {
+    const res = await fetch('/changelog.json', { cache: 'no-store' });
+    if (res.ok) data = (await res.json()) as ChangelogEntry[];
+  } catch { /* offline — fall back to the bundled changelog */ }
+
+  const fresh = entriesNewerThan(data, CURRENT);
+  body.replaceChildren(renderEntries(fresh), renderCurrentVersionPin(CURRENT));
+  try { modal.showModal(); } catch { /* another dialog already open */ }
+}
+
+if (isStandalone) {
+  const badge = document.getElementById('changelog-badge');
+  const seen  = readSeen();
 
   if (!seen) {
     // First standalone load — set the baseline silently, no backlog reveal.
     writeSeen(CURRENT);
-  } else if (fresh.length && modal && body) {
+  } else if (entriesNewerThan(changelog as ChangelogEntry[], seen).length) {
+    // An update was applied since the user last looked — nudge the footer
+    // version with a dot. No popup; the user opens it from the update toast.
+    // Acknowledge right away so the dot shows only on this first post-update
+    // load and is gone on the next reload — a one-time nudge, not a nag.
     badge?.classList.remove('hidden');
-    body.replaceChildren(renderEntries(fresh), renderCurrentVersionPin(seen));
-    modal.addEventListener('close', () => {
-      writeSeen(CURRENT);
-      badge?.classList.add('hidden');
-    }, { once: true });
-    try { modal.showModal(); } catch { /* another dialog open — badge still nudges */ }
+    writeSeen(CURRENT);
   }
+
+  document.getElementById('pwa-update-whatsnew')?.addEventListener('click', openWhatsNew);
 }
 
 export {};
