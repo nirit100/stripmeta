@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.6.4",
+    "date": "2026-07-08",
+    "notes": null,
+    "sections": []
+  },
+  {
     "version": "0.6.3",
     "date": "2026-07-08",
     "notes": null,
@@ -12,6 +18,15 @@
             "details": [
               "implement back button functionality for modals and add tests"
             ]
+          }
+        ]
+      },
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "update handling for service workers with silent updates",
+            "details": []
           }
         ]
       }
