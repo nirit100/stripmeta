@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.6.3",
+    "date": "2026-07-08",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Features",
+        "items": [
+          {
+            "text": "back button closes modals",
+            "details": [
+              "implement back button functionality for modals and add tests"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.2",
     "date": "2026-07-08",
     "notes": null,
