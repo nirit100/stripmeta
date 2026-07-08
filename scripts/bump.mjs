@@ -45,7 +45,7 @@ writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 // tagged commit. Generated here (full clone) — never at deploy time.
 generateChangelog({ pendingVersion: next });
 
-execSync(`git add package.json src/data/changelog.json`);
+execSync(`git add package.json src/data/changelog.json public/changelog.json`);
 execSync(`git commit -m "chore: bump to ${tag}"`);
 execSync(`git tag ${tag}`);
 

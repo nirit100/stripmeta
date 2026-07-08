@@ -10,6 +10,10 @@ import { writeFileSync } from 'fs';
 import { buildChangelog, categorize, compareVersions } from './lib/changelog.mjs';
 
 const OUT_PATH = new URL('../src/data/changelog.json', import.meta.url).pathname;
+// A copy served at a stable URL (/changelog.json) so the running app can fetch
+// the newest deployed changelog — e.g. the update toast previewing an incoming
+// version's notes before the update is applied.
+const PUBLIC_OUT_PATH = new URL('../public/changelog.json', import.meta.url).pathname;
 
 // argv array → no shell, so format strings like %(contents:body) need no escaping.
 function git(...args) {
@@ -126,7 +130,11 @@ export function generateChangelog({ pendingVersion, write = true, summary = true
   }
 
   const changelog = buildChangelog(raw);
-  if (write) writeFileSync(OUT_PATH, JSON.stringify(changelog, null, 2) + '\n');
+  if (write) {
+    const json = JSON.stringify(changelog, null, 2) + '\n';
+    writeFileSync(OUT_PATH, json);
+    writeFileSync(PUBLIC_OUT_PATH, json);
+  }
 
   if (summary) {
     if (pendingVersion) {
