@@ -15,7 +15,7 @@ import changelog from '../data/changelog.json';
 import { entriesNewerThan, type ChangelogEntry } from '../lib/util/changelog.ts';
 
 const SEEN_KEY = 'stripmeta:changelog_seen_v1';
-const CURRENT = __APP_VERSION__;
+const CURRENT = __APP_VERSION__.replace(/^v/, '');
 
 const isStandalone =
   window.matchMedia('(display-mode: standalone)').matches ||
