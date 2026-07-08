@@ -38,6 +38,15 @@ if (isStandalone && 'serviceWorker' in navigator) {
   const dismiss = document.getElementById('pwa-update-dismiss');
 
   let waitingSW: ServiceWorker | null = null;
+  const loadedAt = Date.now();
+  // Registrations are shared across every same-origin tab, so an update can be
+  // found (and finish installing) here even though its install was kicked off
+  // before this page loaded — by this page's own registration check or another
+  // tab's. If that happens this soon after launch, the user hasn't started
+  // anything a reload could disrupt, so it's applied the same way an
+  // already-waiting update is: silently, no toast. Once the session is under
+  // way, later updates still interrupt with the toast.
+  const SILENT_WINDOW_MS = 3000;
 
   function showUpdateBanner(sw: ServiceWorker) {
     waitingSW = sw;
@@ -58,7 +67,9 @@ if (isStandalone && 'serviceWorker' in navigator) {
       const newSW = reg.installing;
       if (!newSW) return;
       newSW.addEventListener('statechange', () => {
-        if (newSW.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(newSW);
+        if (newSW.state !== 'installed' || !navigator.serviceWorker.controller) return;
+        if (Date.now() - loadedAt < SILENT_WINDOW_MS) applyUpdate(newSW);
+        else showUpdateBanner(newSW);
       });
     });
 
