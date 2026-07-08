@@ -1,28 +1,27 @@
 [
   {
-    "version": "0.6.1",
-    "date": "2026-06-30",
+    "version": "0.6.2",
+    "date": "2026-07-08",
     "notes": null,
     "sections": [
-      {
-        "title": "Features",
-        "items": [
-          {
-            "text": "you're here in popup",
-            "details": []
-          }
-        ]
-      },
       {
         "title": "Fixes",
         "items": [
           {
-            "text": "use teal instead of default theme color for reveal-in-list flash",
-            "details": []
+            "text": "changelog auto popup",
+            "details": [
+              "add public changelog.json for update previews and modify changelog generation"
+            ]
           }
         ]
       }
     ]
+  },
+  {
+    "version": "0.6.1",
+    "date": "2026-06-30",
+    "notes": "The \"you're here in popup\" commit landed after the v0.6.1 bump commit\nwas tagged, so its entry was missing from the generated changelog.",
+    "sections": []
   },
   {
     "version": "0.6.0",
