@@ -1,5 +1,46 @@
 [
   {
+    "version": "0.6.5",
+    "date": "2026-07-09",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Features",
+        "items": [
+          {
+            "text": "enhance carousel scrolling navigation when moving fast to feel more responsive",
+            "details": []
+          }
+        ]
+      },
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "improve reveal flash animation timing for smoother user experience",
+            "details": []
+          },
+          {
+            "text": "reveal file in list: ensure onReveal callback is captured before closing the lightbox (caused it to sometimes fail to scroll into view) fix(strip): defer scrolling and flash effect for revealed file to improve reliability",
+            "details": []
+          },
+          {
+            "text": "another related bug: incorrect breadcrumb visibility caused by hidden headers",
+            "details": []
+          },
+          {
+            "text": "fixed broken breadcrumb visibility logic during directory scrolling",
+            "details": []
+          },
+          {
+            "text": "normalize app version format by removing leading 'v'",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.4",
     "date": "2026-07-08",
     "notes": null,
