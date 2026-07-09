@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.6.6",
+    "date": "2026-07-09",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "android firefox go to file not working",
+            "details": [
+              "reimplement smooth scrolling for file reveal to circumvent unreliability on Firefox Android"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.5",
     "date": "2026-07-09",
     "notes": null,
