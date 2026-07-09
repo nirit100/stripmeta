@@ -60,7 +60,8 @@ export function clampPan(
 const TAP_MOVE_PX = 8;     // movement under this counts as a tap, not a drag
 const SWIPE_PX = 55;       // horizontal travel to trigger prev/next
 const DOUBLE_TAP_MS = 300;
-const SLIDE_MS = 260;
+const SLIDE_MS = 260;       // graceful duration for a single step
+const FAST_SLIDE_MS = 140;  // intermediate steps when several are queued (rapid input)
 const EDGE_RESIST = 0.35;  // rubber-band factor when dragging past the first/last image
 
 let inited = false;
@@ -75,13 +76,15 @@ let zoomLabel: HTMLElement;
 let btnPrev: HTMLButtonElement, btnNext: HTMLButtonElement;
 
 let entries: FileEntry[] = [];
-let index = 0;
+let index = 0;                              // the pane currently centred (committed)
+let targetIndex = 0;                        // where navigation is heading; drive() chases it
 let opts: LightboxOptions = {};
 
 const ownUrls = new Map<File, string>();   // URLs we created and must revoke on close
 let scale = 1, tx = 0, ty = 0;
 let trackX = 0;                             // current track translateX (px)
 let animating = false;                      // true while a slide transition is running
+let finishSlide: (() => void) | null = null; // force-finish the in-flight step (grab mid-slide)
 
 const noGlass = () => document.documentElement.classList.contains('no-glass');
 const currentFile = () => entries[index]?.file;
@@ -242,16 +245,70 @@ function commit(dir: 1 | -1): void {
   setNavDisabled();
 }
 
-function transitionTo(dir: 1 | -1, targetX: number): void {
-  if (animating) return;
-  resetZoom();          // unzoom the outgoing image so it isn't left scaled as a neighbour
+/**
+ * Drive the carousel toward `targetIndex`, one pane-step at a time. Each step
+ * animates the neighbour into the centre and, on completion, commits and
+ * recurses — so navigation that arrives mid-slide is never dropped: it extends
+ * `targetIndex` and the motion simply keeps going. When several steps are
+ * queued the intermediate ones play faster, so rapid clicking/swiping feels
+ * continuous instead of gated on each full animation.
+ */
+function drive(): void {
+  if (animating || index === targetIndex) return;
+  const dir: 1 | -1 = targetIndex > index ? 1 : -1;
   animating = true;
-  slideTo(targetX).then(() => { commit(dir); animating = false; });
+  resetZoom();          // unzoom the outgoing image so it isn't left scaled as a neighbour
+  const remaining = Math.abs(targetIndex - index);
+  const targetX = dir > 0 ? centerX() - stageW() : centerX() + stageW();
+  runSlide(targetX, remaining > 1 ? FAST_SLIDE_MS : SLIDE_MS, () => {
+    commit(dir);
+    animating = false;
+    drive();            // keep going if more steps were queued meanwhile
+  });
 }
 
+/**
+ * Animate the track to `x` over `duration`, calling `done` when it settles.
+ * Instant under reduced-motion. While it runs, `finishSlide` can force it to
+ * complete now (used when the user grabs again mid-slide).
+ */
+function runSlide(x: number, duration: number, done: () => void): void {
+  const from = trackX;
+  setTrack(x);          // logical position is the destination immediately
+  if (from === x || noGlass()) { done(); return; }
+  const anim = track.animate(
+    [{ transform: `translateX(${from}px)` }, { transform: `translateX(${x}px)` }],
+    { duration, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' },
+  );
+  let settled = false;
+  const complete = () => {
+    if (settled) return;
+    settled = true;
+    finishSlide = null;
+    done();
+  };
+  anim.onfinish = complete;
+  anim.oncancel = complete;
+  finishSlide = () => { anim.cancel(); complete(); };  // inline style already at x
+}
+
+/** Queue a move by `dir`; extends the target so rapid input keeps the motion going. */
 function navigate(dir: 1 | -1): void {
-  if (stepIndex(index, entries.length, dir) === index) return;   // already at an end
-  transitionTo(dir, dir > 0 ? centerX() - stageW() : centerX() + stageW());
+  const next = targetIndex + dir;
+  if (next < 0 || next >= entries.length) return;   // already heading to an end
+  targetIndex = next;
+  drive();
+}
+
+/**
+ * Finish any in-flight slide immediately and drop the rest of the queue, so a
+ * fresh drag/tap starts from a settled, centred track and takes manual control.
+ */
+function settle(): void {
+  if (!animating || !finishSlide) return;
+  const dir: 1 | -1 = targetIndex > index ? 1 : -1;
+  targetIndex = index + dir;   // keep only the step already in flight
+  finishSlide();               // commits it synchronously; drive() then goes idle
 }
 
 function close(): void { dialog.close(); }
@@ -280,7 +337,7 @@ function midpoint(a: { x: number; y: number }, b: { x: number; y: number }) {
 }
 
 function onPointerDown(e: PointerEvent): void {
-  if (animating) return;
+  settle();   // grabbing mid-slide takes over: finish the current step, then drag fresh
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   try { stage.setPointerCapture(e.pointerId); } catch { /* ignore */ }
 
@@ -359,7 +416,7 @@ function onPointerUp(e: PointerEvent): void {
     if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy)) {
       const dir = dx < 0 ? 1 : -1;
       if (stepIndex(index, entries.length, dir) !== index) {
-        transitionTo(dir, dir > 0 ? centerX() - stageW() : centerX() + stageW());
+        navigate(dir);   // slides from the dragged position into the neighbour
         return;
       }
     }
@@ -443,8 +500,9 @@ export function openLightbox(file: File, list: FileEntry[], options: LightboxOpt
   entries = list;
   opts = options;
   pointers.clear();
-  pinchDist = 0; moved = false; lastTapTime = 0; animating = false;
+  pinchDist = 0; moved = false; lastTapTime = 0; animating = false; finishSlide = null;
   index = Math.max(0, entries.findIndex(e => e.file === file));
+  targetIndex = index;
   if (!dialog.open) dialog.showModal();
   render();
 }
