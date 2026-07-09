@@ -767,6 +767,36 @@ function navEntries(): FileEntry[] {
   return collectEntries(buildTree(store.entries));
 }
 
+/**
+ * Smoothly scroll the window to `targetY`, animated by us rather than the
+ * browser. Native smooth `scrollIntoView`/`scrollTo` is unreliable on some
+ * engines (notably Firefox Android, which silently no-ops it), so we drive the
+ * scroll frame-by-frame for identical behaviour everywhere. Re-asserting the
+ * position each frame also overrides a one-off focus-restoration scroll from the
+ * closing dialog. Falls back to an instant jump under reduced-motion.
+ */
+function smoothScrollWindowTo(targetY: number): void {
+  const maxY = document.documentElement.scrollHeight - window.innerHeight;
+  const endY = Math.max(0, Math.min(targetY, maxY));
+  const startY = window.scrollY;
+  const dist = endY - startY;
+  if (Math.abs(dist) < 1) return;
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    || document.documentElement.classList.contains('no-glass');
+  if (reduce) { window.scrollTo(0, endY); return; }
+
+  const DURATION = 380;
+  const start = performance.now();
+  const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+  const step = (now: number) => {
+    const p = Math.min(1, (now - start) / DURATION);
+    window.scrollTo(0, startY + dist * easeOutCubic(p));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 /** Reveal a file in the list: expand its ancestor folders, scroll to its card, flash it. */
 function revealFile(file: File): void {
   const entry = store.entries.find(e => e.file === file);
@@ -784,7 +814,11 @@ function revealFile(file: File): void {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     const row = rowOf.get(file);
     if (!row) return;
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Centre the card in the viewport. getBoundingClientRect() forces a reflow,
+    // so the position is accurate even though the folders just expanded.
+    const rect = row.getBoundingClientRect();
+    const targetY = window.scrollY + rect.top - (window.innerHeight - rect.height) / 2;
+    smoothScrollWindowTo(targetY);
     // Let the scroll animation land before flashing (reveal-flash pulses 3x, 1.2s each).
     setTimeout(() => {
       row.classList.add('reveal-flash');
