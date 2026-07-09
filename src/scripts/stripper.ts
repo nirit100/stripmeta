@@ -105,29 +105,27 @@ window.addEventListener('scroll', () => {
   if (dirRowOf.size === 0) { dirBreadcrumb.style.opacity = '0'; dirBreadcrumb.style.pointerEvents = 'none'; return; }
 
   const CRUMB_BOTTOM = dirBreadcrumb.offsetHeight + 16; // breadcrumb height + margin
-
-  // Priority 1: a dir header currently being covered by the breadcrumb
-  let covered = '';
-  let coveredTop = Infinity;
+  const headerTops = new Map<string, number>();
   for (const [path, wrap] of dirRowOf) {
-    const headerTop = (wrap.firstElementChild as HTMLElement).getBoundingClientRect().top;
-    if (headerTop >= 0 && headerTop < CRUMB_BOTTOM && headerTop < coveredTop) {
-      covered = path;
-      coveredTop = headerTop;
+    headerTops.set(path, (wrap.firstElementChild as HTMLElement).getBoundingClientRect().top);
+  }
+
+  // Hide while a dir header is passing through the breadcrumb's own area —
+  // the real header is visible right there, so the breadcrumb would be redundant.
+  for (const headerTop of headerTops.values()) {
+    if (headerTop >= 0 && headerTop < CRUMB_BOTTOM) {
+      dirBreadcrumb.style.opacity = '0';
+      dirBreadcrumb.style.pointerEvents = 'none';
+      return;
     }
   }
-  if (covered) {
-    dirBreadcrumb.textContent = '📁 ' + covered.replaceAll('/', ' / ') + ' /';
-    dirBreadcrumb.style.opacity = '1';
-    dirBreadcrumb.style.pointerEvents = 'auto';
-    return;
-  }
 
-  // Priority 2: deepest dir that has scrolled off the top
+  // Otherwise show whichever header most recently scrolled past the top —
+  // document order means that's always the innermost dir we're currently inside.
   let best = '';
-  for (const [path, wrap] of dirRowOf) {
-    const rect = wrap.getBoundingClientRect();
-    if (rect.top < 1 && rect.bottom > 0 && path.split('/').length > best.split('/').length) best = path;
+  let bestTop = -Infinity;
+  for (const [path, headerTop] of headerTops) {
+    if (headerTop < 0 && headerTop > bestTop) { bestTop = headerTop; best = path; }
   }
   if (best) {
     dirBreadcrumb.textContent = '📁 ' + best.replaceAll('/', ' / ') + ' /';
