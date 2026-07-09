@@ -81,7 +81,7 @@ html.no-glass .glass-elem {
   100% { box-shadow: 0 0 0 2px transparent; background-color: transparent; }
 }
 .reveal-flash {
-  animation: reveal-flash 1.2s ease-out forwards;
+  animation: reveal-flash 1.2s ease-out 3;
 }
 html.no-glass .reveal-flash {
   animation: none;

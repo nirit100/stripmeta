@@ -785,8 +785,11 @@ function revealFile(file: File): void {
     const row = rowOf.get(file);
     if (!row) return;
     row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    row.classList.add('reveal-flash');
-    setTimeout(() => row.classList.remove('reveal-flash'), 1200);
+    // Let the scroll animation land before flashing (reveal-flash pulses 3x, 1.2s each).
+    setTimeout(() => {
+      row.classList.add('reveal-flash');
+      setTimeout(() => row.classList.remove('reveal-flash'), 3600);
+    }, 500);
   }));
 }
 
