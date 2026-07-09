@@ -107,7 +107,11 @@ window.addEventListener('scroll', () => {
   const CRUMB_BOTTOM = dirBreadcrumb.offsetHeight + 16; // breadcrumb height + margin
   const headerTops = new Map<string, number>();
   for (const [path, wrap] of dirRowOf) {
-    headerTops.set(path, (wrap.firstElementChild as HTMLElement).getBoundingClientRect().top);
+    const header = wrap.firstElementChild as HTMLElement;
+    // Skip headers nested inside a collapsed ancestor — they're display:none,
+    // so their rect collapses to all-zero and would be mistaken for "at the top".
+    if (header.offsetParent === null) continue;
+    headerTops.set(path, header.getBoundingClientRect().top);
   }
 
   // Hide while a dir header is passing through the breadcrumb's own area —
