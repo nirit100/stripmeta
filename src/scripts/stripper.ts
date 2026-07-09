@@ -778,11 +778,16 @@ function revealFile(file: File): void {
     prefix = prefix ? `${prefix}/${parts[i]}` : parts[i]!;
     dirExpanders.get(prefix)?.();
   }
-  const row = rowOf.get(file);
-  if (!row) return;
-  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  row.classList.add('reveal-flash');
-  setTimeout(() => row.classList.remove('reveal-flash'), 1200);
+  // Two frames of deferral: one lets the expand above settle, the other lets
+  // the dialog's own native focus-restoration scroll (which lands a frame
+  // after close() returns and would otherwise cancel ours) happen first.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const row = rowOf.get(file);
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('reveal-flash');
+    setTimeout(() => row.classList.remove('reveal-flash'), 1200);
+  }));
 }
 
 // — Directory counts —

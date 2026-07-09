@@ -412,8 +412,12 @@ export function initLightbox(): void {
   });
   document.getElementById('lb-reveal')!.addEventListener('click', () => {
     const f = currentFile();
+    // Capture onReveal before close() — close() fires the dialog's 'close'
+    // event, which runs cleanup() and resets opts to {}. Reading opts.onReveal
+    // afterward can silently grab nothing depending on how soon that runs.
+    const reveal = opts.onReveal;
     close();
-    if (f) opts.onReveal?.(f);
+    if (f && reveal) reveal(f);
   });
 
   stage.addEventListener('pointerdown', onPointerDown);
