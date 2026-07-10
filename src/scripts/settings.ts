@@ -424,6 +424,9 @@ export function initSettings(): void {
 
   // Panel open/close animation
   details.querySelector('summary')!.addEventListener('click', e => {
+    // Let dedicated controls inside the summary (e.g. the help button) handle
+    // their own click instead of toggling the panel.
+    if ((e.target as HTMLElement).closest('[data-open-help]')) return;
     e.preventDefault();
     if (details.open) {
       body.animate(

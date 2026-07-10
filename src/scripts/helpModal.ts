@@ -110,6 +110,20 @@ function openInstant(item: HTMLDetailsElement): void {
   onOpened(item);
 }
 
+function closeOthers(except: HTMLDetailsElement): void {
+  for (const other of faqItems) {
+    if (other === except) continue;
+    const otherState = stateOf(other);
+    if (other.open || otherState.isExpanding) {
+      if (reduceMotion()) closeInstant(other);
+      else {
+        const otherSummary = other.querySelector<HTMLElement>(':scope > summary');
+        if (otherSummary) animateClose(other, otherSummary);
+      }
+    }
+  }
+}
+
 faqItems.forEach(item => {
   const summary = item.querySelector<HTMLElement>(':scope > summary');
   const content = item.querySelector<HTMLElement>(':scope > .faq-body-inner');
@@ -121,18 +135,7 @@ faqItems.forEach(item => {
     const isOpenOrOpening = item.open || state.isExpanding;
 
     if (!isOpenOrOpening || state.isClosing) {
-      // Opening: close any other open item first, then expand this one.
-      for (const other of faqItems) {
-        if (other === item) continue;
-        const otherState = stateOf(other);
-        if (other.open || otherState.isExpanding) {
-          if (reduceMotion()) closeInstant(other);
-          else {
-            const otherSummary = other.querySelector<HTMLElement>(':scope > summary');
-            if (otherSummary) animateClose(other, otherSummary);
-          }
-        }
-      }
+      closeOthers(item);
       if (reduceMotion()) openInstant(item);
       else animateOpen(item, summary, content);
     } else {
@@ -145,6 +148,18 @@ faqItems.forEach(item => {
 function openSection(id: string): void {
   const target = faqItems.find(item => item.dataset.helpId === id);
   if (!target) return;
+
+  // Always enforce exclusivity, even if the target is already open — a
+  // direct link into one section shouldn't leave some other section (left
+  // open from a previous visit to the modal) open alongside it.
+  closeOthers(target);
+
+  const targetState = stateOf(target);
+  if (target.open && !targetState.isClosing) {
+    onOpened(target); // already open (or opening) — just refresh/scroll, don't replay the animation
+    return;
+  }
+
   if (reduceMotion()) { openInstant(target); return; }
   const summary = target.querySelector<HTMLElement>(':scope > summary');
   const content = target.querySelector<HTMLElement>(':scope > .faq-body-inner');
@@ -154,6 +169,10 @@ function openSection(id: string): void {
 document.addEventListener('click', (e) => {
   const trigger = (e.target as HTMLElement).closest<HTMLElement>('[data-open-help]');
   if (!trigger || !modal) return;
+  // A trigger may sit inside another interactive element (e.g. a <summary>,
+  // which toggles its parent <details> on any click) — stop that from firing.
+  e.preventDefault();
+  e.stopPropagation();
   modal.showModal();
   renderLocalStorageValues(); // re-read on every open — never show stale values
   const topic = trigger.dataset.openHelp;

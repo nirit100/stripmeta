@@ -35,6 +35,7 @@ const btnStrip       = document.getElementById('btn-strip') as HTMLButtonElement
 const btnDownload    = document.getElementById('btn-download') as HTMLButtonElement;
 const btnCopyResult  = document.getElementById('btn-copy-result') as HTMLButtonElement;
 const btnClear       = document.getElementById('btn-clear') as HTMLButtonElement;
+const zipHelpHint    = document.getElementById('zip-help-hint') as HTMLElement;
 const dropZoneContent = document.getElementById('drop-zone-content')!;
 const scanStateEl   = document.getElementById('scan-state')!;
 const scanCountEl   = document.getElementById('scan-count')!;
@@ -909,6 +910,7 @@ async function render() {
 
   renderBanner();
   btnDownload.hidden = true;
+  zipHelpHint.classList.add('hidden');
   btnCopyResult.hidden = true;
   btnStrip.hidden = false;
   btnStrip.disabled = false;
@@ -959,6 +961,7 @@ async function stripAndDownload() {
   clearErroredFiles();
   pendingBlobs = [];
   btnDownload.hidden = true;
+  zipHelpHint.classList.add('hidden');
 
   const toProcess = computeToProcess(store.entries, getSkipReason, store.strip.done);
 
@@ -1016,6 +1019,7 @@ async function stripAndDownload() {
   if (blobs.length >= 1) {
     btnDownload.innerHTML = `${iconSvg('arrow-down-tray', 'w-4 h-4', '1.5')} ${blobs.length === 1 ? 'Save' : 'Save ZIP'}`;
     btnDownload.hidden = false;
+    zipHelpHint.classList.toggle('hidden', blobs.length <= 1);
     btnStrip.hidden = true;
   }
   if (blobs.length === 1 && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
@@ -1135,6 +1139,7 @@ btnClear.addEventListener('click', () => {
   copyBtnOf.clear();
   pendingBlobs = [];
   btnDownload.hidden = true;
+  zipHelpHint.classList.add('hidden');
   clearLog();
   render();
 });
@@ -1210,6 +1215,7 @@ function maybeRestoreStripButton() {
   const hasUndone = store.hasPendingStrippable(settings);
   if (hasUndone && !btnDownload.hidden) {
     btnDownload.hidden = true;
+    zipHelpHint.classList.add('hidden');
     btnStrip.hidden = false;
     pendingBlobs = [];
   }

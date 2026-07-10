@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import Brand from '../components/Brand.astro';
 import Settings from '../components/Settings.astro';
 import Lightbox from '../components/Lightbox.astro';
+import Icon from '../components/Icon.astro';
 
 const bugReportEnabled = !!import.meta.env.PUBLIC_BUG_REPORT_ENABLED;
 ---
@@ -88,6 +89,17 @@ const bugReportEnabled = !!import.meta.env.PUBLIC_BUG_REPORT_ENABLED;
       Clear
     </button>
   </div>
+
+  <p id="zip-help-hint" class="hidden w-full flex justify-center -mt-6 text-xs text-base-content/40">
+    <button
+      type="button"
+      data-open-help="zip"
+      class="inline-flex items-center gap-1 cursor-pointer underline underline-offset-2 hover:text-base-content/70 transition-colors"
+    >
+      <Icon name="question-mark-circle" class="w-3.5 h-3.5 shrink-0" />
+      What's in this ZIP?
+    </button>
+  </p>
 
   <div id="log-wrap" class="w-full flex flex-col gap-2">
     <p id="strip-progress" class="text-xs text-base-content/35 text-center tabular-nums hidden"></p>
