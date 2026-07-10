@@ -8,6 +8,7 @@ import ChangelogModal from '../components/ChangelogModal.astro';
 import BugReportModal from '../components/BugReportModal.astro';
 import PwaInstallModal from '../components/PwaInstallModal.astro';
 import PwaManualModal from '../components/PwaManualModal.astro';
+import HelpModal from '../components/HelpModal.astro';
 import { siKofi, siPaypal } from 'simple-icons';
 
 interface Props {
@@ -155,6 +156,7 @@ const appVersion: string = __APP_VERSION__;
     <AboutModal />
     <ChangelogModal />
     <BugReportModal />
+    <HelpModal />
 
     <div class="fixed inset-x-0 bottom-5 z-[9999] flex justify-center pointer-events-none">
       <div id="pwa-update-toast" class="w-max max-w-[calc(100vw-2rem)] pointer-events-none opacity-0 rounded-xl">
@@ -178,6 +180,7 @@ const appVersion: string = __APP_VERSION__;
       import '../scripts/about.ts';
       import '../scripts/changelog.ts';
       import '../scripts/pwa.ts';
+      import '../scripts/helpModal.ts';
     </script>
     {!import.meta.env.DEV && (
       <script is:inline>

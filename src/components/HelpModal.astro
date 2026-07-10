@@ -1,0 +1,194 @@
+---
+// Global help modal: settings reference, ZIP explainer, and local storage
+// contents. Mounted once in Layout.astro. Open it from anywhere by adding
+// `data-open-help` to a button; give it a value matching one of the
+// `data-help-id`s below (settings / zip / storage) to open straight to that
+// section, or leave it empty to just open the modal. Behavior lives in
+// ../scripts/helpModal.ts.
+import Icon from './Icon.astro';
+import Brand from './Brand.astro';
+
+const settingsHelp: [string, string, string][] = [
+  ["shield-exclamation", "Paranoid mode", "Skips lossless stripping entirely and re-encodes every file via canvas instead. Removes every trace of metadata, guaranteed, but always converts the output to JPEG with a small quality loss. Turning it on also overrides \"Process files even if no metadata is found\" and \"Process experimental formats\" for as long as it's active, since everything gets re-encoded regardless. Canvas re-encoding itself depends on your browser being able to decode the format at all, though: Safari can decode Apple's HEIC natively, but Chrome and Firefox can't, so HEIC files have no fallback and get skipped there even with Paranoid mode on. Off by default."],
+  ["funnel", "Process files even if no metadata is found", "Off by default, files with no detectable metadata are skipped since there's nothing to remove. Turn this on to have them processed and included anyway — useful if you'd rather get a complete, freshly re-saved batch back than a mix of processed and untouched files."],
+  ["document-minus", "Try processing unsupported files", "For formats with no lossless handler and that your browser also can't decode for the canvas fallback (so genuinely unsupported, not just \"experimental\"). Off by default — not recommended, since the same lack of browser decoding support that makes a format unsupported usually makes the canvas attempt fail too."],
+  ["beaker", "Process experimental formats (HEIC, AVIF)", "HEIC and AVIF stripping is still experimental (lossless, but newer and less battle-tested than the JPEG/PNG/WebP handlers). On by default; turn it off to have those files skipped entirely rather than processed."],
+  ["document-duplicate", "Copy skipped files to output", "Any file StripMeta skips, whether it's already clean, unsupported, or an experimental format you've opted out of, is left out of the saved output by default. Turn this on to include skipped files unchanged instead, so the result always has one output file per input file."],
+  ["chart-bar", "Show results after processing", "Opens the About panel automatically after your first run, showing a summary of what was removed. On by default."],
+  ["bell-alert", "Warn before leaving with files loaded", "Shows a browser confirmation if you try to close or reload the tab while files are still loaded, so you don't lose unsaved work. On by default."],
+  ["sparkles", "Frosted glass & animations", "Adds blur effects to floating elements and enables the small transition/scale animations used across the app, including this modal's own open/close animations. Purely cosmetic. On by default."],
+  ["eye-slash", "Image previews", "Shows a thumbnail for each file. Turning this off can help performance with large batches, slow drives, or older machines. On by default."],
+  ["circle-stack", "Remember settings and stats", "Saves your settings and stat counters in your browser's local storage so they're restored on your next visit. Turning it off doesn't delete anything already saved, it just stops writing new changes — if you had settings saved from before, a \"Clear now\" button appears right here to remove them. See the local storage section for exactly what's stored."],
+];
+
+const localStorageHelp: [string, string][] = [
+  ["stripmeta-paranoid", "Paranoid mode toggle"],
+  ["stripmeta-process-clean", "Process-clean-files toggle"],
+  ["stripmeta-process-unsupported", "Process-unsupported-files toggle"],
+  ["stripmeta-process-experimental", "Process-HEIC/AVIF toggle"],
+  ["stripmeta-include-skipped", "Copy-skipped-files toggle"],
+  ["stripmeta-no-glass", "Inverse of the glass/animations toggle"],
+  ["stripmeta-warn-unload", "Warn-before-leaving toggle"],
+  ["stripmeta-auto-about", "Show-results-automatically toggle"],
+  ["stripmeta-show-previews", "Image-previews toggle"],
+  ["stripmeta-no-persist", "Set only if you've turned off “Remember settings and stats”"],
+  ["stripmeta-theme", "Your theme choice: light, dark, or auto"],
+  ["stripmeta:stats_v1", "Counts only — files cleaned, GPS tags removed, timestamps removed, bytes stripped, plus when it was last updated"],
+  ["stripmeta:about_shown_v1", "Set once the About panel has auto-opened, so it doesn't do it again"],
+  ["stripmeta:changelog_seen_v1", "The last changelog version you've seen"],
+  ["stripmeta-visits", "How many times you've opened the app — only used to time the install prompt"],
+  ["stripmeta-install-declined", "Set if you dismissed the install-as-app prompt"],
+];
+---
+
+<dialog id="help-modal" class="modal">
+  <div class="modal-box w-11/12 max-w-3xl p-0 overflow-hidden bg-transparent flex flex-col max-h-[85vh]">
+
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-base-300/60 shrink-0 bg-base-100/75 backdrop-blur-xl backdrop-brightness-125 glass-elem">
+      <h3 class="font-bold text-lg flex-1 min-w-0 flex items-center gap-2">
+        <Icon name="question-mark-circle" class="w-5 h-5 text-base-content/60" />
+        Help & Reference
+      </h3>
+      <form method="dialog">
+        <button class="btn btn-ghost btn-sm btn-circle text-base-content/50">✕</button>
+      </form>
+    </div>
+
+    <div class="overflow-y-auto flex-1 min-h-0 p-4 flex flex-col gap-3 bg-base-100">
+
+      <!-- What each setting does -->
+      <details class="faq-item group/a rounded-lg border border-base-200 overflow-hidden shrink-0" data-help-id="settings">
+        <summary class="list-none flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+          <svg class="w-3 h-3 text-base-content/35 transition-transform group-open/a:rotate-90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          </svg>
+          <span class="text-sm font-medium">What does each setting do?</span>
+        </summary>
+        <div class="faq-body-inner border-t border-base-200 px-3 py-2 flex flex-col">
+          <div class="flex flex-col divide-y divide-base-200">
+            {settingsHelp.map(([icon, label, desc]) => (
+              <div class="flex items-start gap-3 py-2.5 first:pt-1">
+                <Icon name={icon} class="w-4 h-4 mt-0.5 shrink-0 text-base-content/40" />
+                <div>
+                  <p class="text-sm font-medium">{label}</p>
+                  <p class="text-sm text-base-content/60 mt-0.5 leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div class="mt-1 pt-3 border-t border-base-200 flex flex-col gap-2">
+            <p class="text-sm text-base-content/60 leading-relaxed">
+              <strong>Changed settings get a small <span class="text-warning">*</span></strong> next to their label, so you can see at a glance what you've changed from default. It disappears again once that setting is back to its default value.
+            </p>
+            <p class="text-sm text-base-content/60 leading-relaxed">
+              Each group above (Processing, Appearance &amp; Usability, Technical stuff) has its own <strong>Reset</strong> button, which only appears once something in that group is non-default. Click it once to preview the reset immediately — the changed settings blink and the button switches to "click again to confirm" with a five-second countdown. Click it again to confirm, or leave it alone and it reverts back to what you had.
+            </p>
+          </div>
+        </div>
+      </details>
+
+      <!-- What to do with the ZIP -->
+      <details class="faq-item group/b rounded-lg border border-base-200 overflow-hidden shrink-0" data-help-id="zip">
+        <summary class="list-none flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+          <svg class="w-3 h-3 text-base-content/35 transition-transform group-open/b:rotate-90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          </svg>
+          <span class="text-sm font-medium">What do I do with the ZIP file?</span>
+        </summary>
+        <div class="faq-body-inner border-t border-base-200 p-3 flex flex-col gap-3">
+          <p class="text-sm text-base-content/60 leading-relaxed">
+            When you strip more than one file, <Brand mr={false} /> bundles all of
+            them into a single <code class="font-mono bg-base-200 px-1 py-0.5 rounded">stripped-photos.zip</code> and
+            downloads that instead of handing them back one by one. Strip just a
+            single file, and there's no ZIP — it downloads directly.
+          </p>
+          <p class="text-sm text-base-content/60 leading-relaxed">
+            A ZIP is just a container: one file holding a compressed copy of a set
+            of other files and folders. It isn't a StripMeta-specific format —
+            every major OS can open one without installing anything extra:
+          </p>
+          <ul class="text-sm text-base-content/60 leading-relaxed list-disc pl-5 flex flex-col gap-1">
+            <li><strong>Windows:</strong> double-click it, then right-click → "Extract All" to unpack the files to a folder.</li>
+            <li><strong>macOS:</strong> double-click it and Archive Utility extracts a folder right next to it, automatically.</li>
+            <li><strong>Mobile / other:</strong> the built-in Files app (iOS/Android) or a free tool like 7-Zip handles it the same way.</li>
+          </ul>
+          <p class="text-sm text-base-content/60 leading-relaxed">
+            What's inside depends on how you added your files:
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="rounded-lg border border-base-300 overflow-hidden">
+              <div class="bg-base-200/60 px-3 py-1.5 text-xs font-mono text-base-content/40 border-b border-base-300">
+                Dropped individual files
+              </div>
+              <pre class="p-3 text-sm font-mono leading-relaxed text-base-content/70">stripped-photos.zip
+├── 🖼️ vacation.jpg
+├── 🖼️ selfie.jpg
+└── 🖼️ document.png</pre>
+            </div>
+            <div class="rounded-lg border border-base-300 overflow-hidden">
+              <div class="bg-base-200/60 px-3 py-1.5 text-xs font-mono text-base-content/40 border-b border-base-300">
+                Used "Open folder"
+              </div>
+              <pre class="p-3 text-sm font-mono leading-relaxed text-base-content/70">stripped-photos.zip
+└── 📁 Paris trip
+    ├── 📁 day 1
+    │   ├── 🖼️ IMG_001.jpg
+    │   └── 🖼️ IMG_002.jpg
+    └── 📁 day 2
+        └── 🖼️ IMG_003.jpg</pre>
+            </div>
+          </div>
+          <p class="text-sm text-base-content/45 leading-relaxed">
+            Individually selected or dropped files land flat at the top level.
+            "Open folder" instead keeps your original folder structure exactly
+            as it was, subfolders included.
+          </p>
+        </div>
+      </details>
+
+      <!-- Local storage contents -->
+      <details class="faq-item group/c rounded-lg border border-base-200 overflow-hidden shrink-0" data-help-id="storage">
+        <summary class="list-none flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-base-200/40 transition-colors">
+          <svg class="w-3 h-3 text-base-content/35 transition-transform group-open/c:rotate-90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          </svg>
+          <span class="text-sm font-medium">What does StripMeta store in local storage?</span>
+        </summary>
+        <div class="faq-body-inner border-t border-base-200 p-3 flex flex-col gap-3">
+          <p class="text-sm text-base-content/60 leading-relaxed">
+            Short version: toggle states, a theme choice, and small usage counters
+            — never file names, file contents, or anything sent anywhere. Here's
+            every key it can write, with its current value in your browser right now:
+          </p>
+          <div class="rounded-lg border border-base-300 overflow-hidden overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-base-200/60 border-b border-base-300">
+                  <th class="text-left font-mono font-medium text-base-content/50 px-2.5 py-1.5">Key</th>
+                  <th class="text-left font-medium text-base-content/50 px-2.5 py-1.5">What it means</th>
+                  <th class="text-left font-mono font-medium text-base-content/50 px-2.5 py-1.5">Current value</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-base-300">
+                {localStorageHelp.map(([key, desc]) => (
+                  <tr>
+                    <td class="align-top px-2.5 py-1.5 font-mono text-base-content/70 whitespace-nowrap">{key}</td>
+                    <td class="align-top px-2.5 py-1.5 text-base-content/60">{desc}</td>
+                    <td class="align-top px-2.5 py-1.5 font-mono text-base-content/45 ls-value" data-ls-key={key}>—</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="text-sm text-base-content/45 leading-relaxed">
+            The <strong>Clear now</strong> button in Settings only removes the nine
+            toggle keys at the top of that list — stats, theme, and the rest are
+            left alone, same as the warning next to that button says.
+          </p>
+        </div>
+      </details>
+
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>

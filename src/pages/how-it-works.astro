@@ -388,6 +388,12 @@ import Icon from "../components/Icon.astro";
       file regardless of format, trading a little quality on all images for extra
       certainty that nothing is left behind.
     </p>
+    <p class="text-base-content/65 leading-relaxed">
+      Canvas re-encoding still depends on your browser being able to decode the
+      format at all, though: Apple's HEIC, for instance, only decodes natively in
+      Safari, so those files have no fallback and get skipped in Chrome or Firefox
+      even with Paranoid mode on.
+    </p>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
       <div
         class="rounded-xl border border-base-300 p-4 flex flex-col items-center gap-2"
@@ -1302,6 +1308,14 @@ import Icon from "../components/Icon.astro";
       <p class="text-base-content/50 text-sm">
         Your photos are clean. Nothing was uploaded. Nothing was tracked.
       </p>
+      <button
+        type="button"
+        data-open-help
+        class="mt-2 inline-flex items-center gap-1 cursor-pointer text-xs text-base-content/40 hover:text-base-content/70 underline underline-offset-2 transition-colors"
+      >
+        <Icon name="question-mark-circle" class="w-3.5 h-3.5 shrink-0" />
+        Curious what each setting does, what's in the ZIP, or what's stored locally?
+      </button>
     </div>
 
     <!-- CTA -->
