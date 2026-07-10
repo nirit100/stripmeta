@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.6.8",
+    "date": "2026-07-10",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "Fix ZIP help button not always showing / hiding correctly",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.7",
     "date": "2026-07-10",
     "notes": null,
