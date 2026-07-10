@@ -128,7 +128,7 @@ function formatPreview(entry) {
 
 /** Preview of the newest version's entry, as it will actually be displayed. */
 function printPreview(entry) {
-  console.log(`\n--- Preview: what users will see ---\n\n${formatPreview(entry)}`);
+  console.log(`\n--- Preview: what users will see ---\n\n${formatPreview(entry)}\n\n--- End of preview ---\n`);
 }
 
 /** Preview of every version's entry, newest first. */
