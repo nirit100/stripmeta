@@ -40,7 +40,7 @@ function renderLocalStorageValues(): void {
     if (key === 'stripmeta:stats_v1') {
       try {
         const s = JSON.parse(raw) as { filesProcessed: number; gpsRemoved: number; datesRemoved: number; bytesStripped: number };
-        cell.textContent = `${s.filesProcessed} files / ${s.gpsRemoved} GPS / ${s.datesRemoved} dates / ${s.bytesStripped} B`;
+        cell.textContent = `${s.filesProcessed} files\n${s.gpsRemoved} GPS\n${s.datesRemoved} dates\n${s.bytesStripped} B`;
         return;
       } catch { /* fall through to raw */ }
     }

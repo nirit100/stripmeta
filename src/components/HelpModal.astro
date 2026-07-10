@@ -39,6 +39,13 @@ const localStorageHelp: [string, string][] = [
   ["stripmeta-visits", "How many times you've opened the app — only used to time the install prompt"],
   ["stripmeta-install-declined", "Set if you dismissed the install-as-app prompt"],
 ];
+
+// Split a key into chunks that each end right after a -, _, or : so <wbr/>
+// can be inserted there — long keys then wrap at those points instead of
+// overflowing or breaking mid-word.
+function keyChunks(key: string): string[] {
+  return key.match(/[^-_:]*[-_:]|[^-_:]+$/g) ?? [key];
+}
 ---
 
 <dialog id="help-modal" class="modal">
@@ -164,17 +171,19 @@ const localStorageHelp: [string, string][] = [
             <table class="w-full text-sm">
               <thead>
                 <tr class="bg-base-200/60 border-b border-base-300">
-                  <th class="text-left font-mono font-medium text-base-content/50 px-2.5 py-1.5">Key</th>
-                  <th class="text-left font-medium text-base-content/50 px-2.5 py-1.5">What it means</th>
-                  <th class="text-left font-mono font-medium text-base-content/50 px-2.5 py-1.5">Current value</th>
+                  <th class="text-left font-mono font-medium text-base-content/50 px-2.5 py-1.5 w-32 lg:w-px lg:whitespace-nowrap">Key</th>
+                  <th class="text-left font-medium text-base-content/50 px-2.5 py-1.5 min-w-[16rem]">What it means</th>
+                  <th class="text-left font-medium text-base-content/50 px-2.5 py-1.5 w-px whitespace-nowrap">Current Value</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-base-300">
                 {localStorageHelp.map(([key, desc]) => (
                   <tr>
-                    <td class="align-top px-2.5 py-1.5 font-mono text-base-content/70 whitespace-nowrap">{key}</td>
+                    <td class="align-top px-2.5 py-1.5 font-mono text-base-content/70 break-words lg:whitespace-nowrap">
+                      {keyChunks(key).map(chunk => <>{chunk}<wbr /></>)}
+                    </td>
                     <td class="align-top px-2.5 py-1.5 text-base-content/60">{desc}</td>
-                    <td class="align-top px-2.5 py-1.5 font-mono text-base-content/45 ls-value" data-ls-key={key}>—</td>
+                    <td class="align-top px-2.5 py-1.5 font-mono text-base-content/45 whitespace-pre-line ls-value" data-ls-key={key}>—</td>
                   </tr>
                 ))}
               </tbody>
