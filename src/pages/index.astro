@@ -75,31 +75,35 @@ const bugReportEnabled = !!import.meta.env.PUBLIC_BUG_REPORT_ENABLED;
     <div id="file-list" class="flex flex-col gap-2 hidden"></div>
   </div>
 
-  <div id="actions" class="flex gap-3 flex-wrap hidden">
-    <button id="btn-strip" type="button" class="btn btn-brand">
-      Strip metadata
-    </button>
-    <button id="btn-download" type="button" class="btn btn-brand">
-      Save
-    </button>
-    <button id="btn-copy-result" type="button" class="btn btn-brand">
-      Copy to clipboard
-    </button>
-    <button id="btn-clear" type="button" class="btn btn-ghost">
-      Clear
-    </button>
-  </div>
-
-  <p id="zip-help-hint" class="hidden w-full flex justify-center -mt-6 text-xs text-base-content/40">
-    <button
-      type="button"
-      data-open-help="zip"
-      class="inline-flex items-center gap-1 cursor-pointer underline underline-offset-2 hover:text-base-content/70 transition-colors"
+  <div id="actions" class="flex flex-col hidden gap-3">
+    <p class="flex gap-3 flex-wrap">
+      <button id="btn-strip" type="button" class="btn btn-brand">
+        Strip metadata
+      </button>
+      <button id="btn-download" type="button" class="btn btn-brand">
+        Save
+      </button>
+      <button id="btn-copy-result" type="button" class="btn btn-brand">
+        Copy to clipboard
+      </button>
+      <button id="btn-clear" type="button" class="btn btn-ghost">
+        Clear
+      </button>
+    </p>
+    <p
+      id="zip-help-hint"
+      class="hidden w-full flex justify-center text-xs text-base-content/40"
     >
-      <Icon name="question-mark-circle" class="w-3.5 h-3.5 shrink-0" />
-      What's in this ZIP?
-    </button>
-  </p>
+      <button
+        type="button"
+        data-open-help="zip"
+        class="inline-flex items-center gap-1 cursor-pointer underline underline-offset-2 hover:text-base-content/70 transition-colors"
+      >
+        <Icon name="question-mark-circle" class="w-3.5 h-3.5 shrink-0" />
+        What's in this ZIP?
+      </button>
+    </p>
+  </div>
 
   <div id="log-wrap" class="w-full flex flex-col gap-2">
     <p id="strip-progress" class="text-xs text-base-content/35 text-center tabular-nums hidden"></p>

@@ -69,6 +69,15 @@ function setScanState(active: boolean, count = 0) {
   }
 }
 
+// zipHelpHint is a sibling of #actions, not nested inside it, so hiding
+// #actions alone (e.g. when the file list becomes empty) doesn't hide it too.
+// Route every reset through here instead of repeating the pair inline, so a
+// stray pendingBlobs/download reset can't leave it dangling.
+function hideDownloadUI(): void {
+  btnDownload.hidden = true;
+  zipHelpHint.classList.add('hidden');
+}
+
 function activeManager(): StripperManager {
   return settings.paranoid ? paranoidStripperManager : defaultStripperManager;
 }
@@ -251,6 +260,7 @@ function afterRemove() {
     logSection.classList.add('hidden');
     stripProgressEl.classList.add('hidden');
     fileWarningBanner.hidden = true;
+    hideDownloadUI();
     dirRowOf.clear();
     expandHero();
   } else {
@@ -875,7 +885,7 @@ async function render() {
   logSection.classList.toggle('hidden', !visible);
   updateFileListHeader();
 
-  if (!visible) { fileWarningBanner.hidden = true; stripProgressEl.classList.add('hidden'); expandHero(); updateFabs(); return; }
+  if (!visible) { fileWarningBanner.hidden = true; stripProgressEl.classList.add('hidden'); hideDownloadUI(); expandHero(); updateFabs(); return; }
 
   collapseHero();
   btnStrip.disabled = true;
@@ -909,8 +919,7 @@ async function render() {
   }
 
   renderBanner();
-  btnDownload.hidden = true;
-  zipHelpHint.classList.add('hidden');
+  hideDownloadUI();
   btnCopyResult.hidden = true;
   btnStrip.hidden = false;
   btnStrip.disabled = false;
@@ -960,8 +969,7 @@ async function stripAndDownload() {
   store.strip.resetErrors();
   clearErroredFiles();
   pendingBlobs = [];
-  btnDownload.hidden = true;
-  zipHelpHint.classList.add('hidden');
+  hideDownloadUI();
 
   const toProcess = computeToProcess(store.entries, getSkipReason, store.strip.done);
 
@@ -1138,8 +1146,7 @@ btnClear.addEventListener('click', () => {
   dirCounters.clear();
   copyBtnOf.clear();
   pendingBlobs = [];
-  btnDownload.hidden = true;
-  zipHelpHint.classList.add('hidden');
+  hideDownloadUI();
   clearLog();
   render();
 });
@@ -1207,6 +1214,7 @@ onSettingChange('paranoid', () => {
   // Strip algorithm changed — cached blobs are stale.
   store.strip.invalidate();
   pendingBlobs = [];
+  hideDownloadUI();
   for (const btn of copyBtnOf.values()) btn.hidden = true;
   render();
 });
@@ -1214,8 +1222,7 @@ onSettingChange('paranoid', () => {
 function maybeRestoreStripButton() {
   const hasUndone = store.hasPendingStrippable(settings);
   if (hasUndone && !btnDownload.hidden) {
-    btnDownload.hidden = true;
-    zipHelpHint.classList.add('hidden');
+    hideDownloadUI();
     btnStrip.hidden = false;
     pendingBlobs = [];
   }
