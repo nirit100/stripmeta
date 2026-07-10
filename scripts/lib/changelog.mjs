@@ -61,6 +61,34 @@ export function compareVersions(a, b) {
 const isUserFacing = parsed => !!(parsed && SECTION_FOR[parsed.type]);
 
 /**
+ * Pull items sharing a scope into one contiguous run, ordered chronologically
+ * (oldest first) within that run — a later "fix(x): follow-up" commit reads
+ * after the earlier "fix(x): original" it follows, instead of before it.
+ * Scope-less commits (bare `fix: …`) are grouped together the same way, under
+ * the `null` scope. A group's position is set by its first (i.e. newest)
+ * occurrence, so unrelated scopes still render newest-first overall.
+ * @param {(Item & { scope: string | null })[]} items in commit order (newest first)
+ * @returns {Item[]}
+ */
+export function regroupByScope(items) {
+  /** @type {string[]} first-seen order of scope keys ('null' included as-is) */
+  const order = [];
+  /** @type {Map<string | null, (Item & { scope: string | null })[]>} */
+  const groups = new Map();
+  for (const item of items) {
+    if (!groups.has(item.scope)) { groups.set(item.scope, []); order.push(item.scope); }
+    groups.get(item.scope).push(item);
+  }
+
+  const result = [];
+  for (const scope of order) {
+    const group = groups.get(scope).reverse(); // newest-first -> oldest-first within the group
+    for (const { scope: _scope, ...item } of group) result.push(item);
+  }
+  return result;
+}
+
+/**
  * @typedef {{ subject: string, children?: string[] }} Commit
  *   A mainline commit. `children` are the branch commit subjects a PR-merge
  *   brought in (empty/absent for direct commits).
@@ -91,11 +119,11 @@ export function categorize(commits) {
 
     if (isUserFacing(head)) {
       // Headline drives the section; user-facing branch commits become details.
-      add(SECTION_FOR[head.type], { text: head.description, details: childChanges.map(c => c.description) });
+      add(SECTION_FOR[head.type], { text: head.description, details: childChanges.map(c => c.description), scope: head.scope });
     } else if (childChanges.length) {
       // Non-user-facing merge (e.g. a refactor branch) — don't lose a feature
       // hidden inside it; surface its user-facing children on their own.
-      for (const c of childChanges) add(SECTION_FOR[c.type], { text: c.description, details: [] });
+      for (const c of childChanges) add(SECTION_FOR[c.type], { text: c.description, details: [], scope: c.scope });
     } else {
       dropped.push({ subject: commit.subject, reason: head ? head.type : 'non-conventional' });
     }
@@ -103,7 +131,7 @@ export function categorize(commits) {
 
   const sections = SECTION_ORDER
     .filter(title => buckets.has(title))
-    .map(title => ({ title, items: buckets.get(title) }));
+    .map(title => ({ title, items: regroupByScope(buckets.get(title)) }));
   return { sections, dropped };
 }
 

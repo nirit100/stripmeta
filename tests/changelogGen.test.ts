@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { parseSubject, categorize, buildChangelog } from '../scripts/lib/changelog.mjs';
+import { parseSubject, categorize, buildChangelog, regroupByScope } from '../scripts/lib/changelog.mjs';
 
 const c = (subject: string, children: string[] = []) => ({ subject, children });
+const i = (text: string, scope: string | null) => ({ text, details: [], scope });
 
 describe('parseSubject', () => {
   it('parses type, scope and description', () => {
@@ -19,6 +20,45 @@ describe('parseSubject', () => {
   it('returns null for non-conventional and prefixless-branch merges', () => {
     expect(parseSubject('just some words')).toBeNull();
     expect(parseSubject('Merge pull request #1 from nirit100/hotfix')).toBeNull();
+  });
+});
+
+describe('regroupByScope', () => {
+  it('leaves already-adjacent, already-chronological items alone', () => {
+    const items = [i('newer', 'foo'), i('older', 'bar')];
+    expect(regroupByScope(items)).toEqual([
+      { text: 'newer', details: [] },
+      { text: 'older', details: [] },
+    ]);
+  });
+
+  it('reverses a same-scope run to chronological (oldest first) order', () => {
+    const items = [i('newest: follow-up', 'foo'), i('oldest: original', 'foo')];
+    expect(regroupByScope(items).map(x => x.text)).toEqual(['oldest: original', 'newest: follow-up']);
+  });
+
+  it('pulls a same-scope item forward across an intervening different scope', () => {
+    const items = [i('foo newest', 'foo'), i('bar', 'bar'), i('foo oldest', 'foo')];
+    expect(regroupByScope(items).map(x => x.text)).toEqual(['foo oldest', 'foo newest', 'bar']);
+  });
+
+  it('treats null scope as its own group, distinct from any named scope', () => {
+    const items = [i('scopeless newest', null), i('foo', 'foo'), i('scopeless oldest', null)];
+    expect(regroupByScope(items).map(x => x.text)).toEqual(['scopeless oldest', 'scopeless newest', 'foo']);
+  });
+
+  it('a group\'s slot is set by its first (newest) occurrence, keeping unrelated scopes newest-first overall', () => {
+    const items = [i('bar newest', 'bar'), i('foo newest', 'foo'), i('bar oldest', 'bar'), i('foo oldest', 'foo')];
+    // bar seen first -> bar's run (chronological) comes first, then foo's run.
+    expect(regroupByScope(items).map(x => x.text)).toEqual(['bar oldest', 'bar newest', 'foo oldest', 'foo newest']);
+  });
+
+  it('strips the internal scope field from the returned items', () => {
+    expect(regroupByScope([i('a', 'foo')])).toEqual([{ text: 'a', details: [] }]);
+  });
+
+  it('is a no-op on an empty list', () => {
+    expect(regroupByScope([])).toEqual([]);
   });
 });
 
@@ -65,6 +105,49 @@ describe('categorize', () => {
     ]);
     expect(sections).toEqual([
       { title: 'Features', items: [{ text: 'a rescued feature', details: [] }] },
+    ]);
+  });
+
+  it('pulls same-scope fixes together and orders that run oldest first', () => {
+    const { sections } = categorize([
+      c('fix(foo): found a related bug and fixed that too'), // newest
+      c('fix(foo): fixed a thing'),                          // oldest
+    ]);
+    expect(sections).toEqual([
+      { title: 'Fixes', items: [
+        { text: 'fixed a thing', details: [] },
+        { text: 'found a related bug and fixed that too', details: [] },
+      ] },
+    ]);
+  });
+
+  it('pulls a same-scope commit forward even when a different scope sits between them', () => {
+    const { sections } = categorize([
+      c('fix(foo): again, something in foo'), // newest
+      c('fix(bar): an unrelated fix'),
+      c('fix(foo): first fix in foo'),         // oldest
+    ]);
+    expect(sections).toEqual([
+      { title: 'Fixes', items: [
+        { text: 'first fix in foo', details: [] },
+        { text: 'again, something in foo', details: [] },
+        { text: 'an unrelated fix', details: [] },
+      ] },
+    ]);
+  });
+
+  it('groups scope-less commits ("fix: …") together the same way', () => {
+    const { sections } = categorize([
+      c('fix: second scope-less fix'), // newest
+      c('fix(foo): unrelated'),
+      c('fix: first scope-less fix'),  // oldest
+    ]);
+    expect(sections).toEqual([
+      { title: 'Fixes', items: [
+        { text: 'first scope-less fix', details: [] },
+        { text: 'second scope-less fix', details: [] },
+        { text: 'unrelated', details: [] },
+      ] },
     ]);
   });
 });

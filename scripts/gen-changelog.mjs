@@ -96,15 +96,59 @@ function printOverview(raw) {
 }
 
 /**
+ * Render one built changelog entry exactly as the app displays it (see
+ * renderEntries in src/scripts/changelog.ts) — version header, then either
+ * curated notes, categorized sections with nested details, or the
+ * no-user-facing-changes placeholder. `entry.sections` here is the final,
+ * already-categorized-and-regrouped data (same-scope commits already pulled
+ * together and reordered chronologically by categorize/regroupByScope) —
+ * this just formats it for the terminal, it does no ordering of its own.
+ * @param {{ version: string, notes: string | null, sections: { title: string, items: { text: string, details: string[] }[] }[] }} entry
+ * @returns {string}
+ */
+function formatPreview(entry) {
+  const lines = [`v${entry.version}`, ''];
+  if (entry.notes) {
+    lines.push(entry.notes);
+  } else if (entry.sections.length) {
+    for (const sec of entry.sections) {
+      lines.push(sec.title.toUpperCase());
+      for (const item of sec.items) {
+        lines.push(`  • ${item.text}`);
+        for (const detail of item.details) lines.push(`      - ${detail}`);
+      }
+      lines.push('');
+    }
+    lines.pop(); // drop the trailing blank line after the last section
+  } else {
+    lines.push('Maintenance and internal improvements.');
+  }
+  return lines.join('\n');
+}
+
+/** Preview of the newest version's entry, as it will actually be displayed. */
+function printPreview(entry) {
+  console.log(`\n--- Preview: what users will see ---\n\n${formatPreview(entry)}`);
+}
+
+/** Preview of every version's entry, newest first. */
+function printAllPreviews(changelog) {
+  console.log('\n--- Preview: what users will see (all versions) ---');
+  for (const entry of changelog) console.log(`\n${formatPreview(entry)}`);
+}
+
+/**
  * @param {object} [opts]
  * @param {string} [opts.pendingVersion] bare `x.y.z` being released now but not
  *   yet tagged; its commits are everything since the latest existing tag.
  * @param {boolean} [opts.write=true] write the file (false → just return data).
  * @param {boolean} [opts.summary=true] print a terminal audit of what was
  *   included / filtered out.
+ * @param {boolean} [opts.previewAll=false] preview every version's entry
+ *   instead of just the newest one.
  * @returns {object[]} the changelog data.
  */
-export function generateChangelog({ pendingVersion, write = true, summary = true } = {}) {
+export function generateChangelog({ pendingVersion, write = true, summary = true, previewAll = false } = {}) {
   const tags = listVersionTags();
   const raw = [];
 
@@ -145,12 +189,17 @@ export function generateChangelog({ pendingVersion, write = true, summary = true
     }
     printOverview(raw);
     console.log(`\nWrote ${changelog.length} versions to src/data/changelog.json`);
+
+    if (previewAll) printAllPreviews(changelog);
+    else if (changelog.length) printPreview(changelog[0]); // buildChangelog sorts newest first
   }
 
   return changelog;
 }
 
 // CLI entrypoint — regenerate from the current tags (no pending version).
+// --all / -a previews every version instead of just the newest.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  generateChangelog();
+  const previewAll = process.argv.slice(2).some(a => a === '--all' || a === '-a');
+  generateChangelog({ previewAll });
 }
