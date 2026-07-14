@@ -18,7 +18,7 @@ const settingsHelp: [string, string, string][] = [
   ["bell-alert", "Warn before leaving with files loaded", "Shows a browser confirmation if you try to close or reload the tab while files are still loaded, so you don't lose unsaved work. On by default."],
   ["sparkles", "Frosted glass & animations", "Adds blur effects to floating elements and enables the small transition/scale animations used across the app, including this modal's own open/close animations. Purely cosmetic. On by default."],
   ["eye-slash", "Image previews", "Shows a thumbnail for each file. Turning this off can help performance with large batches, slow drives, or older machines. On by default."],
-  ["circle-stack", "Remember settings and stats", "Saves your settings and stat counters in your browser's local storage so they're restored on your next visit. Turning it off doesn't delete anything already saved, it just stops writing new changes — if you had settings saved from before, a \"Clear now\" button appears right here to remove them. See the local storage section for exactly what's stored."],
+  ["circle-stack", "Remember settings and stats", "Saves your settings and stat counters in your browser's local storage so they're restored on your next visit. Turning it off doesn't delete anything already saved, but it stops using it too — no new writes, and old settings and stats stop being restored. If you had settings or stats saved from before, a \"Clear now\" button appears right here to remove them. See the local storage section for exactly what's stored."],
 ];
 
 const localStorageHelp: [string, string][] = [
@@ -190,9 +190,11 @@ function keyChunks(key: string): string[] {
             </table>
           </div>
           <p class="text-sm text-base-content/45 leading-relaxed">
-            The <strong>Clear now</strong> button in Settings only removes the nine
-            toggle keys at the top of that list — stats, theme, and the rest are
-            left alone, same as the warning next to that button says.
+            The <strong>Clear now</strong> button in Settings removes the nine
+            toggle keys at the top of that list, plus the saved stat counters and
+            the About panel's auto-shown flag — theme, changelog-seen, visit count,
+            and the install-prompt preference are left alone since they're
+            considered necessary for the app functioning as intended.
           </p>
         </div>
       </details>
