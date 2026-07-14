@@ -1,47 +1,26 @@
 import { settings, onSettingChange } from '../lib/state/settings.ts';
+import { type StripStats, getStats, recordSession, clearStats } from '../lib/state/stats.ts';
 import { formatBytes } from '../lib/util/format.ts';
 
 const ABOUT_KEY  = 'stripmeta:about_shown_v1';
-const STATS_KEY  = 'stripmeta:stats_v1';
 
-const modal       = document.getElementById('about-modal') as HTMLDialogElement | null;
-const btnAbout    = document.getElementById('btn-about-footer') as HTMLButtonElement | null;
-const aboutBadge  = document.getElementById('about-badge') as HTMLElement | null;
-const statsSection = document.getElementById('about-stats') as HTMLElement | null;
-const statFiles   = document.getElementById('stat-files') as HTMLElement | null;
-const statGps     = document.getElementById('stat-gps') as HTMLElement | null;
-const statGpsWrap = document.getElementById('stat-gps-wrap') as HTMLElement | null;
-const statDates   = document.getElementById('stat-dates') as HTMLElement | null;
-const statDatesWrap = document.getElementById('stat-dates-wrap') as HTMLElement | null;
-const statKb      = document.getElementById('stat-kb') as HTMLElement | null;
-const statKbWrap  = document.getElementById('stat-kb-wrap') as HTMLElement | null;
+const modal          = document.getElementById('about-modal') as HTMLDialogElement | null;
+const btnAbout       = document.getElementById('btn-about-footer') as HTMLButtonElement | null;
+const aboutBadge     = document.getElementById('about-badge') as HTMLElement | null;
+const statsSection   = document.getElementById('about-stats') as HTMLElement | null;
+const statFiles      = document.getElementById('stat-files') as HTMLElement | null;
+const statGps        = document.getElementById('stat-gps') as HTMLElement | null;
+const statGpsWrap    = document.getElementById('stat-gps-wrap') as HTMLElement | null;
+const statDates      = document.getElementById('stat-dates') as HTMLElement | null;
+const statDatesWrap  = document.getElementById('stat-dates-wrap') as HTMLElement | null;
+const statKb         = document.getElementById('stat-kb') as HTMLElement | null;
+const statKbWrap     = document.getElementById('stat-kb-wrap') as HTMLElement | null;
 const statsDate      = document.getElementById('stats-date') as HTMLElement | null;
 const btnAboutNav    = document.getElementById('btn-about-nav') as HTMLButtonElement | null;
 const btnClearStats  = document.getElementById('btn-clear-stats') as HTMLButtonElement | null;
 
-interface StripStats {
-  filesProcessed: number;
-  gpsRemoved: number;
-  datesRemoved: number;
-  bytesStripped: number;
-  date?: string;
-}
-
-const ZERO_STATS: StripStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
-let baseStats: StripStats = { ...ZERO_STATS };
-let liveStats: StripStats | null = null;
+let hasLiveSession = false;
 let statsAnimated = false;
-
-function saveStats(stats: StripStats): void {
-  if (!settings.persist) return;
-  localStorage.setItem(STATS_KEY, JSON.stringify({ ...stats, date: new Date().toISOString() }));
-}
-
-function loadStoredStats(): StripStats | null {
-  const raw = localStorage.getItem(STATS_KEY);
-  if (!raw) return null;
-  try { return JSON.parse(raw) as StripStats; } catch { return null; }
-}
 
 function animateCount(el: HTMLElement, target: number, delayMs: number): void {
   window.setTimeout(() => {
@@ -124,9 +103,9 @@ function openModal(auto: boolean): void {
   if (auto) localStorage.setItem(ABOUT_KEY, '1');
   aboutBadge?.classList.add('hidden');
 
-  const stats = liveStats ?? loadStoredStats();
+  const stats = getStats();
   if (stats) {
-    const animate = !!liveStats && !statsAnimated;
+    const animate = hasLiveSession && !statsAnimated;
     if (animate) statsAnimated = true;
     renderStats(stats, animate);
   }
@@ -135,15 +114,9 @@ function openModal(auto: boolean): void {
 // Stats update on every strip — merge session totals with the cross-session base
 window.addEventListener('stripmeta:processed', (e: Event) => {
   const session = (e as CustomEvent<StripStats>).detail;
-  const merged: StripStats = {
-    filesProcessed: baseStats.filesProcessed + session.filesProcessed,
-    gpsRemoved:     baseStats.gpsRemoved     + session.gpsRemoved,
-    datesRemoved:   baseStats.datesRemoved   + session.datesRemoved,
-    bytesStripped:  baseStats.bytesStripped  + session.bytesStripped,
-  };
-  liveStats = merged;
+  const merged = recordSession(session);
+  hasLiveSession = true;
   statsAnimated = false;
-  saveStats(merged);
   aboutBadge?.classList.remove('hidden');
   if (modal?.open) {
     statsAnimated = true;
@@ -188,9 +161,8 @@ onSettingChange('autoAbout', () => { if (settings.autoAbout) resetAutoShow(); })
 // "Clear storage" -> reset the already-shown flag and wipe stats
 window.addEventListener('stripmeta:storageCleared', () => {
   resetAutoShow();
-  localStorage.removeItem(STATS_KEY);
-  liveStats = null;
-  baseStats = { ...ZERO_STATS };
+  clearStats();
+  hasLiveSession = false;
   statsAnimated = false;
   statsSection?.classList.add('hidden');
 });
@@ -199,17 +171,15 @@ btnAbout?.addEventListener('click', () => openModal(false));
 btnAboutNav?.addEventListener('click', () => openModal(false));
 
 btnClearStats?.addEventListener('click', () => {
-  localStorage.removeItem(STATS_KEY);
-  liveStats = null;
-  baseStats = { ...ZERO_STATS };
+  clearStats();
+  hasLiveSession = false;
   statsAnimated = false;
   statsSection?.classList.add('hidden');
 });
 
 // Pre-fill from storage so stats are visible as soon as modal opens
-const stored = loadStoredStats();
+const stored = getStats();
 if (stored) {
-  baseStats = stored;
   renderStats(stored, false);
 }
 
