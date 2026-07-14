@@ -2,6 +2,7 @@ import {
   rawSettings, setSetting, notifyChange, persist,
   enablePersist, disablePersist, clearStoredKeys, hasSavedSettings, noPersist,
 } from '../lib/state/settings.ts';
+import { clearStats } from '../lib/state/stats.ts';
 
 // — DOM refs (only used inside initSettings) —
 
@@ -269,6 +270,7 @@ export function initSettings(): void {
 
   btnClearStorage.addEventListener('click', () => {
     clearStoredKeys();
+    clearStats();
     clearStorageHint.classList.remove('hint-visible');
     window.dispatchEvent(new CustomEvent('stripmeta:storageCleared'));
   });
