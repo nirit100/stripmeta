@@ -1,5 +1,37 @@
 [
   {
+    "version": "0.6.9",
+    "date": "2026-07-14",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "Fix many tooltips for touch devices",
+            "details": []
+          },
+          {
+            "text": "call clearStats directly from \"Clear now\"",
+            "details": []
+          },
+          {
+            "text": "\"Clear now\" help tooltip fixed for touch devices",
+            "details": []
+          },
+          {
+            "text": "corrected the \"Clear now\" button description",
+            "details": []
+          },
+          {
+            "text": "rebind global localStorage for Node 26 compat",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.8",
     "date": "2026-07-10",
     "notes": null,
