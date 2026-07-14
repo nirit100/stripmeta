@@ -17,6 +17,7 @@ import { registerErroredFile, clearErroredFiles } from '../lib/state/erroredFile
 import { pooled, Semaphore } from '../lib/util/concurrency.ts';
 import { copyImageToClipboard, copyFailLabel } from './clipboard.ts';
 import { showGpsPopover } from './gpsPopover.ts';
+import { bindTooltip, type TooltipDir } from './tooltip.ts';
 import { splitFilename } from '../lib/util/filename.ts';
 import { buildPreviewBadges } from '../lib/view/previewBadges.ts';
 import { computeBannerLines } from '../lib/view/banner.ts';
@@ -347,10 +348,13 @@ const SVG_COPY_X     = iconSvg('x-mark',   'w-3.5 h-3.5', '2.5');
 
 // — Badge helper —
 
-function badge(cls: string, text: string, tip?: string, tipDir = 'tooltip-top'): HTMLElement {
+function badge(cls: string, text: string, tip?: string, tipDir: TooltipDir = 'top'): HTMLElement {
   const el = document.createElement('span');
-  el.className = `badge badge-xs [--size:1.25rem] cursor-default ${cls}${tip ? ` tooltip ${tipDir}` : ''}`;
-  if (tip) el.dataset.tip = tip;
+  el.className = `badge badge-xs [--size:1.25rem] cursor-default ${cls}`;
+  if (tip) {
+    el.dataset.tip = tip;
+    bindTooltip(el, tipDir);
+  }
   // Inner span so text-overflow ellipsis works: flex items need an explicit child element
   // for truncation to fire at the correct edge instead of clipping symmetrically.
   const inner = document.createElement('span');
@@ -554,7 +558,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   topRow.className = 'flex items-center gap-1.5';
 
   if (level === 'unsupported') {
-    topRow.appendChild(badge('badge-error badge-sm', '✕ Unsupported', 'Cannot be decoded in this browser — stripping will fail', 'tooltip-left'));
+    topRow.appendChild(badge('badge-error badge-sm', '✕ Unsupported', 'Cannot be decoded in this browser — stripping will fail', 'left'));
   }
 
   const statusBadge = document.createElement('span');
@@ -609,17 +613,18 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
     handlerInfo.textContent = h.name;
     if (level === 'lossy') {
       const lossyLabel = document.createElement('span');
-      lossyLabel.className = 'text-xs text-warning tooltip tooltip-left cursor-default';
+      lossyLabel.className = 'text-xs text-warning cursor-default';
       lossyLabel.textContent = '⚠️ Lossy';
       lossyLabel.dataset.tip = 'Output will be re-encoded as JPEG (small quality loss)';
+      bindTooltip(lossyLabel, 'left');
       handlerRow.appendChild(lossyLabel);
     }
     if (h.experimental) {
       handlerRow.appendChild(badge(
-        'badge-warning badge-outline badge-xs tooltip tooltip-left',
+        'badge-warning badge-outline badge-xs',
         'Experimental',
         'Metadata stripping for this format is new — some files may fail',
-        'tooltip-left',
+        'left',
       ));
     }
   }).catch(err => console.warn('[handler resolve]', err));

@@ -3,6 +3,7 @@ import {
   enablePersist, disablePersist, clearStoredKeys, hasSavedSettings, noPersist,
 } from '../lib/state/settings.ts';
 import { clearStats } from '../lib/state/stats.ts';
+import { bindTooltip } from './tooltip.ts';
 
 // — DOM refs (only used inside initSettings) —
 
@@ -403,35 +404,8 @@ export function initSettings(): void {
     ['star-persist'],
   );
 
-  // — btn-clear-info tooltip —
-
   const btnClearInfo = document.getElementById('btn-clear-info');
-  if (btnClearInfo) {
-    const tip = document.createElement('div');
-    tip.className = 'fixed z-[9999] max-w-56 px-2.5 py-1.5 text-xs rounded-lg shadow-xl pointer-events-none opacity-0 transition-opacity duration-100 bg-base-content text-base-100';
-    tip.textContent = btnClearInfo.dataset.tip ?? '';
-    document.body.appendChild(tip);
-
-    const showTip = () => {
-      const r = btnClearInfo.getBoundingClientRect();
-      tip.style.left = `${r.left + r.width / 2}px`;
-      tip.style.top  = `${r.top - 6}px`;
-      tip.style.transform = 'translate(-50%, -100%)';
-      tip.classList.replace('opacity-0', 'opacity-100');
-    };
-    const hideTip = () => tip.classList.replace('opacity-100', 'opacity-0');
-
-    btnClearInfo.addEventListener('mouseenter', showTip);
-    btnClearInfo.addEventListener('mouseleave', hideTip);
-
-    // Hover events never fire on touch — tap to toggle instead, and dismiss
-    // on any tap elsewhere (stopPropagation keeps this tap from doing both).
-    btnClearInfo.addEventListener('click', (e) => {
-      e.stopPropagation();
-      tip.classList.contains('opacity-100') ? hideTip() : showTip();
-    });
-    document.addEventListener('click', hideTip);
-  }
+  if (btnClearInfo) bindTooltip(btnClearInfo);
 
   // Panel open/close animation
   details.querySelector('summary')!.addEventListener('click', e => {
