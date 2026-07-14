@@ -412,16 +412,25 @@ export function initSettings(): void {
     tip.textContent = btnClearInfo.dataset.tip ?? '';
     document.body.appendChild(tip);
 
-    btnClearInfo.addEventListener('mouseenter', () => {
+    const showTip = () => {
       const r = btnClearInfo.getBoundingClientRect();
       tip.style.left = `${r.left + r.width / 2}px`;
       tip.style.top  = `${r.top - 6}px`;
       tip.style.transform = 'translate(-50%, -100%)';
       tip.classList.replace('opacity-0', 'opacity-100');
+    };
+    const hideTip = () => tip.classList.replace('opacity-100', 'opacity-0');
+
+    btnClearInfo.addEventListener('mouseenter', showTip);
+    btnClearInfo.addEventListener('mouseleave', hideTip);
+
+    // Hover events never fire on touch — tap to toggle instead, and dismiss
+    // on any tap elsewhere (stopPropagation keeps this tap from doing both).
+    btnClearInfo.addEventListener('click', (e) => {
+      e.stopPropagation();
+      tip.classList.contains('opacity-100') ? hideTip() : showTip();
     });
-    btnClearInfo.addEventListener('mouseleave', () => {
-      tip.classList.replace('opacity-100', 'opacity-0');
-    });
+    document.addEventListener('click', hideTip);
   }
 
   // Panel open/close animation
