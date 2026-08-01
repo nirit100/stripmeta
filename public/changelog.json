@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.6.10",
+    "date": "2026-08-01",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "proper cache versioning to avoid stale references on PWAs",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.9",
     "date": "2026-07-14",
     "notes": null,
