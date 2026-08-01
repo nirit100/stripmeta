@@ -1,7 +1,10 @@
 // @version __SW_VERSION__ (replaced at build time — makes the file byte-unique per deploy)
-// Bump both names whenever a deploy requires invalidating cached pages or static chunks.
-const CACHE_PAGES  = 'stripmeta-pages-v2';
-const CACHE_STATIC = 'stripmeta-static-v1';
+// Cache names are tied to the build version so `activate` purges every prior
+// deploy's entries — a navigate-fallback page can never reference asset
+// hashes older than the current deploy.
+const SW_VERSION    = '__SW_VERSION__';
+const CACHE_PAGES  = `stripmeta-pages-${SW_VERSION}`;
+const CACHE_STATIC = `stripmeta-static-${SW_VERSION}`;
 const LIVE_CACHES  = new Set([CACHE_PAGES, CACHE_STATIC]);
 
 self.addEventListener('install', event => {

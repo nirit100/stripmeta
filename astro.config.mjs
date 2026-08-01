@@ -25,7 +25,7 @@ function injectSwVersion() {
       /** @param {{ dir: URL }} opts */
       'astro:build:done'({ dir }) {
         const swPath = fileURLToPath(new URL('sw.js', dir));
-        const content = fs.readFileSync(swPath, 'utf8').replace('__SW_VERSION__', appVersion);
+        const content = fs.readFileSync(swPath, 'utf8').replaceAll('__SW_VERSION__', appVersion);
         fs.writeFileSync(swPath, content);
       },
     },
