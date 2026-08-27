@@ -33,6 +33,9 @@ function injectSwVersion() {
 }
 
 export default defineConfig({
+  // Astro 7 defaults this to 'jsx', which strips whitespace between inline
+  // elements. Keep HTML rules so rendered text stays as authored.
+  compressHTML: true,
   devToolbar: { enabled: false },
   integrations: [injectSwVersion()],
   vite: {
