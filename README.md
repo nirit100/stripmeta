@@ -6,7 +6,7 @@
 [![Cloudflare Pages](https://img.shields.io/endpoint?url=https://cloudflare-pages-status-badge-stripmeta.nico-rittinghaus.workers.dev/?projectName=stripmeta&branch=main&showEnv=true)](https://stripmeta.info)
 [![Tests](https://github.com/nirit100/stripmeta/actions/workflows/test.yml/badge.svg)](https://github.com/nirit100/stripmeta/actions/workflows/test.yml)
 
-Remove EXIF and other embedded metadata from photos — entirely in your browser. Nothing is ever uploaded anywhere.
+View and remove EXIF and other embedded metadata from photos — entirely in your browser. Nothing is ever uploaded anywhere.
 
 > [!TIP]
 > **Looking for the StripMeta.info tool?** Use it directly at **[stripmeta.info](https://stripmeta.info)** — no installation needed.
