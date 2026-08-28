@@ -3,7 +3,6 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Built with Astro](https://img.shields.io/badge/Built%20with-Astro-FF5D01?logo=astro&logoColor=white)](https://astro.build)
 [![Live site](https://img.shields.io/badge/Live%20site-stripmeta.info-brightgreen)](https://stripmeta.info)
-[![Cloudflare Pages](https://img.shields.io/endpoint?url=https://cloudflare-pages-status-badge-stripmeta.nico-rittinghaus.workers.dev/?projectName=stripmeta&branch=main&showEnv=true)](https://stripmeta.info)
 [![Tests](https://github.com/nirit100/stripmeta/actions/workflows/test.yml/badge.svg)](https://github.com/nirit100/stripmeta/actions/workflows/test.yml)
 
 View and remove EXIF and other embedded metadata from photos — entirely in your browser. Nothing is ever uploaded anywhere.
@@ -37,7 +36,7 @@ All processing happens locally in the browser. No server ever sees your files.
 
 ## Tech stack
 
-- [Astro](https://astro.build) 6.x — static site with no server runtime
+- [Astro](https://astro.build) 7.x — static site with no server runtime
 - [Tailwind CSS](https://tailwindcss.com) v4 + [DaisyUI](https://daisyui.com) v5
 - [exifr](https://github.com/MikeKovarik/exifr) — metadata reading
 - [piexifjs](https://github.com/hMatoba/piexifjs) — JPEG EXIF stripping
