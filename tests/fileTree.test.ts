@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTree, collectEntries, entriesUnder } from '../src/lib/domain/fileTree';
+import { buildTree, collectEntries, entriesUnder, findNode } from '../src/lib/domain/fileTree';
 import type { FileEntry } from '../src/lib/domain/stripPlan';
 
 function makeFile(name = 'photo.jpg'): File {
@@ -124,5 +124,42 @@ describe('entriesUnder', () => {
     expect(entriesUnder([e], 'a/b')).toContain(e);
     expect(entriesUnder([e], 'a')).toContain(e);
     expect(entriesUnder([e], 'a/b/c')).toContain(e);
+  });
+});
+
+// ─── findNode ─────────────────────────────────────────────────────────────────
+
+describe('findNode', () => {
+  const tree = buildTree([entry('a/b/c/photo.jpg'), entry('a/other.jpg'), entry('root.jpg')]);
+
+  it('returns the root for the empty path', () => {
+    expect(findNode(tree, '')).toBe(tree);
+  });
+
+  it('finds a top-level directory', () => {
+    expect(findNode(tree, 'a')?.name).toBe('a');
+  });
+
+  it('finds a deeply nested directory by full path', () => {
+    const node = findNode(tree, 'a/b/c');
+    expect(node?.name).toBe('c');
+    expect(node?.files).toHaveLength(1);
+  });
+
+  it('returns undefined for a directory that does not exist', () => {
+    expect(findNode(tree, 'nope')).toBeUndefined();
+    expect(findNode(tree, 'a/b/nope')).toBeUndefined();
+  });
+
+  it('returns undefined rather than the root when a path segment is missing midway', () => {
+    expect(findNode(tree, 'a/missing/c')).toBeUndefined();
+  });
+
+  it('does not treat a file name as a directory', () => {
+    expect(findNode(tree, 'root.jpg')).toBeUndefined();
+  });
+
+  it('resolves the same node the tree exposes directly', () => {
+    expect(findNode(tree, 'a/b')).toBe(tree.subdirs.get('a')!.subdirs.get('b'));
   });
 });

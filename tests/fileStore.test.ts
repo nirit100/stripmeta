@@ -197,3 +197,47 @@ describe('FileStore removal', () => {
     expect(s.strip.done.size).toBe(0);
   });
 });
+
+describe('FileStore.mergeClassification', () => {
+  it('adds results for new files without disturbing existing models', () => {
+    const s = new FileStore();
+    const a = entry(), b = entry();
+    s.add([a]);
+    s.setClassification(new Map([[a.file, { level: 'lossy', canConvertPng: true }]]));
+
+    s.add([b]);
+    s.mergeClassification(new Map([[b.file, { level: 'none', canConvertPng: false }]]));
+
+    expect(s.level(a.file)).toBe('lossy');
+    expect(s.canConvertPng(a.file)).toBe(true);
+    expect(s.level(b.file)).toBe('none');
+  });
+
+  it('keeps the preview of a file it re-classifies', () => {
+    const s = new FileStore();
+    const a = entry();
+    s.add([a]);
+    s.setClassification(new Map([[a.file, { level: 'none', canConvertPng: false }]]));
+    s.setPreview(a.file, { ...emptyMeta, hasAnyMetadata: true });
+
+    s.mergeClassification(new Map([[a.file, { level: 'lossy', canConvertPng: true }]]));
+
+    expect(s.level(a.file)).toBe('lossy');
+    expect(s.preview(a.file)?.hasAnyMetadata).toBe(true);
+  });
+
+  it('unlike setClassification, does not drop models left out of the map', () => {
+    const s = new FileStore();
+    const a = entry(), b = entry();
+    s.add([a, b]);
+    s.setClassification(new Map([
+      [a.file, { level: 'lossy', canConvertPng: true }],
+      [b.file, { level: 'none', canConvertPng: false }],
+    ]));
+
+    s.mergeClassification(new Map([[b.file, { level: 'experimental', canConvertPng: false }]]));
+
+    expect(s.level(a.file)).toBe('lossy');
+    expect(s.level(b.file)).toBe('experimental');
+  });
+});

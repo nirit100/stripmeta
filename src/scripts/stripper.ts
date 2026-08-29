@@ -2,7 +2,7 @@ import { readMetadata, defaultStripperManager, paranoidStripperManager, browserC
 import { iconSvg } from '../lib/view/icons.ts';
 import { computeToProcess, collectBlobs } from '../lib/domain/stripPlan.ts';
 import type { FileEntry } from '../lib/domain/stripPlan.ts';
-import { buildTree, collectEntries, entriesUnder } from '../lib/domain/fileTree.ts';
+import { buildTree, collectEntries, entriesUnder, findNode } from '../lib/domain/fileTree.ts';
 import type { DirNode } from '../lib/domain/fileTree.ts';
 import { FileStore } from '../lib/state/fileStore.ts';
 import { ThumbUrls } from '../lib/state/thumbUrls.ts';
@@ -104,9 +104,15 @@ let hasRunStrip = false;
 const rowOf          = new Map<File, HTMLElement>();
 const thumbUrls      = new ThumbUrls();
 const dirRowOf       = new Map<string, HTMLElement>();
+const dirChildrenOf  = new Map<string, HTMLElement>(); // path -> children container
+const dirMaterialised = new Set<string>();             // paths whose children have been built
 const dirCounters    = new Map<string, () => void>(); // path -> update fn for the stat label
 const dirExpanders   = new Map<string, () => void>(); // path -> expand fn (for reveal-in-list)
 const copyBtnOf      = new Map<File, HTMLButtonElement>();
+
+// The tree as last rendered. Dir rows outlive any one build of it, so they hold
+// a path and look themselves up here rather than capturing a node.
+let currentTree: DirNode = buildTree([]);
 
 // — Directory breadcrumb
 
@@ -280,9 +286,26 @@ function removeEntry(entry: FileEntry) {
   setTimeout(() => { row.remove(); cleanEmptyDirs(); afterRemove(); }, 160);
 }
 
+/**
+ * Drops a directory and its descendants from the dir-row bookkeeping. Leaving a
+ * stale path behind would make a later row at the same path look already
+ * materialised, so it would never build its children.
+ */
+function forgetDir(path: string): void {
+  const prefix = path + '/';
+  for (const key of [...dirRowOf.keys()]) {
+    if (key !== path && !key.startsWith(prefix)) continue;
+    dirRowOf.delete(key);
+    dirChildrenOf.delete(key);
+    dirMaterialised.delete(key);
+    dirCounters.delete(key);
+    dirExpanders.delete(key);
+  }
+}
+
 function cleanEmptyDirs() {
-  for (const [path, dirRow] of dirRowOf) {
-    if (entriesUnder(store.entries, path).length === 0) { dirRow.remove(); dirRowOf.delete(path); }
+  for (const [path, dirRow] of [...dirRowOf]) {
+    if (entriesUnder(store.entries, path).length === 0) { dirRow.remove(); forgetDir(path); }
   }
 }
 
@@ -665,6 +688,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
 function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLElement): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'w-full';
+  wrap.dataset.dir = node.path;
   dirRowOf.set(node.path, wrap);
 
   const header = document.createElement('div');
@@ -728,14 +752,16 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
   const children = document.createElement('div');
   children.className = 'flex flex-col gap-2 mt-2 ml-[1.1rem] pl-3 border-l-2 border-base-300/70';
   children.hidden = true;
-
-  let materialised = false;
+  dirChildrenOf.set(node.path, children);
 
   function expand() {
     chevron.style.transform = 'rotate(90deg)';
-    if (!materialised) {
-      materialised = true;
-      materialiseDir(node, children);
+    if (!dirMaterialised.has(node.path)) {
+      dirMaterialised.add(node.path);
+      // Look the node up afresh: `node` is from the tree as it stood when this
+      // row was built, and files may have been added to this directory since.
+      const current = findNode(currentTree, node.path);
+      if (current) syncDirContents(current, children, false);
     }
     children.hidden = false;
     updateFabs();
@@ -759,15 +785,30 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
   return wrap;
 }
 
-function materialiseDir(node: DirNode, container: HTMLElement) {
-  // Files first, then subdirs — matches the root render order and collectEntries,
-  // so lightbox prev/next follows the same order the user sees.
+/**
+ * Materialises everything in `node` that isn't on screen yet, leaving existing
+ * cards and dir rows — and their expansion state — untouched. Idempotent, so
+ * the full render and an incremental add share one walk.
+ *
+ * Files render before subdirs, matching collectEntries so lightbox prev/next
+ * follows the order the user sees; new cards are therefore inserted ahead of
+ * the first dir row rather than appended after it.
+ */
+function syncDirContents(node: DirNode, container: HTMLElement, defaultExpanded: boolean): void {
+  const firstDirRow = container.querySelector<HTMLElement>(':scope > [data-dir]');
   for (const entry of node.files) {
-    const level = store.level(entry.file) ?? 'none';
-    container.appendChild(renderFileCard(entry, level));
+    if (rowOf.has(entry.file)) continue;
+    const card = renderFileCard(entry, store.level(entry.file) ?? 'none');
+    container.insertBefore(card, firstDirRow); // insertBefore(_, null) appends
   }
   for (const sub of node.subdirs.values()) {
-    renderDirRow(sub, false, container);
+    if (!dirRowOf.has(sub.path)) {
+      renderDirRow(sub, defaultExpanded, container);
+    } else if (dirMaterialised.has(sub.path)) {
+      // Anything found deeper is nested, and nested rows start collapsed —
+      // defaultExpanded only ever applies at the top level.
+      syncDirContents(sub, dirChildrenOf.get(sub.path)!, false);
+    }
   }
 }
 
@@ -780,7 +821,7 @@ function removeDirNode(node: DirNode) {
   store.removeFiles(allEntries.map(e => e.file));
   const wrap = dirRowOf.get(node.path);
   wrap?.remove();
-  dirRowOf.delete(node.path);
+  forgetDir(node.path);
   afterRemove();
 }
 
@@ -882,12 +923,36 @@ function renderBanner() {
 
 // — Main render —
 
+/** Classifies entries concurrently, keyed by file. */
+function classifyEntries(entries: FileEntry[]) {
+  return pooled(entries, 8, async e => {
+    const level = await activeManager().classify(e.file);
+    // Lossless (incl. experimental): output type = input type. Lossy (canvas): output is JPEG.
+    const canConvertPng = level === 'lossy'
+      || e.file.type === 'image/png'
+      || (level !== 'unsupported' && await browserCapabilities.canDecodeImage(e.file.type));
+    return { level, canConvertPng };
+  }).then(results => new Map(entries.map((e, i) => [e.file, results[i]!])));
+}
+
+/** Restores the action buttons after an analysis pass. */
+function finishAnalysis() {
+  renderBanner();
+  hideDownloadUI();
+  btnCopyResult.hidden = true;
+  btnStrip.hidden = false;
+  btnStrip.disabled = false;
+  btnStrip.textContent = 'Strip metadata';
+}
+
 async function render() {
   const gen = ++renderGen;
 
   fileList.innerHTML = '';
   rowOf.clear();
   dirRowOf.clear();
+  dirChildrenOf.clear();
+  dirMaterialised.clear();
   dirCounters.clear();
   dirExpanders.clear();
   copyBtnOf.clear();
@@ -898,45 +963,55 @@ async function render() {
   logSection.classList.toggle('hidden', !visible);
   updateFileListHeader();
 
-  if (!visible) { fileWarningBanner.hidden = true; stripProgressEl.classList.add('hidden'); hideDownloadUI(); expandHero(); updateFabs(); return; }
+  if (!visible) {
+    currentTree = buildTree([]);
+    fileWarningBanner.hidden = true;
+    stripProgressEl.classList.add('hidden');
+    hideDownloadUI();
+    expandHero();
+    updateFabs();
+    return;
+  }
 
   collapseHero();
   btnStrip.disabled = true;
   btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Analysing…';
 
-  const classified = await pooled(store.entries, 8, async e => {
-    const level = await activeManager().classify(e.file);
-    // Lossless (incl. experimental): output type = input type. Lossy (canvas): output is JPEG.
-    const canConvertPng = level === 'lossy'
-      || e.file.type === 'image/png'
-      || (level !== 'unsupported' && await browserCapabilities.canDecodeImage(e.file.type));
-    return { level, canConvertPng };
-  });
+  const classified = await classifyEntries(store.entries);
 
   // A newer render() call started while we were classifying — let it own the result.
   if (gen !== renderGen) return;
 
-  store.setClassification(new Map(store.entries.map((e, i) =>
-    [e.file, { level: classified[i]!.level, canConvertPng: classified[i]!.canConvertPng }])));
+  store.setClassification(classified);
 
-  const tree = buildTree(store.entries);
-  const defaultExpanded = store.size <= 10;
+  currentTree = buildTree(store.entries);
+  syncDirContents(currentTree, fileList, store.size <= 10);
 
-  // Root-level files (no directory)
-  for (const entry of tree.files) {
-    fileList.appendChild(renderFileCard(entry, store.level(entry.file)!));
-  }
-  // Directory nodes
-  for (const sub of tree.subdirs.values()) {
-    renderDirRow(sub, defaultExpanded, fileList);
-  }
+  finishAnalysis();
+}
 
-  renderBanner();
-  hideDownloadUI();
-  btnCopyResult.hidden = true;
-  btnStrip.hidden = false;
-  btnStrip.disabled = false;
-  btnStrip.textContent = 'Strip metadata';
+/**
+ * Adds already-stored entries to the list without rebuilding it: only the new
+ * files are classified and only missing rows are created, so existing cards
+ * keep their metadata badges, strip results, and expansion state.
+ */
+async function appendEntries(fresh: FileEntry[]) {
+  const gen = renderGen;
+  btnStrip.disabled = true;
+  btnStrip.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Analysing…';
+
+  const classified = await classifyEntries(fresh);
+  if (gen !== renderGen) return; // a full render took over
+
+  store.mergeClassification(classified);
+
+  currentTree = buildTree(store.entries);
+  syncDirContents(currentTree, fileList, store.size <= 10);
+
+  updateFileListHeader();
+  updateAllDirCounts();
+  syncFlatList();
+  finishAnalysis();
 }
 
 // — Adding files —
@@ -961,9 +1036,12 @@ async function* scanDirectoryEntry(entry: FileSystemEntry): AsyncGenerator<FileE
 async function addEntries(incoming: FileEntry[]) {
   const wasEmpty = store.isEmpty;
   hasRunStrip = false;
-  store.add(incoming.filter(e => e.file.type.startsWith('image/')));
+  const fresh = store.add(incoming.filter(e => e.file.type.startsWith('image/')));
   collapseSettings();
-  await render();
+  // A first load has hero collapse and visibility toggles to do; afterwards only
+  // the new entries need touching. Nothing fresh at all is a no-op.
+  if (wasEmpty) await render();
+  else if (fresh.length > 0) await appendEntries(fresh);
   if (wasEmpty && !store.isEmpty) {
     requestAnimationFrame(() => fileListArea.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
