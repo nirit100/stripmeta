@@ -1,0 +1,106 @@
+name: Cleanup-Previews
+
+# Preview deployments outlive the pull request that produced them, so remove the
+# ones belonging to a branch once its pull request is closed or merged.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  cleanup:
+    # Fork pull requests receive no secrets and get no preview, so there is
+    # nothing to clean up.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete this branch's preview deployments
+        id: cleanup
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          PROJECT: stripmeta
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+
+          deleted=0
+
+          # `deployment list` returns a single page, so repeat until this branch
+          # has none left. Bounded, so a mistake here cannot loop forever.
+          for _pass in 1 2 3 4 5; do
+            npx --yes wrangler@4 pages deployment list \
+              --project-name "$PROJECT" --environment preview --json > deployments.json
+
+            # Two filters on purpose. The --environment flag above already asks
+            # for previews only; repeating the check here means a production
+            # deployment can never reach the delete call, whatever that flag
+            # does in some future version.
+            ids=$(jq -r --arg branch "$BRANCH" '
+              .[]
+              | select(.environment == "preview")
+              | select(.deployment_trigger.metadata.branch == $branch)
+              | .id
+            ' deployments.json)
+
+            if [ -z "$ids" ]; then
+              # Nothing matched on the first pass: either there genuinely were
+              # no previews, or the branch is recorded somewhere other than
+              # deployment_trigger.metadata.branch for uploads made by wrangler.
+              # Print what the branches actually look like so the difference is
+              # visible rather than silently doing nothing.
+              if [ "$_pass" = "1" ]; then
+                echo "No preview deployments matched branch '$BRANCH'."
+                echo "Branches present in the preview list:"
+                jq -r '[.[] | .deployment_trigger.metadata.branch] | unique | .[]' \
+                  deployments.json || echo "  (could not read a branch field)"
+              fi
+              break
+            fi
+
+            for id in $ids; do
+              echo "Deleting preview deployment $id"
+              # --force: the branch alias still points at the newest preview.
+              npx --yes wrangler@4 pages deployment delete "$id" \
+                --project-name "$PROJECT" --force
+              deleted=$((deleted + 1))
+            done
+          done
+
+          echo "deleted=$deleted" >> "$GITHUB_OUTPUT"
+          echo "Deleted $deleted preview deployment(s) for \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Mark the preview comment as gone
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          DELETED: ${{ steps.cleanup.outputs.deleted }}
+        with:
+          script: |
+            const marker = '<!-- preview-deployment -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body?.includes(marker));
+            if (!existing) return;
+
+            const deleted = process.env.DELETED ?? '0';
+            const body = [
+              marker,
+              '### Preview deployment',
+              '',
+              deleted === '0'
+                ? 'The preview for this branch is no longer available.'
+                : `Removed ${deleted} preview deployment(s) for this branch.`,
+            ].join('\n');
+
+            // Leave a tombstone rather than a dead link.
+            await github.rest.issues.updateComment({
+              ...context.repo,
+              comment_id: existing.id,
+              body,
+            });
