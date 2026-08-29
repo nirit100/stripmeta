@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.7.0",
+    "version": "0.7.1",
     "date": "2026-08-29",
     "notes": null,
     "sections": [
@@ -8,66 +8,22 @@
         "title": "Features",
         "items": [
           {
-            "text": "implement staggered shine effect for file cards",
+            "text": "enhance submission process with collapsible form and thank-you animation",
             "details": []
           },
           {
-            "text": "bot check that loads only when Send is pressed",
-            "details": []
-          },
-          {
-            "text": "upgrade to Astro 7",
-            "details": []
-          }
-        ]
-      },
-      {
-        "title": "Fixes",
-        "items": [
-          {
-            "text": "stop dropping the settings and stats the form collected",
-            "details": []
-          },
-          {
-            "text": "check the action and hostname on a Turnstile token",
-            "details": []
-          },
-          {
-            "text": "allow wildcard entries in TURNSTILE_HOSTNAMES",
-            "details": []
-          },
-          {
-            "text": "identify files by content, not the reported MIME type",
-            "details": []
-          },
-          {
-            "text": "re-derive the download set when selection settings change",
-            "details": []
-          },
-          {
-            "text": "stop stranding thumbnail object URLs on re-render",
-            "details": []
-          },
-          {
-            "text": "count only the current run in the lifetime totals",
-            "details": []
-          }
-        ]
-      },
-      {
-        "title": "Performance",
-        "items": [
-          {
-            "text": "reuse the cached metadata preview instead of re-parsing",
-            "details": []
-          },
-          {
-            "text": "add files incrementally instead of rebuilding the list",
+            "text": "add \"Report a bug\" button with nudge animation on errors",
             "details": []
           }
         ]
       }
     ]
+  },
+  {
+    "version": "0.7.0",
+    "date": "2026-08-29",
+    "notes": "The tag is being moved to cover everything merged since v0.6.10, so the\nchangelog is regenerated with 0.7.0 as the pending version. package.json\nwas already at 0.7.0 from the original bump.",
+    "sections": []
   },
   {
     "version": "0.6.10",
