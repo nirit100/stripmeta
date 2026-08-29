@@ -53,12 +53,34 @@ async function cachePut(cacheName, request, response) {
   } catch { /* blocked, evicted or over quota */ }
 }
 
+async function cacheDelete(cacheName, request) {
+  try {
+    const cache = await caches.open(cacheName);
+    await cache.delete(request);
+  } catch { /* nothing to do about it */ }
+}
+
+/**
+ * Nothing under /_astro/ is ever a document. HTML there is a 404 or holding
+ * page answered mid-deploy, and storing one poisons that hashed URL for the
+ * life of the cache: the browser then refuses it as a module ("disallowed MIME
+ * type") on every later load, with the real file sitting on the server intact.
+ */
+function looksLikeDocument(response) {
+  return (response.headers.get('content-type') || '').includes('text/html');
+}
+
 /** Content-hashed filenames are immutable: serve from cache, fall back to network. */
 async function assetFirstFromCache(request) {
   const cached = await cacheMatch(CACHE_STATIC, request);
-  if (cached) return cached;
+  if (cached && !looksLikeDocument(cached)) return cached;
+  // Drop a poisoned entry rather than serving it again, and take the real one.
+  if (cached) await cacheDelete(CACHE_STATIC, request);
+
   const response = await fetch(request);
-  if (cacheable(response)) cachePut(CACHE_STATIC, request, response.clone());
+  if (cacheable(response) && !looksLikeDocument(response)) {
+    cachePut(CACHE_STATIC, request, response.clone());
+  }
   return response;
 }
 
