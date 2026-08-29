@@ -1,5 +1,5 @@
-import { readRichMetadata } from '../lib/stripMeta.ts';
-import type { StripperManager } from '../lib/stripMeta.ts';
+import { readRichMetadata } from '../lib/metadata/read.ts';
+import type { StripperManager } from '../lib/strippers/manager.ts';
 import { logEntry, humanizeError } from '../lib/state/logger.ts';
 
 // Matches EXIF/PNG text keys that commonly carry personally identifiable data.

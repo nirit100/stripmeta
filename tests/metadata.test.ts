@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { MetadataPreview } from '../src/lib/stripMeta';
+import type { MetadataPreview } from '../src/lib/metadata/types';
 import { buildIsobmffFile } from './fixtures/isobmff';
 
 vi.mock('exifr', () => ({
@@ -10,7 +10,7 @@ vi.mock('exifr', () => ({
 
 async function importFresh() {
   vi.resetModules();
-  return import('../src/lib/stripMeta');
+  return import('../src/lib/metadata/read');
 }
 
 function makeFile(name = 'photo.jpg', type = 'image/jpeg'): File {
@@ -272,7 +272,7 @@ describe('readRichMetadata', () => {
   it('sets parseError for corrupt-exif.jpg fixture (real exifr)', async () => {
     vi.doUnmock('exifr');
     vi.resetModules();
-    const { readRichMetadata } = await import('../src/lib/stripMeta');
+    const { readRichMetadata } = await import('../src/lib/metadata/read');
     const file = fixtureFile('corrupt-exif.jpg', 'image/jpeg');
     const { sections, parseError } = await readRichMetadata(file);
     expect(parseError).toBeInstanceOf(Error);
@@ -282,7 +282,7 @@ describe('readRichMetadata', () => {
   it('returns rich metadata sections for rich-metadata.jpg fixture (real exifr)', async () => {
     vi.doUnmock('exifr');
     vi.resetModules();
-    const { readRichMetadata } = await import('../src/lib/stripMeta');
+    const { readRichMetadata } = await import('../src/lib/metadata/read');
     const file = fixtureFile('rich-metadata.jpg', 'image/jpeg');
     const { sections, parseError } = await readRichMetadata(file);
     expect(parseError).toBeUndefined();
@@ -313,14 +313,14 @@ for (const [label, type] of [['HEIC', 'image/heic'], ['AVIF', 'image/avif']] as 
     it('sets hasAnyMetadata=true when Exif item is present', async () => {
       vi.doUnmock('exifr');
       vi.resetModules();
-      const { readMetadata } = await import('../src/lib/stripMeta');
+      const { readMetadata } = await import('../src/lib/metadata/read');
       expect((await readMetadata(makeSyntheticHeic(minimalTiff(), type))).hasAnyMetadata).toBe(true);
     });
 
     it('sets hasAnyMetadata=false when no Exif item is present', async () => {
       vi.doUnmock('exifr');
       vi.resetModules();
-      const { readMetadata } = await import('../src/lib/stripMeta');
+      const { readMetadata } = await import('../src/lib/metadata/read');
       const brand = type === 'image/avif' ? 'avif' : 'heic';
       const imageItemType = type === 'image/avif' ? 'av01' : 'hvc1';
       const data = buildIsobmffFile({ brand, imageItemType, exifData: null });
@@ -332,7 +332,7 @@ for (const [label, type] of [['HEIC', 'image/heic'], ['AVIF', 'image/avif']] as 
       // vi.spyOn cannot intercept exifr's non-configurable export; use doMock for this routing check.
       vi.doMock('exifr', () => ({ default: { parse: vi.fn().mockResolvedValue(null), gps: vi.fn().mockResolvedValue(null) } }));
       vi.resetModules();
-      const { readMetadata } = await import('../src/lib/stripMeta');
+      const { readMetadata } = await import('../src/lib/metadata/read');
       const exifrModule = await import('exifr');
 
       await readMetadata(makeSyntheticHeic(minimalTiff(), type));
@@ -348,7 +348,7 @@ for (const [label, type] of [['HEIC', 'image/heic'], ['AVIF', 'image/avif']] as 
     it('reads real HEIC fixture without crashing or reporting a parse error', async () => {
       vi.doUnmock('exifr');
       vi.resetModules();
-      const { readRichMetadata } = await import('../src/lib/stripMeta');
+      const { readRichMetadata } = await import('../src/lib/metadata/read');
       const buf = readFileSync(join(import.meta.dirname, 'fixtures', 'heic_sample_file_50KB.heic'));
       const { parseError } = await readRichMetadata(
         new File([buf], 'heic_sample_file_50KB.heic', { type: 'image/heic' }),

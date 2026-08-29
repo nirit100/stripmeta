@@ -1,5 +1,6 @@
 import type { FileEntry } from '../domain/stripPlan.ts';
-import type { WarningLevel, MetadataPreview } from '../stripMeta.ts';
+import type { WarningLevel } from '../strippers/types.ts';
+import type { MetadataPreview } from '../metadata/types.ts';
 import type { SkipSettings, SkipReason } from '../domain/skip.ts';
 import type { LevelCounts } from '../view/banner.ts';
 import type { DirStats } from '../domain/dirStats.ts';

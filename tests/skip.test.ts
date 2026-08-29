@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getSkipReason, skipStatusLabel } from '../src/lib/domain/skip';
 import type { SkipSettings } from '../src/lib/domain/skip';
-import type { MetadataPreview } from '../src/lib/stripMeta';
+import type { MetadataPreview } from '../src/lib/metadata/types';
 import type { WarningLevel } from '../src/lib/strippers/types';
 
 function makeFile(name = 'photo.jpg'): File {
