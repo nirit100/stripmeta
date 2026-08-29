@@ -14,6 +14,7 @@ Set these in your Cloudflare Pages dashboard (or `.env` for local development). 
 | `PUBLIC_IMPRESSUM_URL` | No | Impressum page URL. If unset, the Impressum link is hidden. |
 | `PUBLIC_BUG_REPORT_ENABLED` | No | Set to `true` to show the bug report buttons. Requires the runtime variables below to also be configured. |
 | `PUBLIC_LONELYVOID_URL` | No | Artist profile link shown in the About modal credits. If unset, the link renders with an empty href. |
+| `PUBLIC_TURNSTILE_SITEKEY` | No | Cloudflare Turnstile sitekey. If unset, the bot check is not rendered and the Turnstile script is never loaded. Requires `TURNSTILE_SECRET` below. |
 
 ## Runtime variables
 
@@ -27,3 +28,4 @@ If you're making your own version of this you probably want to replace the whole
 | `BUG_REPORT_TO` | Plaintext | Recipient address for bug report emails. |
 | `EMAIL_CF_ACCOUNT_ID` | Plaintext | Cloudflare account ID, used to call the Email Service REST API. |
 | `EMAIL_CF_API_TOKEN` | Secret | Cloudflare API token with **Email Send** permission. |
+| `TURNSTILE_SECRET` | Secret | Cloudflare Turnstile secret key. While unset, submitted tokens are not verified — set it together with `PUBLIC_TURNSTILE_SITEKEY`. |

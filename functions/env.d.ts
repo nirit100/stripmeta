@@ -4,4 +4,6 @@ interface Env {
   EMAIL_CF_ACCOUNT_ID: string;
   BUG_REPORT_FROM: string;
   BUG_REPORT_TO: string;
+  /** Turnstile secret. When unset, token verification is skipped entirely. */
+  TURNSTILE_SECRET?: string;
 }

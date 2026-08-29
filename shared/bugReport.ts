@@ -13,6 +13,8 @@ export interface BugReportPayload {
   platform?: string;
   message?: string;
   email?: string;
+  /** Turnstile token, when the widget is configured. */
+  turnstileToken?: string;
 }
 
 /** Caps on what a single report may carry. Enforced on the server; previewed on the client. */
