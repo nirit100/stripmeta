@@ -25,96 +25,119 @@ const devMissing = import.meta.env.DEV ? [
       </form>
     </div>
 
-    <div class="overflow-y-auto max-h-[70vh] flex flex-col divide-y divide-base-300/60 bg-base-100">
+    <div id="bug-scroll" class="overflow-y-auto max-h-[70vh] flex flex-col divide-y divide-base-300/60 bg-base-100">
 
-      {devMissing.length > 0 && (
-        <div class="px-5 py-3 bg-warning border-b-2 border-warning-content/20">
-          <p class="text-xs font-bold text-warning-content mb-1">⚠ DEV — submissions will fail. Missing:</p>
-          <ul class="flex flex-col gap-0.5">
-            {devMissing.map(k => <li class="text-xs font-mono text-warning-content/80">{k}</li>)}
-          </ul>
-        </div>
-      )}
+      <!-- Everything the report is made of. Folded away the moment Send is
+           pressed, so the bot check — and then the result — is all that is left. -->
+      <div id="bug-form-body">
+        <div class="overflow-hidden flex flex-col divide-y divide-base-300/60">
 
-      <!-- Always included: error log -->
-      <div class="px-5 py-4 flex flex-col gap-2">
-        <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">Error log — always included</p>
-        <ul id="bug-log-preview" class="flex flex-col gap-1 text-xs font-mono bg-base-200/50 rounded-lg px-3 py-2.5 max-h-36 overflow-y-auto leading-relaxed">
-        </ul>
-      </div>
+          {devMissing.length > 0 && (
+            <div class="px-5 py-3 bg-warning border-b-2 border-warning-content/20">
+              <p class="text-xs font-bold text-warning-content mb-1">⚠ DEV — submissions will fail. Missing:</p>
+              <ul class="flex flex-col gap-0.5">
+                {devMissing.map(k => <li class="text-xs font-mono text-warning-content/80">{k}</li>)}
+              </ul>
+            </div>
+          )}
 
-      <!-- Always included: settings & stats -->
-      <div class="px-5 py-4 flex flex-col gap-2">
-        <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">Settings &amp; stats — always included</p>
-        <pre id="bug-settings-preview" class="text-[0.7rem] text-base-content/50 bg-base-200/50 rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-all font-mono"></pre>
-      </div>
-
-      <!-- Opt-out: platform info -->
-      <div class="px-5 py-4 flex flex-col gap-2.5">
-        <label class="flex items-center gap-2.5 cursor-pointer select-none">
-          <input type="checkbox" id="bug-include-platform" class="checkbox checkbox-sm" checked />
-          <span class="text-sm font-medium">Include platform information</span>
-        </label>
-        <pre id="bug-platform-preview" class="text-[0.7rem] text-base-content/50 bg-base-200/50 rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-all font-mono"></pre>
-      </div>
-
-      <!-- Opt-in: errored files (hidden if none) -->
-      <div id="bug-files-section" class="px-5 py-4 flex flex-col gap-2.5 hidden">
-        <label class="flex items-start gap-2.5 cursor-pointer select-none">
-          <input type="checkbox" id="bug-include-files" class="checkbox checkbox-sm mt-0.5" />
-          <div>
-            <span class="text-sm font-medium">Attach failed files</span>
-            <p id="bug-files-info" class="text-[0.7rem] text-base-content/40 font-mono mt-0.5"></p>
-            <p class="text-xs text-base-content/45 mt-1">Files are not stripped of metadata before sending. It will be required to reproduce and fix the bug.</p>
+          <!-- Always included: error log -->
+          <div class="px-5 py-4 flex flex-col gap-2">
+            <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">Error log — always included</p>
+            <ul id="bug-log-preview" class="flex flex-col gap-1 text-xs font-mono bg-base-200/50 rounded-lg px-3 py-2.5 max-h-36 overflow-y-auto leading-relaxed">
+            </ul>
           </div>
-        </label>
-      </div>
 
-      <!-- Optional: message -->
-      <div class="px-5 py-4 flex flex-col gap-2">
-        <label for="bug-message" class="text-sm font-medium">
-          Your message
-          <span id="bug-message-optional" class="text-[0.7rem] text-base-content/40 font-normal ml-1">optional</span>
-        </label>
-        <textarea id="bug-message" rows="3"
-          class="textarea textarea-bordered textarea-sm w-full resize-none text-sm font-sans"
-          placeholder="What were you doing when the error occurred?"></textarea>
-      </div>
+          <!-- Always included: settings & stats -->
+          <div class="px-5 py-4 flex flex-col gap-2">
+            <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">Settings &amp; stats — always included</p>
+            <pre id="bug-settings-preview" class="text-[0.7rem] text-base-content/50 bg-base-200/50 rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-all font-mono"></pre>
+          </div>
 
-      <!-- Optional: email -->
-      <div class="px-5 py-4 flex flex-col gap-2">
-        <label for="bug-email" class="text-sm font-medium">
-          Email for follow-up
-          <span class="text-[0.7rem] text-base-content/40 font-normal ml-1">optional</span>
-        </label>
-        <input type="email" id="bug-email"
-          class="input input-bordered input-sm w-full text-sm"
-          placeholder="your@email.com" />
-      </div>
+          <!-- Opt-out: platform info -->
+          <div class="px-5 py-4 flex flex-col gap-2.5">
+            <label class="flex items-center gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" id="bug-include-platform" class="checkbox checkbox-sm" checked />
+              <span class="text-sm font-medium">Include platform information</span>
+            </label>
+            <pre id="bug-platform-preview" class="text-[0.7rem] text-base-content/50 bg-base-200/50 rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-all font-mono"></pre>
+          </div>
 
-      <div>
-        <p class="text-xs text-base-content/40 px-5 py-3">
-          By submitting, you confirm that you have the right to share the included information and files, and that you understand it will be used solely for debugging purposes by the developer.
-          <span> See the <a href={privacyUrl} target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-base-content/70 transition-colors">privacy policy</a>.</span>
-        </p>
+          <!-- Opt-in: errored files (hidden if none) -->
+          <div id="bug-files-section" class="px-5 py-4 flex flex-col gap-2.5 hidden">
+            <label class="flex items-start gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" id="bug-include-files" class="checkbox checkbox-sm mt-0.5" />
+              <div>
+                <span class="text-sm font-medium">Attach failed files</span>
+                <p id="bug-files-info" class="text-[0.7rem] text-base-content/40 font-mono mt-0.5"></p>
+                <p class="text-xs text-base-content/45 mt-1">Files are not stripped of metadata before sending. It will be required to reproduce and fix the bug.</p>
+              </div>
+            </label>
+          </div>
+
+          <!-- Optional: message -->
+          <div class="px-5 py-4 flex flex-col gap-2">
+            <label for="bug-message" class="text-sm font-medium">
+              Your message
+              <span id="bug-message-optional" class="text-[0.7rem] text-base-content/40 font-normal ml-1">optional</span>
+            </label>
+            <textarea id="bug-message" rows="3"
+              class="textarea textarea-bordered textarea-sm w-full resize-none text-sm font-sans"
+              placeholder="What were you doing when the error occurred?"></textarea>
+          </div>
+
+          <!-- Optional: email -->
+          <div class="px-5 py-4 flex flex-col gap-2">
+            <label for="bug-email" class="text-sm font-medium">
+              Email for follow-up
+              <span class="text-[0.7rem] text-base-content/40 font-normal ml-1">optional</span>
+            </label>
+            <input type="email" id="bug-email"
+              class="input input-bordered input-sm w-full text-sm"
+              placeholder="your@email.com" />
+          </div>
+
+          <div>
+            <p class="text-xs text-base-content/40 px-5 py-3">
+              By submitting, you confirm that you have the right to share the included information and files, and that you understand it will be used solely for debugging purposes by the developer.
+              <span> See the <a href={privacyUrl} target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-base-content/70 transition-colors">privacy policy</a>.</span>
+            </p>
+          </div>
+
+        </div>
       </div>
 
       {turnstileSitekey && (
-        <div class="px-5 py-4 flex flex-col gap-2">
+        <div id="bug-turnstile-section" class="px-5 py-4 flex flex-col gap-1">
           <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">Bot check</p>
           {/* Empty until Send is pressed — the script is fetched at that moment
               and never before, so opening this screen contacts nobody. */}
           <div id="bug-turnstile" data-sitekey={turnstileSitekey} data-action={TURNSTILE_ACTION}></div>
-          <p class="text-xs text-base-content/45">
-            When you press Send, a Cloudflare check runs here to stop automated submissions. Nothing is loaded from Cloudflare until then, and never while you are stripping photos.
+          <p id="bug-turnstile-hint" class="text-xs text-base-content/45">
+            When you press Send, a Cloudflare check runs here to stop automated submissions. Nothing is loaded from Cloudflare until then.
           </p>
         </div>
       )}
 
       <!-- Submit -->
-      <div class="px-5 py-4 flex items-center justify-between gap-4">
+      <div id="bug-submit-row" class="px-5 py-4 flex items-center justify-between gap-4">
         <p id="bug-submit-status" class="text-xs"></p>
         <button id="btn-bug-submit" type="button" class="btn btn-sm btn-brand shrink-0">Send report</button>
+      </div>
+
+      <!-- Sent: takes the place of the form, the bot check and the button -->
+      <div id="bug-thanks" class="px-5 py-10 flex flex-col items-center gap-4 text-center hidden">
+        <svg class="bug-thanks-mark" viewBox="0 0 52 52" width="60" height="60" aria-hidden="true">
+          <circle class="bug-thanks-ring" cx="26" cy="26" r="23" fill="none" stroke-width="2.5" />
+          <path class="bug-thanks-tick" d="M15 27 L23 34.5 L38 18.5" fill="none" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <div class="bug-thanks-text flex flex-col gap-1">
+          <p class="text-base font-bold">Thank you!</p>
+          <p class="text-xs text-base-content/50">Your report is on its way — it really helps.</p>
+        </div>
+        <form method="dialog" class="bug-thanks-text bug-thanks-late">
+          <button class="btn btn-sm btn-ghost">Close</button>
+        </form>
       </div>
 
     </div>

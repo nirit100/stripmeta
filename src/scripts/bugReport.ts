@@ -19,6 +19,60 @@ const submitBtn = document.getElementById('btn-bug-submit') as HTMLButtonElement
 const submitStatus = document.getElementById('bug-submit-status') as HTMLElement;
 const messageOptional = document.getElementById('bug-message-optional') as HTMLElement;
 const settingsPreview = document.getElementById('bug-settings-preview') as HTMLElement;
+const formBody = document.getElementById('bug-form-body') as HTMLElement;
+const submitRow = document.getElementById('bug-submit-row') as HTMLElement;
+const thanks = document.getElementById('bug-thanks') as HTMLElement;
+const turnstileSection = document.getElementById('bug-turnstile-section');
+const turnstileHint = document.getElementById('bug-turnstile-hint');
+const scrollArea = document.getElementById('bug-scroll') as HTMLElement;
+
+/** Matches the CSS collapse; the fallback only has to outlast it. */
+const COLLAPSE_MS = 320;
+
+/** Set once a report lands, so the next open starts from a blank form. */
+let reportSent = false;
+
+/** Runs once the rows have finished growing back, or right away if they never animate. */
+function afterExpand(run: () => void): void {
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    formBody.removeEventListener('transitionend', onEnd);
+    clearTimeout(timer);
+    run();
+  };
+  const onEnd = (e: TransitionEvent) => {
+    if (e.target === formBody && e.propertyName === 'grid-template-rows') finish();
+  };
+  formBody.addEventListener('transitionend', onEnd);
+  // No transitionend fires under prefers-reduced-motion, or if the modal is closed mid-animation.
+  const timer = setTimeout(finish, COLLAPSE_MS + 80);
+}
+
+/**
+ * Folds the report away while it is being checked and sent, so the bot check is
+ * the only thing asking for attention. Unfolds again on any failure, since the
+ * fix — a shorter attachment list, another try — lives back in the form.
+ */
+function setFormCollapsed(collapsed: boolean): void {
+  formBody.classList.toggle('form-collapsed', collapsed);
+  // The hint only describes what happens on Send; by now it has happened.
+  turnstileHint?.classList.toggle('hidden', collapsed);
+  // Unfolding only happens after a failure, so end up at the bottom: the reason
+  // it failed is in the status line there, next to the button to try again.
+  // Scrolling now would only clamp to the collapsed height — wait for the room.
+  if (!collapsed) afterExpand(() => { scrollArea.scrollTop = scrollArea.scrollHeight; });
+}
+
+/** Replaces the (already collapsed) form and the button with the thank-you. */
+function showThanks(): void {
+  submitRow.classList.add('hidden');
+  turnstileSection?.classList.add('hidden');
+  thanks.classList.remove('hidden');
+  void thanks.offsetWidth; // restart the animation on a second report
+  thanks.classList.add('thanks-in');
+}
 
 function escHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -42,10 +96,18 @@ interface TurnstileApi {
     'error-callback': () => void;
   }): string;
   reset(widgetId: string): void;
+  remove(widgetId: string): void;
 }
 
 /** Interactive challenges are rare, but a person has to have time to solve one. */
 const TURNSTILE_TIMEOUT_MS = 60_000;
+
+/** Long enough for the widget's own success animation to play out before the send. */
+const TURNSTILE_SETTLE_MS = 3_000;
+
+function pause(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 const turnstileHost = document.getElementById('bug-turnstile');
 let turnstileWidgetId: string | null = null;
@@ -121,6 +183,19 @@ function resetTurnstile(): void {
   if (turnstile && turnstileWidgetId !== null) turnstile.reset(turnstileWidgetId);
 }
 
+/**
+ * Takes the spent widget away entirely once a report has been sent. Resetting
+ * it would re-run the challenge there and then; removing it means the next
+ * report contacts Cloudflare no earlier than its own Send, as promised.
+ */
+function discardTurnstile(): void {
+  const turnstile = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
+  if (turnstile && turnstileWidgetId !== null) {
+    turnstile.remove(turnstileWidgetId);
+    turnstileWidgetId = null;
+  }
+}
+
 function getSettingsAndStats(): string {
   const on = (v: boolean) => v ? 'on' : 'off';
   const lines = [
@@ -165,6 +240,17 @@ function getPlatformInfo(): string {
 }
 
 function populate() {
+  // A sent report is finished business: the next open starts from a blank form
+  // rather than the text that was already mailed off. An unsent draft is kept.
+  if (reportSent) {
+    reportSent = false;
+    messageInput.value = '';
+    emailInput.value = '';
+    filesCheckbox.checked = false;
+    platformCheckbox.checked = true;
+    discardTurnstile(); // the spent widget would otherwise still show its tick
+  }
+
   const entries = getLog();
   logPreview.innerHTML = '';
   if (entries.length === 0) {
@@ -207,6 +293,17 @@ function populate() {
   submitStatus.className = 'text-xs';
   submitBtn.disabled = false;
   submitBtn.textContent = 'Send report';
+
+  // A reopened modal is a fresh report: form back, thank-you gone. Unfolded
+  // outright rather than through setFormCollapsed — there is no animation to
+  // wait on behind a closed dialog, and this one opens at the top, not at the
+  // failure end.
+  formBody.classList.remove('form-collapsed');
+  turnstileHint?.classList.remove('hidden');
+  thanks.classList.add('hidden');
+  thanks.classList.remove('thanks-in');
+  submitRow.classList.remove('hidden');
+  turnstileSection?.classList.remove('hidden');
 }
 
 async function submit() {
@@ -221,6 +318,7 @@ async function submit() {
   submitBtn.disabled = true;
   submitStatus.textContent = '';
   submitStatus.className = 'text-xs';
+  setFormCollapsed(true);
 
   // The one moment anything is fetched from Cloudflare.
   let turnstileToken: string | undefined;
@@ -228,11 +326,15 @@ async function submit() {
     submitBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Checking…';
     try {
       turnstileToken = await getTurnstileToken();
+      // Purely cosmetic: let the widget finish its success animation instead of
+      // being yanked out from under it by the send and the thank-you.
+      await pause(TURNSTILE_SETTLE_MS);
     } catch (err) {
       submitStatus.textContent = err instanceof Error ? err.message : 'The bot check failed.';
       submitStatus.className = 'text-xs text-error';
       submitBtn.disabled = false;
       submitBtn.textContent = 'Send report';
+      setFormCollapsed(false);
       return;
     }
   }
@@ -270,6 +372,7 @@ async function submit() {
       submitStatus.className = 'text-xs text-error';
       submitBtn.disabled = false;
       submitBtn.textContent = 'Send report';
+      setFormCollapsed(false);
       return;
     }
     const fd = new FormData();
@@ -289,15 +392,17 @@ async function submit() {
     submitStatus.className = 'text-xs text-error';
     submitBtn.disabled = false;
     submitBtn.textContent = 'Send report';
+    setFormCollapsed(false);
     resetTurnstile();
   }
 
   try {
     const res = await fetch('/api/report', { method: 'POST', body, headers });
     if (res.ok) {
-      submitStatus.textContent = 'Report sent — thank you!';
-      submitStatus.className = 'text-xs text-success';
+      submitStatus.textContent = '';
       submitBtn.textContent = 'Sent ✓';
+      reportSent = true;
+      showThanks();
     } else if (res.status === 429) {
       allowRetry('Too many requests — please wait a moment and try again.');
     } else if (res.status === 413) {
@@ -315,6 +420,7 @@ async function submit() {
 export function openBugReport() {
   populate();
   modal?.showModal();
+  scrollArea.scrollTop = 0; // only now is there a scrolling box to put back at the top
 }
 
 submitBtn?.addEventListener('click', submit);

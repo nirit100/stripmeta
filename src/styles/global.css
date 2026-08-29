@@ -224,3 +224,69 @@ html.no-glass .reveal-flash {
   opacity: 0.75;
   cursor: not-allowed;
 }
+
+/* Bug report: the form folds away while the bot check runs and the report is
+   sent, leaving the check — and then the thank-you — alone on screen.
+   0fr/1fr rows collapse content of unknown height without measuring it. */
+#bug-form-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 320ms ease, opacity 220ms ease;
+}
+#bug-form-body.form-collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  /* Folded to nothing, its own divider would just double the header rule */
+  border-bottom-width: 0;
+}
+
+/* Thank-you: the ring draws itself, the tick follows, then the words rise. */
+@keyframes bug-thanks-pop {
+  0%   { transform: scale(0.85); }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes bug-thanks-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes bug-thanks-rise {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#bug-thanks .bug-thanks-ring,
+#bug-thanks .bug-thanks-tick {
+  stroke: var(--color-success);
+}
+/* Dash lengths are the drawn lengths: circumference of r=23, and the tick's two legs */
+#bug-thanks .bug-thanks-ring { stroke-dasharray: 145; stroke-dashoffset: 145; }
+#bug-thanks .bug-thanks-tick { stroke-dasharray: 34; stroke-dashoffset: 34; }
+#bug-thanks .bug-thanks-text { opacity: 0; }
+
+#bug-thanks.thanks-in .bug-thanks-mark {
+  animation: bug-thanks-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+#bug-thanks.thanks-in .bug-thanks-ring {
+  animation: bug-thanks-draw 560ms ease-out forwards;
+}
+#bug-thanks.thanks-in .bug-thanks-tick {
+  animation: bug-thanks-draw 300ms 400ms ease-out forwards;
+}
+#bug-thanks.thanks-in .bug-thanks-text {
+  animation: bug-thanks-rise 320ms 520ms ease-out forwards;
+}
+#bug-thanks.thanks-in .bug-thanks-late {
+  animation-delay: 700ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bug-form-body {
+    transition: none;
+  }
+  #bug-thanks.thanks-in .bug-thanks-mark,
+  #bug-thanks.thanks-in .bug-thanks-ring,
+  #bug-thanks.thanks-in .bug-thanks-tick,
+  #bug-thanks.thanks-in .bug-thanks-text {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}
