@@ -6,4 +6,9 @@ interface Env {
   BUG_REPORT_TO: string;
   /** Turnstile secret. When unset, token verification is skipped entirely. */
   TURNSTILE_SECRET?: string;
+  /**
+   * Comma-separated hostnames a Turnstile token may have been minted on.
+   * Required alongside the secret — verification fails closed without it.
+   */
+  TURNSTILE_HOSTNAMES?: string;
 }

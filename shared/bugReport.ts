@@ -17,6 +17,13 @@ export interface BugReportPayload {
   turnstileToken?: string;
 }
 
+/**
+ * The Turnstile action label for this surface. Rendered on the widget and
+ * checked against the verified token, so a token minted for some other action
+ * cannot be spent here.
+ */
+export const TURNSTILE_ACTION = 'bug-report';
+
 /** Caps on what a single report may carry. Enforced on the server; previewed on the client. */
 export const REPORT_LIMITS = {
   /** Attached files, which are the user's own failed images. */
