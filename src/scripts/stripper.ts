@@ -5,6 +5,7 @@ import type { FileEntry } from '../lib/domain/stripPlan.ts';
 import { buildTree, collectEntries, entriesUnder } from '../lib/domain/fileTree.ts';
 import type { DirNode } from '../lib/domain/fileTree.ts';
 import { FileStore } from '../lib/state/fileStore.ts';
+import { ThumbUrls } from '../lib/state/thumbUrls.ts';
 import type { WarningLevel, StripperManager } from '../lib/stripMeta.ts';
 import { formatBytes } from '../lib/util/format.ts';
 import { statusBadge } from '../lib/view/statusBadge.ts';
@@ -101,7 +102,7 @@ let hasRunStrip = false;
 
 // DOM tracking
 const rowOf          = new Map<File, HTMLElement>();
-const urlOf          = new Map<File, string>();
+const thumbUrls      = new ThumbUrls();
 const dirRowOf       = new Map<string, HTMLElement>();
 const dirCounters    = new Map<string, () => void>(); // path -> update fn for the stat label
 const dirExpanders   = new Map<string, () => void>(); // path -> expand fn (for reveal-in-list)
@@ -246,9 +247,7 @@ function expandHero() {
 // — File removal —
 
 function detachEntry(entry: FileEntry) {
-  const url = urlOf.get(entry.file);
-  if (url) URL.revokeObjectURL(url);
-  urlOf.delete(entry.file);
+  thumbUrls.release(entry.file);
   rowOf.delete(entry.file);
   copyBtnOf.delete(entry.file);
   store.remove(entry); // drops the entry, its model, and its strip state
@@ -478,8 +477,7 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
 function makeThumb(file: File): HTMLElement {
   let thumb: HTMLElement;
   if (settings.showPreviews) {
-    const objUrl = URL.createObjectURL(file);
-    urlOf.set(file, objUrl);
+    const objUrl = thumbUrls.create(file);
     const img = document.createElement('img');
     img.className = 'file-thumb w-12 h-12 rounded object-cover shrink-0 bg-base-300';
     img.src = objUrl;
@@ -503,7 +501,7 @@ function makeThumb(file: File): HTMLElement {
     openLightbox(file, navEntries(), {
       onReveal: revealFile,
       onShowMetadata: f => openMetadataModal(f, activeManager()),
-      resolveUrl: f => urlOf.get(f),
+      resolveUrl: f => thumbUrls.get(f),
     }));
   return thumb;
 }
@@ -761,9 +759,7 @@ function materialiseDir(node: DirNode, container: HTMLElement) {
 function removeDirNode(node: DirNode) {
   const allEntries = collectEntries(node);
   for (const entry of allEntries) {
-    const url = urlOf.get(entry.file);
-    if (url) URL.revokeObjectURL(url);
-    urlOf.delete(entry.file);
+    thumbUrls.release(entry.file);
     rowOf.delete(entry.file);
   }
   store.removeFiles(allEntries.map(e => e.file));
@@ -1133,8 +1129,7 @@ dropZone.addEventListener('drop', async e => {
 
 btnClear.addEventListener('click', () => {
   collapseSettings();
-  for (const url of urlOf.values()) URL.revokeObjectURL(url);
-  urlOf.clear();
+  thumbUrls.releaseAll();
   store.clear();
   dirRowOf.clear();
   dirCounters.clear();
@@ -1232,8 +1227,9 @@ onSettingChange('showPreviews', () => {
   // Swap thumbnails in place — no reclassification needed. Revoke any decoded
   // preview before replacing so toggling off frees its memory.
   for (const [file, row] of rowOf) {
-    const url = urlOf.get(file);
-    if (url) { URL.revokeObjectURL(url); urlOf.delete(file); }
+    // Explicit: with previews off makeThumb builds a placeholder and never
+    // calls create(), so nothing would release the decoded preview's URL.
+    thumbUrls.release(file);
     row.querySelector('.file-thumb')?.replaceWith(makeThumb(file));
   }
 });
