@@ -1053,6 +1053,43 @@ function fromFileList(fileList: FileList | File[], getPath: (f: File) => string)
 
 // — Strip & download —
 
+/**
+ * Re-derives the download set and the Save / Copy buttons from current state.
+ * Every blob is already cached in the store, so this only reselects — nothing
+ * is stripped again. Returns how many files the download would contain.
+ */
+async function refreshDownloadUI(): Promise<number> {
+  const blobs = collectBlobs(store.entries, getSkipReason, store.strip.done, store.strip.blobs, settings.includeSkipped);
+  pendingBlobs = blobs;
+
+  if (blobs.length >= 1) {
+    btnDownload.innerHTML = `${iconSvg('arrow-down-tray', 'w-4 h-4', '1.5')} ${blobs.length === 1 ? 'Save' : 'Save ZIP'}`;
+    btnDownload.hidden = false;
+    zipHelpHint.classList.toggle('hidden', blobs.length <= 1);
+    btnStrip.hidden = true;
+  } else {
+    hideDownloadUI();
+    btnStrip.hidden = false;
+  }
+
+  if (blobs.length === 1 && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+    const blobType = blobs[0]!.blob.type;
+    const canConvert = blobType === 'image/png' || await browserCapabilities.canDecodeImage(blobType);
+    if (canConvert) {
+      const label = blobType === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
+      btnCopyResult.innerHTML = `${iconSvg('clipboard', 'w-4 h-4', '2')} ${label}`;
+      btnCopyResult.disabled = false;
+      btnCopyResult.hidden = false;
+    } else {
+      btnCopyResult.hidden = true;
+    }
+  } else {
+    btnCopyResult.hidden = true;
+  }
+
+  return blobs.length;
+}
+
 async function stripAndDownload() {
   if (store.isEmpty) return;
   collapseSettings();
@@ -1099,34 +1136,11 @@ async function stripAndDownload() {
     });
   }
 
-  // Collect blobs: done files + optionally skipped.
-  const blobs = collectBlobs(store.entries, getSkipReason, store.strip.done, store.strip.blobs, settings.includeSkipped);
-
   // Skip badges now report the outcome rather than the reason.
   hasRunStrip = true;
   for (const { file } of store.entries) paintStatus(file);
 
-  pendingBlobs = blobs;
-  if (blobs.length >= 1) {
-    btnDownload.innerHTML = `${iconSvg('arrow-down-tray', 'w-4 h-4', '1.5')} ${blobs.length === 1 ? 'Save' : 'Save ZIP'}`;
-    btnDownload.hidden = false;
-    zipHelpHint.classList.toggle('hidden', blobs.length <= 1);
-    btnStrip.hidden = true;
-  }
-  if (blobs.length === 1 && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
-    const blobType = blobs[0]!.blob.type;
-    const canConvert = blobType === 'image/png' || await browserCapabilities.canDecodeImage(blobType);
-    if (canConvert) {
-      const label = blobType === 'image/png' ? 'Copy to clipboard' : 'Copy as PNG';
-      btnCopyResult.innerHTML = `${iconSvg('clipboard', 'w-4 h-4', '2')} ${label}`;
-      btnCopyResult.disabled = false;
-      btnCopyResult.hidden = false;
-    } else {
-      btnCopyResult.hidden = true;
-    }
-  } else {
-    btnCopyResult.hidden = true;
-  }
+  const blobCount = await refreshDownloadUI();
 
   stripProgressEl.classList.add('hidden');
   stripProgressEl.textContent = '';
@@ -1134,7 +1148,7 @@ async function stripAndDownload() {
   btnStrip.textContent = 'Strip metadata';
   updateAllDirCounts();
 
-  if (blobs.length > 0) {
+  if (blobCount > 0) {
     try { window.dispatchEvent(new CustomEvent('stripmeta:processed', { detail: { ...runStats, hadErrors } })); } catch { /* ignore */ }
   }
 }
@@ -1303,18 +1317,36 @@ onSettingChange('paranoid', () => {
   render();
 });
 
-function maybeRestoreStripButton() {
-  const hasUndone = store.hasPendingStrippable(settings);
-  if (hasUndone && !btnDownload.hidden) {
-    hideDownloadUI();
-    btnStrip.hidden = false;
+/**
+ * Re-derives the action buttons after a setting changed which files are in
+ * play. The cached download set was selected under the old settings, so it has
+ * to be reselected — or dropped entirely if there is strippable work again.
+ */
+function refreshActions() {
+  if (!hasRunStrip) return;
+  if (store.hasPendingStrippable(settings)) {
     pendingBlobs = [];
+    hideDownloadUI();
+    btnCopyResult.hidden = true;
+    btnStrip.hidden = false;
+    return;
   }
+  void refreshDownloadUI();
 }
 
-onSettingChange('skipClean',        () => { for (const e of store.entries) paintStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
-onSettingChange('skipUnsupported',  () => { for (const e of store.entries) paintStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
-onSettingChange('skipExperimental', () => { for (const e of store.entries) paintStatus(e.file); syncFlatList(); updateAllDirCounts(); renderBanner(); maybeRestoreStripButton(); });
+/** Every setting that feeds getSkipReason or the download selection lands here. */
+function onSelectionSettingChanged() {
+  for (const e of store.entries) paintStatus(e.file);
+  syncFlatList();
+  updateAllDirCounts();
+  renderBanner();
+  refreshActions();
+}
+
+onSettingChange('skipClean',        onSelectionSettingChanged);
+onSettingChange('skipUnsupported',  onSelectionSettingChanged);
+onSettingChange('skipExperimental', onSelectionSettingChanged);
+onSettingChange('includeSkipped',   onSelectionSettingChanged);
 
 onSettingChange('showPreviews', () => {
   // Swap thumbnails in place — no reclassification needed. Revoke any decoded
