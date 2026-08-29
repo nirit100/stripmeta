@@ -11,8 +11,14 @@ async function importFresh() {
   return import('../src/lib/strippers/registry');
 }
 
+// Content-free: the byte-sniffing handlers reject these, so they exercise the
+// canvas fallback, which is the only handler that still asks about MIME type.
 function makeTypedFile(name: string, type: string): File {
   return new File(['x'], name, { type });
+}
+
+function makeJpegFile(name = 'a.jpg'): File {
+  return new File([JPEG_SIG], name, { type: 'image/jpeg' });
 }
 
 // Helpers that include the correct magic bytes so format-specific handlers accept them.
@@ -31,7 +37,7 @@ function fixtureFile(filename: string, type: string): File {
 describe('StripperManager.classify — defaultStripperManager', () => {
   it('returns none for JPEG', async () => {
     const { defaultStripperManager } = await importFresh();
-    expect(await defaultStripperManager.classify(makeTypedFile('a.jpg', 'image/jpeg'))).toBe('none');
+    expect(await defaultStripperManager.classify(makeJpegFile())).toBe('none');
   });
 
   it('returns none for PNG', async () => {
@@ -89,7 +95,7 @@ describe('StripperManager.classify — defaultStripperManager', () => {
 describe('StripperManager.classify — paranoidStripperManager', () => {
   it('returns lossy for JPEG (canvas re-encode always)', async () => {
     const { paranoidStripperManager } = await importFresh();
-    expect(await paranoidStripperManager.classify(makeTypedFile('a.jpg', 'image/jpeg'))).toBe('lossy');
+    expect(await paranoidStripperManager.classify(makeJpegFile())).toBe('lossy');
   });
 
   it('returns lossy for PNG', async () => {
@@ -111,7 +117,7 @@ describe('StripperManager.classify — paranoidStripperManager', () => {
 describe('StripperManager.resolve', () => {
   it('resolves JPEG to the JPEG handler', async () => {
     const { defaultStripperManager } = await importFresh();
-    const h = await defaultStripperManager.resolve(makeTypedFile('a.jpg', 'image/jpeg'));
+    const h = await defaultStripperManager.resolve(makeJpegFile());
     expect(h.name).toBe('JPEG (lossless)');
     expect(h.lossless).toBe(true);
   });

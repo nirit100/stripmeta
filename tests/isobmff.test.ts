@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { stripExifItem, readExifBytes, iterBoxes } from '../src/lib/strippers/isobmff';
+import { stripExifItem, readExifBytes, iterBoxes } from '../src/lib/format/isobmff';
 import { heicStripper } from '../src/lib/strippers/heic';
 import { avifStripper } from '../src/lib/strippers/avif';
 import { buildIsobmffFile } from './fixtures/isobmff';
+import { detectFormat } from '../src/lib/format/detect';
+import type { DetectedFormat, ImageFormat } from '../src/lib/format/detect';
 
 const mockCaps = { canDecodeImage: async () => false };
 
@@ -304,75 +306,64 @@ describe('mdat-before-meta layout', () => {
   });
 });
 
-// ── HEIC / AVIF supports() — extension fallback ───────────────────────────────
+// ── HEIC / AVIF claims — identity comes from the bytes ───────────────────────
+//
+// The handlers no longer look at names or MIME types at all: the manager
+// detects once and hands them the result. So these check two things — that
+// synthetic ISOBMFF bytes resolve to the right format, and that each handler
+// claims exactly its own.
 
-describe('heicStripper.supports', () => {
-  it('accepts image/heic MIME type', async () => {
+async function detect(data: Uint8Array, name: string, type: string) {
+  return detectFormat(new File([data.buffer as ArrayBuffer], name, { type }));
+}
+
+describe('ISOBMFF identity from bytes', () => {
+  it('resolves a heic brand to heic, whatever the file is called', async () => {
     const data = buildIsobmffFile({ brand: 'heic' });
-    const file = new File([data], 'photo.heic', { type: 'image/heic' });
-    expect(await heicStripper.supports(file, mockCaps)).toBe(true);
+    expect((await detect(data, 'photo.heic', 'image/heic')).format).toBe('heic');
+    expect((await detect(data, 'photo.heic', '')).format).toBe('heic');
+    expect((await detect(data, 'photo.png', 'image/png')).format).toBe('heic');
   });
 
-  it('accepts image/heif MIME type', async () => {
+  it('resolves the generic mif1 brand to heic when nothing claims otherwise', async () => {
     const data = buildIsobmffFile({ brand: 'mif1' });
-    const file = new File([data], 'photo.heif', { type: 'image/heif' });
-    expect(await heicStripper.supports(file, mockCaps)).toBe(true);
+    expect((await detect(data, 'photo.heif', 'application/octet-stream')).format).toBe('heic');
   });
 
-  it('accepts .heic extension with no MIME type (Linux missing MIME mapping)', async () => {
-    const data = buildIsobmffFile({ brand: 'heic' });
-    const file = new File([data], 'photo.heic', { type: '' });
-    expect(await heicStripper.supports(file, mockCaps)).toBe(true);
+  it('resolves an avif brand to avif, whatever the file is called', async () => {
+    const data = buildIsobmffFile({ brand: 'avif', imageItemType: 'av01' });
+    expect((await detect(data, 'photo.avif', 'image/avif')).format).toBe('avif');
+    expect((await detect(data, 'photo.png', 'image/png')).format).toBe('avif');
   });
 
-  it('accepts .heif extension with application/octet-stream MIME type', async () => {
-    const data = buildIsobmffFile({ brand: 'mif1' });
-    const file = new File([data], 'photo.heif', { type: 'application/octet-stream' });
-    expect(await heicStripper.supports(file, mockCaps)).toBe(true);
-  });
-
-  it('rejects a non-HEIC file even with .heic extension', async () => {
+  it('does not treat a JPEG named .heic as ISOBMFF', async () => {
     const notHeic = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
-    const file = new File([notHeic], 'photo.heic', { type: '' });
-    expect(await heicStripper.supports(file, mockCaps)).toBe(false);
-  });
-
-  it('rejects a file with no HEIC extension and no HEIC MIME type', async () => {
-    const data = buildIsobmffFile({ brand: 'heic' });
-    const file = new File([data], 'photo.png', { type: 'image/png' });
-    expect(await heicStripper.supports(file, mockCaps)).toBe(false);
+    expect((await detect(notHeic, 'photo.heic', '')).format).toBe('jpeg');
   });
 });
 
-describe('avifStripper.supports', () => {
-  it('accepts image/avif MIME type', async () => {
-    const data = buildIsobmffFile({ brand: 'avif', imageItemType: 'av01' });
-    const file = new File([data], 'photo.avif', { type: 'image/avif' });
-    expect(await avifStripper.supports(file, mockCaps)).toBe(true);
+describe('handler claims', () => {
+  const as = (format: ImageFormat): DetectedFormat => ({ format, mime: `image/${format}` });
+
+  it('heicStripper claims heic and nothing else', async () => {
+    expect(await heicStripper.claims(as('heic'), mockCaps)).toBe(true);
+    expect(await heicStripper.claims(as('avif'), mockCaps)).toBe(false);
+    expect(await heicStripper.claims(as('jpeg'), mockCaps)).toBe(false);
+    expect(await heicStripper.claims(as('unknown'), mockCaps)).toBe(false);
   });
 
-  it('accepts .avif extension with no MIME type', async () => {
-    const data = buildIsobmffFile({ brand: 'avif', imageItemType: 'av01' });
-    const file = new File([data], 'photo.avif', { type: '' });
-    expect(await avifStripper.supports(file, mockCaps)).toBe(true);
+  it('avifStripper claims avif and nothing else', async () => {
+    expect(await avifStripper.claims(as('avif'), mockCaps)).toBe(true);
+    expect(await avifStripper.claims(as('heic'), mockCaps)).toBe(false);
+    expect(await avifStripper.claims(as('unknown'), mockCaps)).toBe(false);
   });
 
-  it('accepts .avif extension with application/octet-stream MIME type', async () => {
-    const data = buildIsobmffFile({ brand: 'avif', imageItemType: 'av01' });
-    const file = new File([data], 'photo.avif', { type: 'application/octet-stream' });
-    expect(await avifStripper.supports(file, mockCaps)).toBe(true);
-  });
-
-  it('rejects a non-AVIF brand even with .avif extension', async () => {
-    const data = buildIsobmffFile({ brand: 'heic' }); // HEIC brand, not AVIF
-    const file = new File([data], 'photo.avif', { type: '' });
-    expect(await avifStripper.supports(file, mockCaps)).toBe(false);
-  });
-
-  it('rejects a file with no AVIF extension and no AVIF MIME type', async () => {
-    const data = buildIsobmffFile({ brand: 'avif', imageItemType: 'av01' });
-    const file = new File([data], 'photo.png', { type: 'image/png' });
-    expect(await avifStripper.supports(file, mockCaps)).toBe(false);
+  it('an AVIF carrying the shared mif1 brand goes to AVIF, not HEIC', async () => {
+    const data = buildIsobmffFile({ brand: 'mif1', compatibleBrands: ['avif'], imageItemType: 'av01' });
+    const d = await detect(data, 'x.bin', '');
+    expect(d.format).toBe('avif');
+    expect(await avifStripper.claims(d, mockCaps)).toBe(true);
+    expect(await heicStripper.claims(d, mockCaps)).toBe(false);
   });
 });
 

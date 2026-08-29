@@ -9,6 +9,44 @@ function fixtureFile(filename: string, type: string): File {
   return new File([buf], filename, { type });
 }
 
+/** The same bytes, presented under a different name and MIME type. */
+function mislabelled(fixtureName: string, asName: string, asType: string): File {
+  const buf = readFileSync(join(import.meta.dirname, 'fixtures', fixtureName));
+  return new File([buf], asName, { type: asType });
+}
+
+describe('metadata is read from content, not the reported MIME type', () => {
+  it('finds EXIF in a WebP the OS typed as image/png', async () => {
+    // exifr has no WebP parser, so before dispatching on magic bytes this file
+    // took the generic path, reported hasAnyMetadata=false, and was skipped as
+    // "clean" — with its EXIF still intact.
+    const honest = await readMetadata(mislabelled('with-exif.webp', 'a.webp', 'image/webp'));
+    const liar   = await readMetadata(mislabelled('with-exif.webp', 'a.png', 'image/png'));
+
+    expect(honest.hasAnyMetadata).toBe(true);
+    expect(liar.hasAnyMetadata).toBe(true);
+    expect(liar).toEqual(honest);
+  });
+
+  it('finds metadata in a HEIC with no MIME type at all', async () => {
+    const typed   = await readMetadata(mislabelled('heic_sample_file_50KB.heic', 'a.heic', 'image/heic'));
+    const untyped = await readMetadata(mislabelled('heic_sample_file_50KB.heic', 'a.heic', ''));
+    expect(untyped).toEqual(typed);
+  });
+
+  it('reads a JPEG saved with a .png name and image/png type', async () => {
+    const honest = await readMetadata(mislabelled('rich-metadata.jpg', 'a.jpg', 'image/jpeg'));
+    const liar   = await readMetadata(mislabelled('rich-metadata.jpg', 'a.png', 'image/png'));
+    expect(liar.hasAnyMetadata).toBe(true);
+    expect(liar.gps).toEqual(honest.gps);
+  });
+
+  it('does not flag a correctly identified file as undetected', async () => {
+    const p = await readMetadata(mislabelled('with-exif.webp', 'a.png', 'image/png'));
+    expect(p.formatUndetected).toBeUndefined();
+  });
+});
+
 describe('readMetadata — all-metadata fixture', () => {
   it('reads GPS coordinates', async () => {
     const result = await readMetadata(fixtureFile('all-metadata.jpg', 'image/jpeg'));

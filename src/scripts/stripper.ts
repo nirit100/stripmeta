@@ -27,6 +27,8 @@ import { splitFilename } from '../lib/util/filename.ts';
 import { buildPreviewBadges } from '../lib/view/previewBadges.ts';
 import { computeBannerLines } from '../lib/view/banner.ts';
 import { formatDirStat, dirStatusDot, isDirDimmed } from '../lib/domain/dirStats.ts';
+import { looksLikeImage } from '../lib/domain/ingest.ts';
+import { detectFormat } from '../lib/format/detect.ts';
 
 const hero        = document.getElementById('hero') as HTMLElement;
 const dropZone    = document.getElementById('drop-zone')!;
@@ -500,6 +502,12 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
     if (preview.parseErrored && getSkipReason(file) === null) {
       logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata' });
     }
+    if (preview.formatUndetected) {
+      logEntry({
+        level: 'warning', fileName: file.name, filePath: entry.path,
+        message: `Could not identify this file's format from its contents — fell back to the type the browser reported (${file.type || 'none'}). Please report this file so the detection can be fixed.`,
+      });
+    }
   }
 
   // A newer render owns the list now; it will pick the preview up from the store.
@@ -932,9 +940,10 @@ function classifyEntries(entries: FileEntry[]) {
   return pooled(entries, 8, async e => {
     const level = await activeManager().classify(e.file);
     // Lossless (incl. experimental): output type = input type. Lossy (canvas): output is JPEG.
+    const { mime } = await detectFormat(e.file);
     const canConvertPng = level === 'lossy'
-      || e.file.type === 'image/png'
-      || (level !== 'unsupported' && await browserCapabilities.canDecodeImage(e.file.type));
+      || mime === 'image/png'
+      || (level !== 'unsupported' && await browserCapabilities.canDecodeImage(mime));
     return { level, canConvertPng };
   }).then(results => new Map(entries.map((e, i) => [e.file, results[i]!])));
 }
@@ -1020,19 +1029,29 @@ async function appendEntries(fresh: FileEntry[]) {
 
 // — Adding files —
 
-async function* scanDirectoryEntry(entry: FileSystemEntry): AsyncGenerator<FileEntry> {
+/**
+ * Walks a dropped entry, yielding the image files under it.
+ *
+ * `topLevel` marks the things the user actually dropped. Those are reported
+ * when they turn out not to be images; files merely found while walking into a
+ * folder are dropped quietly, since the user chose the folder, not them.
+ */
+async function* scanDirectoryEntry(entry: FileSystemEntry, topLevel = true): AsyncGenerator<FileEntry> {
   if (entry.isFile) {
     const file = await new Promise<File>((res, rej) =>
       (entry as FileSystemFileEntry).file(res, rej));
-    if (file.type.startsWith('image/')) {
-      yield { file, path: entry.fullPath.replace(/^\//, '') };
+    const path = entry.fullPath.replace(/^\//, '');
+    if (looksLikeImage(file)) {
+      yield { file, path };
+    } else if (topLevel) {
+      logEntry({ level: 'warning', fileName: file.name, filePath: path, message: 'Not recognised as an image — skipped' });
     }
   } else if (entry.isDirectory) {
     const reader = (entry as FileSystemDirectoryEntry).createReader();
     let batch: FileSystemEntry[];
     do {
       batch = await new Promise((res, rej) => reader.readEntries(res, rej));
-      for (const child of batch) yield* scanDirectoryEntry(child);
+      for (const child of batch) yield* scanDirectoryEntry(child, false);
     } while (batch.length > 0);
   }
 }
@@ -1040,7 +1059,10 @@ async function* scanDirectoryEntry(entry: FileSystemEntry): AsyncGenerator<FileE
 async function addEntries(incoming: FileEntry[]) {
   const wasEmpty = store.isEmpty;
   hasRunStrip = false;
-  const fresh = store.add(incoming.filter(e => e.file.type.startsWith('image/')));
+  for (const e of incoming.filter(e => !looksLikeImage(e.file))) {
+    logEntry({ level: 'warning', fileName: e.file.name, filePath: e.path, message: 'Not recognised as an image — skipped' });
+  }
+  const fresh = store.add(incoming.filter(e => looksLikeImage(e.file)));
   collapseSettings();
   // A first load has hero collapse and visibility toggles to do; afterwards only
   // the new entries need touching. Nothing fresh at all is a no-op.

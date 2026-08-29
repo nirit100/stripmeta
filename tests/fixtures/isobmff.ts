@@ -70,8 +70,9 @@ function hdlrBox(): Uint8Array {
   return fullBoxWrap('hdlr', 0, concat(u32be(0), str4('pict'), u32be(0), u32be(0), u32be(0), new Uint8Array([0])));
 }
 /** ftyp: major_brand(4cc) minor_version(u32) [compat_brand...] */
-function ftypBox(brand: string): Uint8Array {
-  return boxWrap('ftyp', concat(str4(brand), u32be(0), str4(brand), str4('mif1')));
+function ftypBox(brand: string, compatibleBrands?: string[]): Uint8Array {
+  const compat = compatibleBrands ?? [brand, 'mif1'];
+  return boxWrap('ftyp', concat(str4(brand), u32be(0), ...compat.map(str4)));
 }
 /**
  * iref v0: contains SingleItemTypeReferenceBox children.
@@ -87,6 +88,8 @@ function irefBox(refs: { type: string; fromId: number; toIds: number[] }[]): Uin
 
 export interface BuildOpts {
   brand?: string;
+  /** ftyp compatible brands; defaults to [brand, 'mif1']. */
+  compatibleBrands?: string[];
   imageItemType?: string;
   imageData?: Uint8Array;
   /** Include an Exif item with this payload. Pass null/undefined for no Exif. */
@@ -112,6 +115,7 @@ export interface BuildOpts {
  */
 export function buildIsobmffFile({
   brand = 'heic',
+  compatibleBrands,
   imageItemType = 'hvc1',
   imageData,
   exifData,
@@ -141,7 +145,7 @@ export function buildIsobmffFile({
     }
   }
 
-  const ftyp  = ftypBox(brand);
+  const ftyp  = ftypBox(brand, compatibleBrands);
   const hdlr  = hdlrBox();
   const iinfB = iinfBox(infes);
   const irefB = resolvedIref && resolvedIref.length > 0 ? irefBox(resolvedIref) : null;

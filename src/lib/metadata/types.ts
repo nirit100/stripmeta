@@ -14,4 +14,6 @@ export interface MetadataPreview {
   userComment: string | null;
   hasAnyMetadata: boolean;
   parseErrored?: true;  // exifr threw during parsing! treat as not clean
+  /** Magic-byte detection identified nothing, so the browser's MIME type was used instead. */
+  formatUndetected?: true;
 }
