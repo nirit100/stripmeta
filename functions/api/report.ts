@@ -1,11 +1,6 @@
 import { sendBugReport } from '../lib/email.ts';
-
-interface Payload {
-  log?: string;
-  platform?: string;
-  message?: string;
-  email?: string;
-}
+import { REPORT_LIMITS, isPlausibleEmail, clampField } from '../../shared/bugReport.ts';
+import type { BugReportPayload } from '../../shared/bugReport.ts';
 
 function sanitizeFilename(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? '';
@@ -31,7 +26,7 @@ export async function onRequestPost(ctx: { request: Request; env: Env }): Promis
   }
 
   const contentType = request.headers.get('content-type') ?? '';
-  let payload: Payload;
+  let payload: BugReportPayload;
   const attachments: { filename: string; content: string; type: string }[] = [];
 
   if (contentType.includes('multipart/form-data')) {
@@ -44,36 +39,62 @@ export async function onRequestPost(ctx: { request: Request; env: Env }): Promis
     const raw = fd.get('payload');
     if (typeof raw !== 'string') return new Response('Bad request', { status: 400 });
     try {
-      payload = JSON.parse(raw) as Payload;
+      payload = JSON.parse(raw) as BugReportPayload;
     } catch {
       return new Response('Bad request', { status: 400 });
     }
-    for (const [key, val] of fd.entries()) {
-      if (key === 'files' && val instanceof File) {
-        attachments.push({
-          content: bufferToBase64(await val.arrayBuffer()),
-          filename: sanitizeFilename(val.name),
-          type: val.type || 'application/octet-stream',
-        });
-      }
+
+    const files = [...fd.entries()].filter(([key, val]) => key === 'files' && val instanceof File)
+      .map(([, val]) => val as File);
+
+    if (files.length > REPORT_LIMITS.maxAttachments) {
+      return new Response('Too many attachments', { status: 413 });
+    }
+    const totalBytes = files.reduce((n, f) => n + f.size, 0);
+    if (totalBytes > REPORT_LIMITS.maxAttachmentBytes) {
+      return new Response('Attachments too large', { status: 413 });
+    }
+
+    for (const file of files) {
+      attachments.push({
+        content: bufferToBase64(await file.arrayBuffer()),
+        filename: sanitizeFilename(file.name),
+        type: file.type || 'application/octet-stream',
+      });
     }
   } else {
     try {
-      payload = (await request.json()) as Payload;
+      payload = (await request.json()) as BugReportPayload;
     } catch {
       return new Response('Bad request', { status: 400 });
     }
   }
 
+  const field = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() ? clampField(v) : null;
+
   const sections: string[] = [];
-  if (payload.message)  sections.push(`Message:\n${payload.message}`);
-  if (payload.log)      sections.push(`Error log:\n${payload.log}`);
-  if (payload.platform) sections.push(`Platform:\n${payload.platform}`);
+  const message  = field(payload.message);
+  const log      = field(payload.log);
+  const settings = field(payload.settingsAndStats);
+  const platform = field(payload.platform);
+
+  if (message)  sections.push(`Message:\n${message}`);
+  if (log)      sections.push(`Error log:\n${log}`);
+  if (settings) sections.push(`Settings and stats:\n${settings}`);
+  if (platform) sections.push(`Platform:\n${platform}`);
   if (attachments.length > 0) sections.push(`Attached files: ${attachments.map(a => a.filename).join(', ')}`);
+
+  if (sections.length === 0) return new Response('Bad request', { status: 400 });
+
+  // Only pass on an address that could actually receive a reply.
+  const replyTo = typeof payload.email === 'string' && isPlausibleEmail(payload.email.trim())
+    ? payload.email.trim()
+    : undefined;
 
   try {
     await sendBugReport(
-      { text: sections.join('\n\n---\n\n'), replyTo: payload.email, attachments },
+      { text: sections.join('\n\n---\n\n'), replyTo, attachments },
       env
     );
   } catch (err) {

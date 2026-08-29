@@ -3,6 +3,8 @@ import { getErroredFiles } from '../lib/state/erroredFiles.ts';
 import { buildAnonMap } from '../lib/domain/anonMap.ts';
 import { settings } from '../lib/state/settings.ts';
 import { formatBytes } from '../lib/util/format.ts';
+import { REPORT_LIMITS, clampField } from '../../shared/bugReport.ts';
+import type { BugReportPayload } from '../../shared/bugReport.ts';
 
 const modal = document.getElementById('bug-report-modal') as HTMLDialogElement | null;
 const logPreview = document.getElementById('bug-log-preview') as HTMLElement;
@@ -131,10 +133,10 @@ async function submit() {
     })
     .join('\n');
 
-  const basePayload = {
-    log: logText,
-    settingsAndStats: getSettingsAndStats(),
-    platform: platformCheckbox.checked ? getPlatformInfo() : undefined,
+  const basePayload: BugReportPayload = {
+    log: clampField(logText),
+    settingsAndStats: clampField(getSettingsAndStats()),
+    platform: platformCheckbox.checked ? clampField(getPlatformInfo()) : undefined,
     message: messageInput.value.trim() || undefined,
     email: emailInput.value.trim() || undefined,
   };
@@ -143,9 +145,21 @@ async function submit() {
   const headers: Record<string, string> = {};
 
   if (includeFiles) {
+    const files = getErroredFiles();
+    const totalBytes = files.reduce((n, f) => n + f.file.size, 0);
+    // Check here so an oversize report says why, rather than coming back a 413.
+    if (files.length > REPORT_LIMITS.maxAttachments || totalBytes > REPORT_LIMITS.maxAttachmentBytes) {
+      submitStatus.textContent = `Too much to attach (${files.length} files, ${formatBytes(totalBytes)}). `
+        + `The limit is ${REPORT_LIMITS.maxAttachments} files and ${formatBytes(REPORT_LIMITS.maxAttachmentBytes)} — `
+        + 'please untick "include files" and describe the problem instead.';
+      submitStatus.className = 'text-xs text-error';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send report';
+      return;
+    }
     const fd = new FormData();
     fd.append('payload', JSON.stringify(basePayload));
-    for (const { file } of getErroredFiles()) {
+    for (const { file } of files) {
       fd.append('files', file, file.name);
     }
     body = fd;
@@ -162,6 +176,11 @@ async function submit() {
       submitBtn.textContent = 'Sent ✓';
     } else if (res.status === 429) {
       submitStatus.textContent = 'Too many requests — please wait a moment and try again.';
+      submitStatus.className = 'text-xs text-error';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send report';
+    } else if (res.status === 413) {
+      submitStatus.textContent = 'The report was too large to send — try again without attaching files.';
       submitStatus.className = 'text-xs text-error';
       submitBtn.disabled = false;
       submitBtn.textContent = 'Send report';
