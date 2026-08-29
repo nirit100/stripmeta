@@ -2,7 +2,7 @@ import { readMetadata, defaultStripperManager, paranoidStripperManager, browserC
 import { iconSvg } from '../lib/view/icons.ts';
 import { computeToProcess, collectBlobs } from '../lib/domain/stripPlan.ts';
 import type { FileEntry } from '../lib/domain/stripPlan.ts';
-import { buildTree, collectEntries } from '../lib/domain/fileTree.ts';
+import { buildTree, collectEntries, entriesUnder } from '../lib/domain/fileTree.ts';
 import type { DirNode } from '../lib/domain/fileTree.ts';
 import { FileStore } from '../lib/state/fileStore.ts';
 import type { WarningLevel, StripperManager } from '../lib/stripMeta.ts';
@@ -84,8 +84,6 @@ function activeManager(): StripperManager {
 }
 
 // — Data model —
-
-const sessionStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
 
 // Limits concurrent exifr parses to avoid OOM on mobile. Metadata reads fire
 // per card as cards render (and lazily as directories expand), so this gates an
@@ -281,9 +279,7 @@ function removeEntry(entry: FileEntry) {
 
 function cleanEmptyDirs() {
   for (const [path, dirRow] of dirRowOf) {
-    const stillHasFiles = store.entries.some(e => e.path === path + '/' + e.path.split('/').at(-1) ||
-      e.path.startsWith(path + '/'));
-    if (!stillHasFiles) { dirRow.remove(); dirRowOf.delete(path); }
+    if (entriesUnder(store.entries, path).length === 0) { dirRow.remove(); dirRowOf.delete(path); }
   }
 }
 
@@ -978,6 +974,8 @@ async function stripAndDownload() {
 
   const toProcess = computeToProcess(store.entries, getSkipReason, store.strip.done);
 
+  // Per-run deltas — the 'processed' consumer adds these to the lifetime totals.
+  const runStats = { filesProcessed: 0, gpsRemoved: 0, datesRemoved: 0, bytesStripped: 0 };
   let hadErrors = false;
 
   if (toProcess.length > 0) {
@@ -992,11 +990,11 @@ async function stripAndDownload() {
       try {
         stripProgressEl.textContent = `${++doneCount} / ${toProcess.length} — ${file.name}`;
         const blob = await activeManager().strip(file);
-        sessionStats.filesProcessed++;
+        runStats.filesProcessed++;
         const preview = store.preview(file);
-        if (preview?.gps)      sessionStats.gpsRemoved++;
-        if (preview?.dateTime) sessionStats.datesRemoved++;
-        sessionStats.bytesStripped += Math.max(0, file.size - blob.size);
+        if (preview?.gps)      runStats.gpsRemoved++;
+        if (preview?.dateTime) runStats.datesRemoved++;
+        runStats.bytesStripped += Math.max(0, file.size - blob.size);
         store.strip.markDone(file, blob);
         const copyBtn = copyBtnOf.get(file);
         if (copyBtn) copyBtn.hidden = false;
@@ -1057,7 +1055,7 @@ async function stripAndDownload() {
   updateAllDirCounts();
 
   if (blobs.length > 0) {
-    try { window.dispatchEvent(new CustomEvent('stripmeta:processed', { detail: { ...sessionStats, hadErrors } })); } catch { /* ignore */ }
+    try { window.dispatchEvent(new CustomEvent('stripmeta:processed', { detail: { ...runStats, hadErrors } })); } catch { /* ignore */ }
   }
 }
 
