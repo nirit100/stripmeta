@@ -11,15 +11,10 @@ describe('verifyTurnstile', () => {
       .toEqual({ ok: true });
   });
 
-  it('rejects a missing token without calling out at all', async () => {
+  it('rejects an absent token without calling out at all', async () => {
     const fetchImpl = respond({ success: true });
-    const result = await verifyTurnstile(undefined, 'secret', null, fetchImpl);
-    expect(result).toEqual({ ok: false, reason: 'missing-input-response' });
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('rejects an empty token without calling out', async () => {
-    const fetchImpl = respond({ success: true });
+    expect(await verifyTurnstile(undefined, 'secret', null, fetchImpl))
+      .toEqual({ ok: false, reason: 'missing-input-response' });
     expect((await verifyTurnstile('', 'secret', null, fetchImpl)).ok).toBe(false);
     expect(fetchImpl).not.toHaveBeenCalled();
   });

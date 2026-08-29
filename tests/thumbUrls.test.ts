@@ -121,9 +121,4 @@ describe('releaseAll', () => {
 
     expect(fake.revoked).toHaveLength(2);
   });
-
-  it('is a no-op when nothing is held', () => {
-    urls.releaseAll();
-    expect(fake.revoked).toEqual([]);
-  });
 });

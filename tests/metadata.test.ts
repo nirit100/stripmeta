@@ -347,16 +347,19 @@ for (const [label, type] of [['HEIC', 'image/heic'], ['AVIF', 'image/avif']] as 
     });
   });
 
-  describe(`readRichMetadata — ${label}`, () => {
-    it('reads real HEIC fixture without crashing or reporting a parse error', async () => {
-      vi.doUnmock('exifr');
-      vi.resetModules();
-      const { readRichMetadata } = await import('../src/lib/metadata/read');
-      const buf = readFileSync(join(import.meta.dirname, 'fixtures', 'heic_sample_file_50KB.heic'));
-      const { parseError } = await readRichMetadata(
-        new File([buf], 'heic_sample_file_50KB.heic', { type: 'image/heic' }),
-      );
-      expect(parseError).toBeUndefined();
-    });
-  });
 }
+
+// Outside the loop above: this reads a fixed HEIC fixture, so running it once
+// per label was the same test twice rather than a HEIC and an AVIF case.
+describe('readRichMetadata — real HEIC fixture', () => {
+  it('reads without crashing or reporting a parse error', async () => {
+    vi.doUnmock('exifr');
+    vi.resetModules();
+    const { readRichMetadata } = await import('../src/lib/metadata/read');
+    const buf = readFileSync(join(import.meta.dirname, 'fixtures', 'heic_sample_file_50KB.heic'));
+    const { parseError } = await readRichMetadata(
+      new File([buf], 'heic_sample_file_50KB.heic', { type: 'image/heic' }),
+    );
+    expect(parseError).toBeUndefined();
+  });
+});

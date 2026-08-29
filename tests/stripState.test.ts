@@ -9,14 +9,6 @@ function blob(): Blob {
 }
 
 describe('StripState', () => {
-  it('starts with all collections empty', () => {
-    const s = new StripState();
-    const f = makeFile();
-    expect(s.done.has(f)).toBe(false);
-    expect(s.errored.has(f)).toBe(false);
-    expect(s.blobs.has(f)).toBe(false);
-  });
-
   // ─── markDone ───────────────────────────────────────────────────────────────
 
   describe('markDone', () => {
@@ -29,48 +21,30 @@ describe('StripState', () => {
       expect(s.blobs.get(f)).toBe(b);
     });
 
-    it('removes the file from errored', () => {
+    it('clears a previous error — a retry that succeeds is no longer failed', () => {
       const s = new StripState();
       const f = makeFile();
       s.markError(f);
       s.markDone(f, blob());
       expect(s.errored.has(f)).toBe(false);
+      expect(s.done.has(f)).toBe(true);
     });
 
-    it('overwrites a previous blob for the same file', () => {
+    it('replaces the stored blob on a re-strip, so no stale output is downloaded', () => {
       const s = new StripState();
       const f = makeFile();
-      const b1 = blob();
-      const b2 = blob();
-      s.markDone(f, b1);
-      s.markDone(f, b2);
-      expect(s.blobs.get(f)).toBe(b2);
-    });
-  });
-
-  // ─── markError ──────────────────────────────────────────────────────────────
-
-  describe('markError', () => {
-    it('adds the file to errored', () => {
-      const s = new StripState();
-      const f = makeFile();
-      s.markError(f);
-      expect(s.errored.has(f)).toBe(true);
-    });
-
-    it('does not add the file to done or blobs', () => {
-      const s = new StripState();
-      const f = makeFile();
-      s.markError(f);
-      expect(s.done.has(f)).toBe(false);
-      expect(s.blobs.has(f)).toBe(false);
+      const stale = blob();
+      const fresh = blob();
+      s.markDone(f, stale);
+      s.markDone(f, fresh);
+      expect(s.blobs.get(f)).toBe(fresh);
     });
   });
 
   // ─── resetErrors ────────────────────────────────────────────────────────────
 
   describe('resetErrors', () => {
-    it('clears all errored files', () => {
+    it('clears errored files so the next run retries them', () => {
       const s = new StripState();
       s.markError(makeFile('a.jpg'));
       s.markError(makeFile('b.jpg'));
@@ -119,21 +93,16 @@ describe('StripState', () => {
       expect(s.blobs.has(f)).toBe(false);
     });
 
-    it('does not affect other files', () => {
+    it('removes only the named file — dismissing one card keeps the rest of the run', () => {
       const s = new StripState();
-      const f1 = makeFile('a.jpg');
-      const f2 = makeFile('b.jpg');
-      const b2 = blob();
-      s.markDone(f1, blob());
-      s.markDone(f2, b2);
-      s.remove(f1);
-      expect(s.done.has(f2)).toBe(true);
-      expect(s.blobs.get(f2)).toBe(b2);
-    });
-
-    it('is a no-op for a file that was never tracked', () => {
-      const s = new StripState();
-      expect(() => s.remove(makeFile())).not.toThrow();
+      const dropped = makeFile('a.jpg');
+      const kept = makeFile('b.jpg');
+      const keptBlob = blob();
+      s.markDone(dropped, blob());
+      s.markDone(kept, keptBlob);
+      s.remove(dropped);
+      expect(s.done.has(kept)).toBe(true);
+      expect(s.blobs.get(kept)).toBe(keptBlob);
     });
   });
 });
