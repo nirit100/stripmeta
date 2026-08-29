@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.7.2",
+    "date": "2026-08-29",
+    "notes": null,
+    "sections": [
+      {
+        "title": "Fixes",
+        "items": [
+          {
+            "text": "improve caching strategy with improved error handling and fallback mechanisms",
+            "details": []
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.7.1",
     "date": "2026-08-29",
     "notes": null,
