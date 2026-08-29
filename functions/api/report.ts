@@ -1,4 +1,5 @@
 import { sendBugReport } from '../lib/email.ts';
+import { verifyTurnstile } from '../lib/turnstile.ts';
 import { REPORT_LIMITS, isPlausibleEmail, clampField } from '../../shared/bugReport.ts';
 import type { BugReportPayload } from '../../shared/bugReport.ts';
 
@@ -86,6 +87,20 @@ export async function onRequestPost(ctx: { request: Request; env: Env }): Promis
   if (attachments.length > 0) sections.push(`Attached files: ${attachments.map(a => a.filename).join(', ')}`);
 
   if (sections.length === 0) return new Response('Bad request', { status: 400 });
+
+  // Enforced only once a secret is configured, so an unconfigured deployment
+  // and local dev keep working without a widget.
+  if (env.TURNSTILE_SECRET) {
+    const verdict = await verifyTurnstile(
+      payload.turnstileToken,
+      env.TURNSTILE_SECRET,
+      request.headers.get('CF-Connecting-IP'),
+    );
+    if (!verdict.ok) {
+      console.warn('[turnstile]', verdict.reason);
+      return new Response('Verification failed', { status: 403 });
+    }
+  }
 
   // Only pass on an address that could actually receive a reply.
   const replyTo = typeof payload.email === 'string' && isPlausibleEmail(payload.email.trim())

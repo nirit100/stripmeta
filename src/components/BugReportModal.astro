@@ -1,5 +1,6 @@
 ---
 const privacyUrl = import.meta.env.PUBLIC_PRIVACY_URL as string;
+const turnstileSitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
 
 const devMissing = import.meta.env.DEV ? [
   !import.meta.env.PUBLIC_BUG_REPORT_ENABLED && 'PUBLIC_BUG_REPORT_ENABLED',
@@ -95,6 +96,18 @@ const devMissing = import.meta.env.DEV ? [
           <span> See the <a href={privacyUrl} target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-base-content/70 transition-colors">privacy policy</a>.</span>
         </p>
       </div>
+
+      {turnstileSitekey && (
+        <div class="px-5 py-4 flex flex-col gap-2">
+          <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">Bot check</p>
+          {/* Empty until Send is pressed — the script is fetched at that moment
+              and never before, so opening this screen contacts nobody. */}
+          <div id="bug-turnstile" data-sitekey={turnstileSitekey}></div>
+          <p class="text-xs text-base-content/45">
+            When you press Send, a Cloudflare check runs here to stop automated submissions. Nothing is loaded from Cloudflare until then, and never while you are stripping photos.
+          </p>
+        </div>
+      )}
 
       <!-- Submit -->
       <div class="px-5 py-4 flex items-center justify-between gap-4">
