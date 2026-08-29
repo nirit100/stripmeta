@@ -60,6 +60,17 @@ export class FileStore {
     for (const [file, model] of next) this.models.set(file, model);
   }
 
+  /**
+   * Adds classification results for newly-added entries without disturbing the
+   * models of entries already analysed — the incremental counterpart to
+   * `setClassification`.
+   */
+  mergeClassification(results: Map<File, { level: WarningLevel; canConvertPng: boolean }>): void {
+    for (const [file, { level, canConvertPng }] of results) {
+      this.models.set(file, { level, canConvertPng, preview: this.models.get(file)?.preview });
+    }
+  }
+
   /** Records the metadata preview for a file. */
   setPreview(file: File, preview: MetadataPreview): void {
     const model = this.models.get(file);

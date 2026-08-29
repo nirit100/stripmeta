@@ -31,6 +31,21 @@ export function collectEntries(node: DirNode): FileEntry[] {
   return result;
 }
 
+/**
+ * The node at `path` in a freshly built tree, or undefined if that directory no
+ * longer exists. Lets long-lived callers hold a path rather than a node object,
+ * which goes stale every time the tree is rebuilt.
+ */
+export function findNode(root: DirNode, path: string): DirNode | undefined {
+  if (path === '') return root;
+  let node: DirNode | undefined = root;
+  for (const seg of path.split('/')) {
+    node = node.subdirs.get(seg);
+    if (!node) return undefined;
+  }
+  return node;
+}
+
 export function entriesUnder(entries: FileEntry[], path: string): FileEntry[] {
   return entries.filter(e => e.path.startsWith(path + '/'));
 }
