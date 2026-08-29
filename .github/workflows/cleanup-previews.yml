@@ -1,7 +1,9 @@
 name: Cleanup-Previews
 
-# Preview deployments outlive the pull request that produced them, so remove the
-# ones belonging to a branch once its pull request is closed or merged.
+# Cloudflare Pages has no automatic cleanup: preview deployments persist
+# indefinitely once created, whatever happens to the branch or pull request they
+# came from. This removes the ones belonging to a pull request's branch when it
+# closes or merges.
 
 on:
   pull_request:
@@ -35,27 +37,31 @@ jobs:
             npx --yes wrangler@4 pages deployment list \
               --project-name "$PROJECT" --environment preview --json > deployments.json
 
+            # `wrangler --json` returns a flattened display shape (Id, Branch,
+            # Environment: "Preview"), not the raw API object the REST docs
+            # describe (id, environment: "preview",
+            # deployment_trigger.metadata.branch). Accept either, so this keeps
+            # working whichever shape a future wrangler emits.
+            #
             # Two filters on purpose. The --environment flag above already asks
             # for previews only; repeating the check here means a production
             # deployment can never reach the delete call, whatever that flag
             # does in some future version.
             ids=$(jq -r --arg branch "$BRANCH" '
               .[]
-              | select(.environment == "preview")
-              | select(.deployment_trigger.metadata.branch == $branch)
-              | .id
+              | select(((.Environment // .environment) // "" | ascii_downcase) == "preview")
+              | select((.Branch // .deployment_trigger.metadata.branch) == $branch)
+              | (.Id // .id)
             ' deployments.json)
 
             if [ -z "$ids" ]; then
-              # Nothing matched on the first pass: either there genuinely were
-              # no previews, or the branch is recorded somewhere other than
-              # deployment_trigger.metadata.branch for uploads made by wrangler.
-              # Print what the branches actually look like so the difference is
-              # visible rather than silently doing nothing.
+              # Nothing matched on the first pass. Print the branches that are
+              # present, so "there were none" is distinguishable from "the
+              # filter missed them" without having to guess.
               if [ "$_pass" = "1" ]; then
                 echo "No preview deployments matched branch '$BRANCH'."
                 echo "Branches present in the preview list:"
-                jq -r '[.[] | .deployment_trigger.metadata.branch] | unique | .[]' \
+                jq -r '[.[] | (.Branch // .deployment_trigger.metadata.branch)] | unique | .[]' \
                   deployments.json || echo "  (could not read a branch field)"
               fi
               break
