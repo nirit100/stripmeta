@@ -1,18 +1,21 @@
 // Settings store: the persisted app settings, change subscriptions, and
 // localStorage persistence. No DOM — the settings panel UI (initSettings, reset
 // buttons, animations) lives in scripts/settings.ts and drives this store.
+//
+// Every per-setting fact comes from settingsSchema.ts; nothing here restates a
+// default, a storage key, or an inversion.
 
-export interface SettingsState {
-  paranoid: boolean;
-  skipClean: boolean;
-  skipUnsupported: boolean;
-  skipExperimental: boolean;
-  includeSkipped: boolean;
-  warnUnload: boolean;
-  autoAbout: boolean;
-  showPreviews: boolean;
-  persist: boolean;
-}
+import {
+  SETTINGS, STORED_STATE_SETTINGS, PERSIST_KEYS,
+  fromChecked, toChecked,
+} from './settingsSchema.ts';
+import type { SettingsState, SettingSpec } from './settingsSchema.ts';
+
+export type { SettingsState, SettingSpec, SettingGroup } from './settingsSchema.ts';
+export {
+  SETTINGS, PERSIST_KEYS, starIdFor,
+  toChecked, fromChecked, storedValue, checkedFromStored,
+} from './settingsSchema.ts';
 
 const NO_PERSIST_KEY = 'stripmeta-no-persist';
 
@@ -25,24 +28,36 @@ function lsRead(key: string, def: boolean): boolean {
   return v === null ? def : v === '1';
 }
 
-const _state: SettingsState = {
-  paranoid:         lsRead('stripmeta-paranoid',               false),
-  skipClean:        !lsRead('stripmeta-process-clean',         false),
-  skipUnsupported:  !lsRead('stripmeta-process-unsupported',   false),
-  skipExperimental: !lsRead('stripmeta-process-experimental',  true),
-  includeSkipped:   lsRead('stripmeta-include-skipped',        false),
-  warnUnload:       lsRead('stripmeta-warn-unload',            import.meta.env.DEV ? false : true),
-  autoAbout:        lsRead('stripmeta-auto-about',             true),
-  showPreviews:     lsRead('stripmeta-show-previews',          true),
-  persist:          !noPersist,
-};
+/** Loads a setting's state value from storage, honouring its inversion. */
+function loadState(spec: SettingSpec): boolean {
+  return fromChecked(spec, lsRead(spec.storageKey!, spec.defaultChecked));
+}
+
+const _state = Object.fromEntries([
+  ...STORED_STATE_SETTINGS.map(spec => [spec.key!, loadState(spec)]),
+  ['persist', !noPersist],
+]) as SettingsState;
+
+/**
+ * Settings that paranoid mode forces off while it is on: it re-encodes
+ * everything through canvas, so skipping "clean" or experimental files would
+ * contradict what the user asked for.
+ */
+const FORCED_OFF_BY_PARANOID = SETTINGS
+  .filter(s => s.forcedBy === 'paranoid' && s.key !== undefined)
+  .map(s => s.key!);
+
+function effective<K extends keyof SettingsState>(key: K): boolean {
+  if (_state.paranoid && FORCED_OFF_BY_PARANOID.includes(key)) return false;
+  return _state[key];
+}
 
 /** Effective settings as the app should read them (paranoid forces skipClean/skipExperimental off). */
 export const settings: Readonly<SettingsState> = {
   get paranoid()          { return _state.paranoid; },
-  get skipClean()         { return _state.paranoid ? false : _state.skipClean; },
-  get skipUnsupported()   { return _state.skipUnsupported; },
-  get skipExperimental()  { return _state.paranoid ? false : _state.skipExperimental; },
+  get skipClean()         { return effective('skipClean'); },
+  get skipUnsupported()   { return effective('skipUnsupported'); },
+  get skipExperimental()  { return effective('skipExperimental'); },
   get includeSkipped()    { return _state.includeSkipped; },
   get warnUnload()        { return _state.warnUnload; },
   get autoAbout()         { return _state.autoAbout; },
@@ -77,18 +92,6 @@ export function setSetting<K extends keyof SettingsState>(key: K, value: Setting
 
 // — Persistence —
 
-const PERSIST_KEYS = [
-  'stripmeta-paranoid',
-  'stripmeta-process-clean',
-  'stripmeta-process-unsupported',
-  'stripmeta-process-experimental',
-  'stripmeta-include-skipped',
-  'stripmeta-no-glass',
-  'stripmeta-warn-unload',
-  'stripmeta-auto-about',
-  'stripmeta-show-previews',
-] as const;
-
 /** True if any persisted setting key exists in localStorage. */
 export function hasSavedSettings(): boolean {
   return PERSIST_KEYS.some(k => localStorage.getItem(k) !== null);
@@ -106,15 +109,13 @@ export function persist(key: string, value: boolean): void {
 export function enablePersist(noGlass: boolean): void {
   _state.persist = true;
   localStorage.removeItem(NO_PERSIST_KEY);
-  localStorage.setItem('stripmeta-paranoid',              _state.paranoid ? '1' : '0');
-  localStorage.setItem('stripmeta-process-clean',         (!_state.skipClean) ? '1' : '0');
-  localStorage.setItem('stripmeta-process-unsupported',   (!_state.skipUnsupported) ? '1' : '0');
-  localStorage.setItem('stripmeta-process-experimental',  (!_state.skipExperimental) ? '1' : '0');
-  localStorage.setItem('stripmeta-include-skipped',       _state.includeSkipped ? '1' : '0');
-  localStorage.setItem('stripmeta-no-glass',              noGlass ? '1' : '0');
-  localStorage.setItem('stripmeta-warn-unload',           _state.warnUnload ? '1' : '0');
-  localStorage.setItem('stripmeta-auto-about',            _state.autoAbout ? '1' : '0');
-  localStorage.setItem('stripmeta-show-previews',         _state.showPreviews ? '1' : '0');
+  for (const spec of STORED_STATE_SETTINGS) {
+    localStorage.setItem(spec.storageKey!, toChecked(spec, _state[spec.key!]) ? '1' : '0');
+  }
+  // Glass has no entry in the store — its state is a document class, so the
+  // caller passes it in.
+  const glass = SETTINGS.find(s => s.domId === 'toggle-glass')!;
+  localStorage.setItem(glass.storageKey!, noGlass ? '1' : '0');
 }
 
 /** Disable persistence; future writes are suppressed and saved values ignored on next load. */
