@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { verifyTurnstile, parseHostnames } from '../functions/lib/turnstile';
+import { verifyTurnstile, parseHostnames, hostnameAllowed } from '../functions/lib/turnstile';
 import type { VerifyTurnstileOptions } from '../functions/lib/turnstile';
 
 const ACTION = 'bug-report';
@@ -92,12 +92,25 @@ describe('verifyTurnstile', () => {
     expect(result).toEqual({ ok: false, reason: 'unexpected-hostname:none' });
   });
 
-  it('accepts any hostname on the allowlist', async () => {
+  it('accepts a token from any entry on a multi-domain allowlist', async () => {
+    // A realistic production list: apex, www, and preview deploys.
+    const hosts = parseHostnames('stripmeta.info, www.stripmeta.info, *.stripmeta.pages.dev');
+    for (const hostname of ['stripmeta.info', 'www.stripmeta.info', 'abc123.stripmeta.pages.dev']) {
+      const result = await verify({
+        expectedHostnames: hosts,
+        fetchImpl: respond({ ...accepted, hostname }) as unknown as typeof fetch,
+      });
+      expect(result, hostname).toEqual({ ok: true });
+    }
+  });
+
+  it('still refuses a hostname none of the entries cover', async () => {
+    const hosts = parseHostnames('stripmeta.info, *.stripmeta.pages.dev');
     const result = await verify({
-      expectedHostnames: ['stripmeta.info', 'www.stripmeta.info'],
-      fetchImpl: respond({ ...accepted, hostname: 'www.stripmeta.info' }) as unknown as typeof fetch,
+      expectedHostnames: hosts,
+      fetchImpl: respond({ ...accepted, hostname: 'evil.pages.dev' }) as unknown as typeof fetch,
     });
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: false, reason: 'unexpected-hostname:evil.pages.dev' });
   });
 
   it('falls back to a generic reason when a failure carries no codes', async () => {
@@ -156,13 +169,55 @@ describe('verifyTurnstile', () => {
 });
 
 describe('parseHostnames', () => {
-  it('splits, trims and drops blanks', () => {
-    expect(parseHostnames(' stripmeta.info , www.stripmeta.info ,, ')).toEqual(['stripmeta.info', 'www.stripmeta.info']);
+  it('splits, trims, lowercases and drops blanks', () => {
+    expect(parseHostnames(' StripMeta.info , www.stripmeta.info ,, '))
+      .toEqual(['stripmeta.info', 'www.stripmeta.info']);
   });
 
   it('yields nothing for unset or empty, so verification fails closed', () => {
     expect(parseHostnames(undefined)).toEqual([]);
     expect(parseHostnames('')).toEqual([]);
     expect(parseHostnames('   ')).toEqual([]);
+  });
+});
+
+describe('hostnameAllowed', () => {
+  it('matches an exact hostname', () => {
+    expect(hostnameAllowed('stripmeta.info', 'stripmeta.info')).toBe(true);
+    expect(hostnameAllowed('stripmeta.info', 'other.info')).toBe(false);
+  });
+
+  it('is case-insensitive, as hostnames are', () => {
+    expect(hostnameAllowed('StripMeta.info', 'stripmeta.INFO')).toBe(true);
+    expect(hostnameAllowed('*.Stripmeta.PAGES.dev', 'ABC123.stripmeta.pages.dev')).toBe(true);
+  });
+
+  it('matches one leading label under a wildcard — the preview-deploy case', () => {
+    expect(hostnameAllowed('*.stripmeta.pages.dev', 'abc123.stripmeta.pages.dev')).toBe(true);
+  });
+
+  it('does not let a wildcard span several labels', () => {
+    // Otherwise '*.pages.dev' would cover every other tenant's deployment.
+    expect(hostnameAllowed('*.pages.dev', 'evil.attacker.pages.dev')).toBe(false);
+    expect(hostnameAllowed('*.stripmeta.info', 'a.b.stripmeta.info')).toBe(false);
+  });
+
+  it('does not match the bare domain, so it must be listed separately', () => {
+    expect(hostnameAllowed('*.stripmeta.info', 'stripmeta.info')).toBe(false);
+  });
+
+  it('requires a label to be present before the dot', () => {
+    expect(hostnameAllowed('*.stripmeta.info', '.stripmeta.info')).toBe(false);
+  });
+
+  it('does not treat a bare asterisk as allow-everything', () => {
+    expect(hostnameAllowed('*', 'anything.example')).toBe(false);
+  });
+
+  it('does not match a suffix that is not on a label boundary', () => {
+    // 'notstripmeta.info' ends with 'stripmeta.info' as a string but is a
+    // different domain entirely.
+    expect(hostnameAllowed('*.stripmeta.info', 'notstripmeta.info')).toBe(false);
+    expect(hostnameAllowed('stripmeta.info', 'notstripmeta.info')).toBe(false);
   });
 });

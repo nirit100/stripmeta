@@ -34,7 +34,30 @@ export interface VerifyTurnstileOptions {
 
 /** Splits the comma-separated TURNSTILE_HOSTNAMES value. */
 export function parseHostnames(raw: string | undefined): string[] {
-  return (raw ?? '').split(',').map(h => h.trim()).filter(Boolean);
+  return (raw ?? '').split(',').map(h => h.trim().toLowerCase()).filter(Boolean);
+}
+
+/**
+ * Whether `hostname` is allowed by one allowlist entry.
+ *
+ * A `*.` prefix matches exactly one leading label, as TLS certificates do:
+ * `*.stripmeta.pages.dev` covers a preview deploy at
+ * `abc123.stripmeta.pages.dev`, but not `a.b.stripmeta.pages.dev`, and not the
+ * bare `stripmeta.pages.dev` — list that separately if you need it. Matching
+ * one label keeps a broad entry from quietly covering someone else's
+ * deployment several levels down.
+ */
+export function hostnameAllowed(pattern: string, hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  const pat = pattern.toLowerCase();
+  if (pat === host) return true;
+  if (!pat.startsWith('*.')) return false;
+
+  const suffix = pat.slice(1); // '.stripmeta.pages.dev'
+  if (!host.endsWith(suffix)) return false;
+
+  const label = host.slice(0, host.length - suffix.length);
+  return label.length > 0 && !label.includes('.');
 }
 
 export async function verifyTurnstile(options: VerifyTurnstileOptions): Promise<VerifyResult> {
@@ -82,7 +105,7 @@ export async function verifyTurnstile(options: VerifyTurnstileOptions): Promise<
   if (json.action !== expectedAction) {
     return { ok: false, reason: `unexpected-action:${json.action ?? 'none'}` };
   }
-  if (!json.hostname || !expectedHostnames.includes(json.hostname)) {
+  if (!json.hostname || !expectedHostnames.some(p => hostnameAllowed(p, json.hostname!))) {
     // Stops someone embedding this sitekey on their own page and replaying the
     // tokens it mints against this endpoint.
     return { ok: false, reason: `unexpected-hostname:${json.hostname ?? 'none'}` };

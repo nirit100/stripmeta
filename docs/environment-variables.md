@@ -29,4 +29,4 @@ If you're making your own version of this you probably want to replace the whole
 | `EMAIL_CF_ACCOUNT_ID` | Plaintext | Cloudflare account ID, used to call the Email Service REST API. |
 | `EMAIL_CF_API_TOKEN` | Secret | Cloudflare API token with **Email Send** permission. |
 | `TURNSTILE_SECRET` | Secret | Cloudflare Turnstile secret key. While unset, submitted tokens are not verified — set it together with `PUBLIC_TURNSTILE_SITEKEY`. |
-| `TURNSTILE_HOSTNAMES` | Plaintext | Comma-separated hostnames a Turnstile token may be minted on, e.g. `stripmeta.info`. Required whenever `TURNSTILE_SECRET` is set: verification fails closed without it, so that a token minted on someone else's page cannot be replayed here. |
+| `TURNSTILE_HOSTNAMES` | Plaintext | Comma-separated hostnames a Turnstile token may be minted on. Required whenever `TURNSTILE_SECRET` is set. Prevents abuse of this Turnstile from other sites. |
