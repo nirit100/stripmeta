@@ -556,6 +556,40 @@ function makeThumb(file: File): HTMLElement {
   return thumb;
 }
 
+// — Card shine —
+//
+// Cards are built in document order, so a card's position in the batch is its
+// position down the page. Staggering by that index makes a folder sweep in
+// sequence instead of flashing all at once.
+// Kept small: the skew angle on the strip is chosen to match this slope, so
+// changing one without the other breaks the illusion of a single wavefront.
+const SHINE_STEP_MS = 20;
+// Past this the cascade is longer than anyone waits, and the cards that far
+// down are off screen anyway, so they all share the last slot.
+const SHINE_MAX_DELAY_MS = 300;
+
+let shineIndex = 0;
+
+/** Starts a new stagger sequence. Called once per batch of cards. */
+function beginShineBatch(): void {
+  shineIndex = 0;
+}
+
+function startShine(row: HTMLElement): void {
+  row.style.setProperty('--shine-delay', `${Math.min(shineIndex++ * SHINE_STEP_MS, SHINE_MAX_DELAY_MS)}ms`);
+
+  // Drop the class once it has played. A collapsed folder's children are
+  // display:none, and re-showing them restarts any animation still attached,
+  // which is why the shine used to replay on every expand.
+  const done = (e: AnimationEvent) => {
+    if (e.animationName !== 'card-shine') return;
+    row.classList.remove('card-new');
+    row.style.removeProperty('--shine-delay');
+    row.removeEventListener('animationend', done);
+  };
+  row.addEventListener('animationend', done);
+}
+
 function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   const { file } = entry;
   const row = document.createElement('div');
@@ -563,6 +597,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
   row.className = `card card-bordered bg-base-200 shadow-none transition-opacity relative overflow-hidden${noGlass ? '' : ' card-new'}`;
   row.dataset.type = file.type;
   rowOf.set(file, row);
+  if (!noGlass) startShine(row);
 
   const deleteHint = document.createElement('div');
   deleteHint.className = 'delete-hint absolute inset-y-0 right-0 flex items-center gap-2 px-6 bg-error text-error-content text-sm font-semibold pointer-events-none select-none opacity-0';
@@ -773,7 +808,10 @@ function renderDirRow(node: DirNode, defaultExpanded: boolean, container: HTMLEl
       // Look the node up afresh: `node` is from the tree as it stood when this
       // row was built, and files may have been added to this directory since.
       const current = findNode(currentTree, node.path);
-      if (current) syncDirContents(current, children, false);
+      if (current) {
+        beginShineBatch();
+        syncDirContents(current, children, false);
+      }
     }
     children.hidden = false;
     updateFabs();
@@ -998,6 +1036,7 @@ async function render() {
   store.setClassification(classified);
 
   currentTree = buildTree(store.entries);
+  beginShineBatch();
   syncDirContents(currentTree, fileList, store.size <= 10);
 
   finishAnalysis();
@@ -1019,6 +1058,7 @@ async function appendEntries(fresh: FileEntry[]) {
   store.mergeClassification(classified);
 
   currentTree = buildTree(store.entries);
+  beginShineBatch();
   syncDirContents(currentTree, fileList, store.size <= 10);
 
   updateFileListHeader();

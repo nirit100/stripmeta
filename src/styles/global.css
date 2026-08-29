@@ -88,13 +88,23 @@ html.no-glass .reveal-flash {
   box-shadow: 0 0 0 2px var(--color-teal-500);
 }
 
-/* Shine sweep keyframe */
+/* Shine sweep keyframe.
+   The strip is skewed so its leading edge lags towards the bottom by roughly the
+   same amount the next card down is delayed by. That makes a batch read as one
+   wavefront crossing the list rather than a row of separate horizontal sweeps.
+   Approximate by nature: the delay is fixed in milliseconds while card width,
+   and so sweep speed, follows the viewport. */
 @keyframes card-shine {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(400%); }
+  from { transform: translateX(-100%) skewX(-18deg); }
+  to   { transform: translateX(400%) skewX(-18deg); }
 }
 
-/* File card shine (::after, horizontal) */
+/* File card shine (::after, horizontal).
+   --shine-delay staggers a batch of cards so they sweep in sequence rather than
+   all at once; it is set per card as they are created. `both` rather than
+   `forwards` matters here: without the backwards half, a card waiting out its
+   delay would show the gradient parked at its start position instead of
+   off-stage. */
 .card-new::after {
   content: '';
   position: absolute;
@@ -103,7 +113,7 @@ html.no-glass .reveal-flash {
   left: 0;
   width: 25%;
   background: linear-gradient(to right, transparent, oklch(90% 0.05 165 / 0.18), transparent);
-  animation: card-shine 0.65s ease-out forwards;
+  animation: card-shine 0.65s ease-out var(--shine-delay, 0s) both;
   pointer-events: none;
   z-index: 5;
 }
