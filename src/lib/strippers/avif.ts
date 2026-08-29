@@ -17,17 +17,9 @@
  * canvasStripper remains available as a fallback if this handler fails.
  */
 
-import type { StripperHandler, PlatformCapabilities } from './types.ts';
-import { stripExifItem } from './isobmff.ts';
-
-const AVIF_BRANDS = new Set(['avif', 'avis', 'MA1A', 'MA1B']);
-
-async function readBrand(file: File): Promise<string | null> {
-  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  const boxType = String.fromCharCode(header[4]!, header[5]!, header[6]!, header[7]!);
-  if (boxType !== 'ftyp') return null;
-  return String.fromCharCode(header[8]!, header[9]!, header[10]!, header[11]!);
-}
+import type { StripperHandler } from './types.ts';
+import { stripExifItem } from '../format/isobmff.ts';
+import { detectFormat } from '../format/detect.ts';
 
 export const avifStripper: StripperHandler = {
   name: 'AVIF (lossless)',
@@ -35,17 +27,11 @@ export const avifStripper: StripperHandler = {
   lossless: true,
   experimental: true,
 
-  supports: async (file: File, _caps: PlatformCapabilities): Promise<boolean> => {
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    const mimeOk = file.type === 'image/avif';
-    const extOk  = ext === 'avif';
-    if (!mimeOk && !extOk) return false;
-    const brand = await readBrand(file);
-    return brand !== null && AVIF_BRANDS.has(brand);
-  },
+  claims: d => d.format === 'avif',
 
   strip: async (file: File): Promise<Blob> => {
     const data = new Uint8Array(await file.arrayBuffer());
-    return new Blob([stripExifItem(data).buffer as ArrayBuffer], { type: file.type });
+    const { mime } = await detectFormat(file);
+    return new Blob([stripExifItem(data).buffer as ArrayBuffer], { type: mime });
   },
 };

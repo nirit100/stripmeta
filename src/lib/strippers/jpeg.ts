@@ -24,13 +24,9 @@ export const jpegStripper: StripperHandler = {
   description: 'Removes EXIF segments from the JPEG binary without touching the compressed image data.',
   lossless: true,
 
-  supports: async (file) => {
-    if (file.type === 'image/jpeg' || file.type === 'image/jpg') return true;
-    // Accept actual JPEG data regardless of reported MIME type (e.g. Android screenshots
-    // sometimes have a .png extension but JPEG content).
-    const sig = new Uint8Array(await file.slice(0, 3).arrayBuffer());
-    return sig[0] === 0xFF && sig[1] === 0xD8 && sig[2] === 0xFF;
-  },
+  // Claims actual JPEG data regardless of the reported MIME type — Android
+  // screenshots sometimes carry a .png extension over JPEG content.
+  claims: d => d.format === 'jpeg',
 
   strip: async (file) => {
     let dataUrl = await fileToDataUrl(file);

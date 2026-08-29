@@ -44,12 +44,11 @@ describe('canvasStripper', () => {
     expect(canvasStripper.lossless).toBe(false);
   });
 
-  describe('supports()', () => {
-    it('delegates to capabilities.canDecodeImage with the file MIME type', async () => {
+  describe('claims()', () => {
+    it('delegates to capabilities.canDecodeImage with the detected type', async () => {
       const { canvasStripper } = await importFresh();
       const caps = { canDecodeImage: vi.fn().mockResolvedValue(true) };
-      const file = new File(['x'], 'photo.gif', { type: 'image/gif' });
-      const result = await canvasStripper.supports(file, caps as any);
+      const result = await canvasStripper.claims({ format: 'gif', mime: 'image/gif' }, caps as any);
       expect(caps.canDecodeImage).toHaveBeenCalledWith('image/gif');
       expect(result).toBe(true);
     });
@@ -57,8 +56,15 @@ describe('canvasStripper', () => {
     it('returns false when the format is not decodable', async () => {
       const { canvasStripper } = await importFresh();
       const caps = { canDecodeImage: vi.fn().mockResolvedValue(false) };
-      const file = new File(['x'], 'photo.heic', { type: 'image/heic' });
-      expect(await canvasStripper.supports(file, caps as any)).toBe(false);
+      expect(await canvasStripper.claims({ format: 'heic', mime: 'image/heic' }, caps as any)).toBe(false);
+    });
+
+    it('probes SVG by its reported type, which is all it can ever be known by', async () => {
+      const { canvasStripper } = await importFresh();
+      const caps = { canDecodeImage: vi.fn().mockResolvedValue(true) };
+      // Text, so detection yields 'unknown' and the reported type carries through.
+      await canvasStripper.claims({ format: 'unknown', mime: 'image/svg+xml' }, caps as any);
+      expect(caps.canDecodeImage).toHaveBeenCalledWith('image/svg+xml');
     });
   });
 

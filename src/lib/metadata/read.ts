@@ -1,6 +1,7 @@
 import exifr from 'exifr';
 import extract from 'png-chunks-extract';
-import { readExifBytes } from '../strippers/isobmff.ts';
+import { readExifBytes } from '../format/isobmff.ts';
+import { detectFormat, isIsobmff, isUnexpectedlyUndetected } from '../format/detect.ts';
 import type { MetadataPreview, MetadataSection } from './types.ts';
 
 export type { MetadataPreview, MetadataSection } from './types.ts';
@@ -53,7 +54,6 @@ function formatExifrValue(v: unknown): string | null {
 
 // — Public API —
 
-const ISOBMFF_TYPES = new Set(['image/heic', 'image/heif', 'image/avif']);
 
 // exifr has no ISOBMFF parser; extract the Exif item from the container and
 // feed the raw TIFF bytes directly, forcing TIFF mode.
@@ -127,24 +127,27 @@ async function readWebpExif(file: File): Promise<{
 export async function readMetadata(file: File): Promise<MetadataPreview> {
   let parseErrored = false;
 
-  const isWebp     = file.type === 'image/webp';
-  const isIsobmff  = ISOBMFF_TYPES.has(file.type);
-  const webp       = isWebp    ? await readWebpExif(file)    : null;
-  const isobmff    = isIsobmff ? await readIsobmffExif(file) : null;
+  // Dispatch on the actual bytes: exifr has no WebP or ISOBMFF parser, so a
+  // file of either kind that reaches the generic path below reports as carrying
+  // no metadata at all — and would then be silently skipped as "clean".
+  const detected = await detectFormat(file);
+  const { format } = detected;
+  const container = format === 'webp'  ? await readWebpExif(file)
+                  : isIsobmff(format)   ? await readIsobmffExif(file)
+                  : null;
 
-  const [exifRaw, gpsResult, pngText] = (isWebp || isIsobmff)
-    ? [(webp ?? isobmff)!.exifRaw, (webp ?? isobmff)!.gpsResult, null] as const
+  const [exifRaw, gpsResult, pngText] = container
+    ? [container.exifRaw, container.gpsResult, null] as const
     : await Promise.all([
         // Full parse (not just picked fields) so hasAnyMetadata covers the complete EXIF/XMP/IPTC scope.
         exifr.parse(file, true).catch(err => { console.warn('[exif parse]', err); parseErrored = true; return null; }),
         exifr.gps(file).catch(err => { console.warn('[gps parse]', err); return null; }),
-        file.type === 'image/png'
+        format === 'png'
           ? file.arrayBuffer().then(b => decodePngTextChunks(new Uint8Array(b))).catch(err => { console.warn('[png chunks]', err); return null; })
           : Promise.resolve(null),
       ]);
 
-  if (isWebp)    parseErrored = webp!.parseErrored;
-  if (isIsobmff) parseErrored = isobmff!.parseErrored;
+  if (container) parseErrored = container.parseErrored;
 
   const gps = (gpsResult != null && Number.isFinite(gpsResult.latitude) && Number.isFinite(gpsResult.longitude))
     ? { latitude: gpsResult.latitude, longitude: gpsResult.longitude }
@@ -166,8 +169,7 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
   const hasAnyMetadata = exifKeys.length > 0
     || (Array.isArray(exifRaw?.errors) && (exifRaw!.errors as unknown[]).length > 0)
     || (pngText !== null && pngText.entries.length > 0)
-    || (webp?.hasAnyMetadata ?? false)
-    || (isobmff?.hasAnyMetadata ?? false);
+    || (container?.hasAnyMetadata ?? false);
 
   return {
     gps,
@@ -180,6 +182,7 @@ export async function readMetadata(file: File): Promise<MetadataPreview> {
     userComment,
     hasAnyMetadata,
     parseErrored: parseErrored ? true : undefined,
+    formatUndetected: isUnexpectedlyUndetected(detected) ? true : undefined,
   };
 }
 
@@ -188,15 +191,13 @@ export async function readRichMetadata(file: File): Promise<{ sections: Metadata
   let parseError: unknown;
   let hasUnreadableData: true | undefined;
 
+  const { format } = await detectFormat(file);
+
   let raw: Record<string, unknown> | null;
-  if (file.type === 'image/webp') {
-    const webp = await readWebpExif(file);
-    raw = webp.exifRaw;
-    if (webp.parseErrored) parseError = new Error('Could not parse EXIF data');
-  } else if (ISOBMFF_TYPES.has(file.type)) {
-    const isobmff = await readIsobmffExif(file);
-    raw = isobmff.exifRaw;
-    if (isobmff.parseErrored) parseError = new Error('Could not parse EXIF data');
+  if (format === 'webp' || isIsobmff(format)) {
+    const container = format === 'webp' ? await readWebpExif(file) : await readIsobmffExif(file);
+    raw = container.exifRaw;
+    if (container.parseErrored) parseError = new Error('Could not parse EXIF data');
   } else {
     raw = await exifr.parse(file, true)
       .catch((err: unknown) => { parseError = err; return null; }) as Record<string, unknown> | null;

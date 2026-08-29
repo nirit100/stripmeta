@@ -35,6 +35,9 @@ describe('readMetadata', () => {
       gps: null, make: null, model: null, serialNumber: null,
       software: null, dateTime: null, artist: null, userComment: null,
       hasAnyMetadata: false,
+      parseErrored: undefined,
+      // makeFile() has no magic bytes to identify, which is itself reportable.
+      formatUndetected: true,
     });
   });
 

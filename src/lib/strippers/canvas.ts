@@ -36,7 +36,10 @@ export const canvasStripper: StripperHandler = {
   description: 'Decodes the image to raw pixels and re-encodes as JPEG, stripping all embedded metadata. Introduces a small quality loss.',
   lossless: false,
 
-  supports: async (file, capabilities) => capabilities.canDecodeImage(file.type),
+  // Probes the type the bytes imply. For SVG — text, so never sniffable —
+  // that resolves to the reported type, which is the only thing that can
+  // identify it.
+  claims: (d, capabilities) => capabilities.canDecodeImage(d.mime),
 
   strip: reEncode,
 };
