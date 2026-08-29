@@ -278,6 +278,31 @@ html.no-glass .reveal-flash {
   animation-delay: 700ms;
 }
 
+/* "Report a bug" in the log panel, once the log holds an error or a warning.
+   A ring flashes out of the button roughly every 6 s — brief enough to notice
+   without nagging, and repeating because the panel is usually still collapsed
+   when the log fills. The class comes off when the log is cleared. */
+@keyframes bug-nudge-ring {
+  0%   { box-shadow: 0 0 0 0 var(--bug-nudge-tint); }
+  10%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 8px transparent; }
+}
+@keyframes bug-nudge-pulse {
+  0%, 10%, 100% { transform: scale(1); }
+  4%            { transform: scale(1.07); }
+}
+.bug-nudge {
+  --bug-nudge-tint: color-mix(in oklch, var(--color-warning) 45%, transparent);
+  color: var(--color-warning);
+  animation:
+    bug-nudge-ring 6s linear infinite,
+    bug-nudge-pulse 6s ease-in-out infinite;
+}
+.bug-nudge.bug-nudge-error {
+  --bug-nudge-tint: color-mix(in oklch, var(--color-error) 45%, transparent);
+  color: var(--color-error);
+}
+
 @media (prefers-reduced-motion: reduce) {
   #bug-form-body {
     transition: none;
@@ -288,5 +313,9 @@ html.no-glass .reveal-flash {
   #bug-thanks.thanks-in .bug-thanks-text {
     animation-duration: 1ms;
     animation-delay: 0ms;
+  }
+  /* The colour alone still marks the button */
+  .bug-nudge {
+    animation: none;
   }
 }

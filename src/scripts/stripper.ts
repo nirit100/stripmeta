@@ -52,6 +52,8 @@ const btnLogToggle  = document.getElementById('btn-log-toggle') as HTMLButtonEle
 const logPanel      = document.getElementById('log-panel')!;
 const logEntriesEl  = document.getElementById('log-entries')!;
 const btnClearLog       = document.getElementById('btn-clear-log') as HTMLButtonElement;
+/** Absent unless the bug report is enabled for this build. */
+const btnLogBugReport   = document.getElementById('btn-log-bug-report');
 const stripProgressEl   = document.getElementById('strip-progress') as HTMLElement;
 const fileListHeader    = document.getElementById('file-list-header')!;
 const fileCountEl       = document.getElementById('file-count')!;
@@ -190,6 +192,11 @@ function updateLogUI() {
 
   btnLogToggle.textContent = text;
   btnLogToggle.className = `w-full px-3 py-2 text-sm rounded-lg transition-colors text-center ${colorCls}`;
+
+  // Something went wrong, so nudge the way to say so — the panel is collapsed
+  // when the log first fills, and the pulse repeats until it is cleared.
+  btnLogBugReport?.classList.toggle('bug-nudge', errors + warnings > 0);
+  btnLogBugReport?.classList.toggle('bug-nudge-error', errors > 0);
 
   logEntriesEl.innerHTML = '';
   for (const entry of log) {
