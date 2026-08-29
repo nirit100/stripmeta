@@ -58,23 +58,20 @@ describe('getSkipReason', () => {
       expect(getSkipReason(file, allOn, new Map(), cache)).toBe('no-metadata');
     });
 
-    it('does not skip when metadata has GPS', () => {
+    it('does not skip when the file carries any metadata at all', () => {
+      // getSkipReason reads only hasAnyMetadata — which field set it is
+      // irrelevant here, and is previewBadges' concern rather than this one's.
       const file = makeFile();
-      const meta: MetadataPreview = { ...emptyMeta, gps: { latitude: 1, longitude: 2 }, hasAnyMetadata: true };
+      const meta: MetadataPreview = { ...emptyMeta, hasAnyMetadata: true };
       const cache = new Map<File, MetadataPreview>([[file, meta]]);
       expect(getSkipReason(file, allOn, new Map(), cache)).toBeNull();
     });
 
-    it('does not skip when metadata has artist', () => {
+    it('does not skip a file whose metadata could not be parsed', () => {
+      // A failed parse is not evidence of a clean file — treating it as one
+      // would silently pass EXIF through under the default settings.
       const file = makeFile();
-      const meta: MetadataPreview = { ...emptyMeta, artist: 'Jane Doe', hasAnyMetadata: true };
-      const cache = new Map<File, MetadataPreview>([[file, meta]]);
-      expect(getSkipReason(file, allOn, new Map(), cache)).toBeNull();
-    });
-
-    it('does not skip when metadata has userComment', () => {
-      const file = makeFile();
-      const meta: MetadataPreview = { ...emptyMeta, userComment: 'Hello', hasAnyMetadata: true };
+      const meta: MetadataPreview = { ...emptyMeta, hasAnyMetadata: false, parseErrored: true };
       const cache = new Map<File, MetadataPreview>([[file, meta]]);
       expect(getSkipReason(file, allOn, new Map(), cache)).toBeNull();
     });

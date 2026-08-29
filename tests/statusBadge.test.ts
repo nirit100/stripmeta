@@ -26,8 +26,9 @@ describe('statusBadge precedence', () => {
     expect(statusBadge(input({ done: true, errored: true })).text).toBe('Done');
   });
 
-  it.each(SKIP_REASONS)('a done file is never dimmed or reported as skipped (%s)', reason => {
-    const b = statusBadge(input({ done: true, skipReason: reason, stripped: true }));
+  it('a done file is never dimmed or reported as skipped', () => {
+    // Reachable: a file stripped before the user turned on a skip setting.
+    const b = statusBadge(input({ done: true, skipReason: 'no-metadata', stripped: true }));
     expect(b.text).toBe('Done');
     expect(b.dimmed).toBe(false);
   });
@@ -48,8 +49,10 @@ describe('skip reasons before a strip run', () => {
     expect(statusBadge(input({ skipReason: 'unsupported' })).hidden).toBe(true);
   });
 
-  it.each(SKIP_REASONS)('dims the row for %s', reason => {
-    expect(statusBadge(input({ skipReason: reason })).dimmed).toBe(true);
+  it('dims the row for any skip reason, including the hidden-badge one', () => {
+    for (const reason of SKIP_REASONS) {
+      expect(statusBadge(input({ skipReason: reason })).dimmed, reason).toBe(true);
+    }
   });
 
   it('ignores includeSkipped before a run', () => {
@@ -60,12 +63,11 @@ describe('skip reasons before a strip run', () => {
 });
 
 describe('skip reasons after a strip run', () => {
-  it.each(SKIP_REASONS)('reports Skipped for %s when skipped files are excluded', reason => {
-    expect(statusBadge(input({ skipReason: reason, stripped: true })).text).toBe('Skipped');
-  });
-
-  it.each(SKIP_REASONS)('reports Copied for %s when skipped files are included', reason => {
-    expect(statusBadge(input({ skipReason: reason, stripped: true, includeSkipped: true })).text).toBe('Copied');
+  it('reports the outcome rather than the reason, whatever the reason was', () => {
+    for (const reason of SKIP_REASONS) {
+      expect(statusBadge(input({ skipReason: reason, stripped: true })).text, reason).toBe('Skipped');
+      expect(statusBadge(input({ skipReason: reason, stripped: true, includeSkipped: true })).text, reason).toBe('Copied');
+    }
   });
 
   it('keeps the unsupported badge hidden after a run', () => {

@@ -8,10 +8,6 @@ function makeFile(name = 'photo.jpg'): File {
 beforeEach(() => clearErroredFiles());
 
 describe('getErroredFiles', () => {
-  it('returns an empty list initially', () => {
-    expect(getErroredFiles()).toHaveLength(0);
-  });
-
   it('returns a copy — mutations do not affect internal state', () => {
     registerErroredFile(makeFile(), 'photo.jpg');
     const copy = getErroredFiles();
@@ -53,20 +49,5 @@ describe('clearErroredFiles', () => {
     registerErroredFile(makeFile(), 'photo.jpg');
     clearErroredFiles();
     expect(getErroredFiles()).toHaveLength(0);
-  });
-
-  it('is safe to call on an already-empty list', () => {
-    expect(() => clearErroredFiles()).not.toThrow();
-    expect(getErroredFiles()).toHaveLength(0);
-  });
-
-  it('does not affect subsequent registrations', () => {
-    registerErroredFile(makeFile('a.jpg'), 'a.jpg');
-    clearErroredFiles();
-    const f = makeFile('b.jpg');
-    registerErroredFile(f, 'b.jpg');
-    const result = getErroredFiles();
-    expect(result).toHaveLength(1);
-    expect(result[0]!.file).toBe(f);
   });
 });

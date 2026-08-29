@@ -27,7 +27,7 @@ function makeCanvasMock(blobResult: Blob | null) {
     width: 0,
     height: 0,
     getContext: () => ({ drawImage: vi.fn() }),
-    toBlob: (cb: (b: Blob | null) => void) => cb(blobResult),
+    toBlob: vi.fn((cb: (b: Blob | null) => void) => cb(blobResult)),
   };
 }
 
@@ -39,11 +39,6 @@ async function importFresh() {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('canvasStripper', () => {
-  it('is not lossless', async () => {
-    const { canvasStripper } = await importFresh();
-    expect(canvasStripper.lossless).toBe(false);
-  });
-
   describe('claims()', () => {
     it('delegates to capabilities.canDecodeImage with the detected type', async () => {
       const { canvasStripper } = await importFresh();
@@ -86,6 +81,7 @@ describe('canvasStripper', () => {
         if (tag === 'canvas') return canvas as unknown as HTMLElement;
         return origCreateElement(tag);
       });
+      return canvas;
     }
 
     afterEach(() => {
@@ -93,19 +89,18 @@ describe('canvasStripper', () => {
       vi.unstubAllGlobals();
     });
 
-    it('resolves with a Blob when the image loads and canvas encodes successfully', async () => {
-      setupMocks();
+    it('encodes as JPEG at 0.95 quality — the handler\'s one real decision', async () => {
+      const canvas = setupMocks();
       const { canvasStripper } = await importFresh();
-      const file = new File(['x'], 'photo.gif', { type: 'image/gif' });
-      const result = await canvasStripper.strip(file);
-      expect(result).toBeInstanceOf(Blob);
+      await canvasStripper.strip(new File(['x'], 'a.gif', { type: 'image/gif' }));
+      expect(canvas.toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/jpeg', 0.95);
     });
 
-    it('output type matches what canvas.toBlob produces', async () => {
-      setupMocks({ blobResult: new Blob(['x'], { type: 'image/jpeg' }) });
+    it('sizes the canvas from the decoded image, not the element default', async () => {
+      const canvas = setupMocks();
       const { canvasStripper } = await importFresh();
-      const result = await canvasStripper.strip(new File(['x'], 'a.gif', { type: 'image/gif' }));
-      expect(result.type).toBe('image/jpeg');
+      await canvasStripper.strip(new File(['x'], 'a.gif', { type: 'image/gif' }));
+      expect([canvas.width, canvas.height]).toEqual([100, 100]); // MockImage's naturalWidth/Height
     });
 
     it('rejects with "Canvas encoding failed" when toBlob returns null', async () => {

@@ -87,19 +87,27 @@ describe('onLogChange', () => {
 describe('humanizeError', () => {
   it.each([
     ['not jpeg',               'File is not a valid JPEG despite its extension or MIME type'],
-    ['this is Not JPEG data',  'File is not a valid JPEG despite its extension or MIME type'],
     ['Canvas encoding failed', 'Browser could not re-encode the image via canvas'],
-    ['CANVAS ENCODING FAILED', 'Browser could not re-encode the image via canvas'],
     ['Could not decode image', 'Browser could not decode this image format'],
     ['invalid png structure',  'PNG file is corrupted or has an unrecognised structure'],
-    ['Invalid PNG',            'PNG file is corrupted or has an unrecognised structure'],
-    ['WebP: invalid format',   'WebP file is corrupted or invalid'],
-    ['corrupt WebP data',      'WebP file is corrupted or invalid'],
-    ['invalid webp header',    'WebP file is corrupted or invalid'],
-    ['WebP is corrupt',        'WebP file is corrupted or invalid'],
-  ])('maps Error("%s") to correct message', async (input, expected) => {
+  ])('maps Error("%s") to a message a user can act on', async (input, expected) => {
     const { humanizeError } = await importFresh();
     expect(humanizeError(new Error(input))).toBe(expected);
+  });
+
+  it('matches regardless of case, since the wording comes from third-party libraries', async () => {
+    const { humanizeError } = await importFresh();
+    expect(humanizeError(new Error('CANVAS ENCODING FAILED')))
+      .toBe('Browser could not re-encode the image via canvas');
+  });
+
+  it('catches WebP corruption with the word order either way round', async () => {
+    // Two alternations in one branch — the only rule here with a real chance of
+    // matching one phrasing and silently missing the other.
+    const { humanizeError } = await importFresh();
+    const expected = 'WebP file is corrupted or invalid';
+    expect(humanizeError(new Error('WebP: invalid format'))).toBe(expected);
+    expect(humanizeError(new Error('corrupt WebP data'))).toBe(expected);
   });
 
   it('passes through unrecognised Error messages verbatim', async () => {

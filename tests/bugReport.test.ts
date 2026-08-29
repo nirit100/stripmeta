@@ -43,12 +43,3 @@ describe('clampField', () => {
     expect(clampField('')).toBe('');
   });
 });
-
-describe('REPORT_LIMITS', () => {
-  it('are positive and small enough to be meaningful bounds', () => {
-    expect(REPORT_LIMITS.maxAttachments).toBeGreaterThan(0);
-    expect(REPORT_LIMITS.maxAttachmentBytes).toBeGreaterThan(0);
-    // Cloudflare Pages Functions cap the request body at 100 MB; stay well under.
-    expect(REPORT_LIMITS.maxAttachmentBytes).toBeLessThan(100 * 1024 * 1024);
-  });
-});

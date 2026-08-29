@@ -1,15 +1,9 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { stripMetadata } from '../src/lib/strippers/registry';
 
-vi.mock('exifr', () => ({
-  default: { parse: vi.fn(), gps: vi.fn() },
-}));
 
-async function importFresh() {
-  vi.resetModules();
-  return import('../src/lib/strippers/registry');
-}
 
 function fixtureFile(filename: string, type: string): File {
   const buf = readFileSync(join(import.meta.dirname, 'fixtures', filename));
@@ -19,8 +13,6 @@ function fixtureFile(filename: string, type: string): File {
 describe('stripMetadata', () => {
   describe('JPEG', () => {
     it('removes EXIF and returns a smaller blob', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('with-exif.jpg', 'image/jpeg');
       const result = await stripMetadata(file);
 
@@ -36,16 +28,12 @@ describe('stripMetadata', () => {
     });
 
     it('preserves image data (SOS marker present)', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('with-exif.jpg', 'image/jpeg');
       const out = new Uint8Array(await (await stripMetadata(file)).arrayBuffer());
       expect(out.some((b, i) => b === 0xFF && out[i + 1] === 0xDA)).toBe(true);
     });
 
     it('is idempotent', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('with-exif.jpg', 'image/jpeg');
       const once = await stripMetadata(file);
       const twice = await stripMetadata(new File([await once.arrayBuffer()], file.name, { type: file.type }));
@@ -55,8 +43,6 @@ describe('stripMetadata', () => {
 
   describe('PNG', () => {
     it('removes metadata chunks and returns a smaller blob', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('test.png', 'image/png');
       const result = await stripMetadata(file);
 
@@ -72,8 +58,6 @@ describe('stripMetadata', () => {
     });
 
     it('preserves IHDR, IDAT, IEND chunks', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('test.png', 'image/png');
       const text = new TextDecoder('latin1').decode(new Uint8Array(await (await stripMetadata(file)).arrayBuffer()));
       expect(text).toContain('IHDR');
@@ -82,8 +66,6 @@ describe('stripMetadata', () => {
     });
 
     it('is idempotent', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('test.png', 'image/png');
       const once = await stripMetadata(file);
       const twice = await stripMetadata(new File([await once.arrayBuffer()], file.name, { type: file.type }));
@@ -93,8 +75,6 @@ describe('stripMetadata', () => {
 
   describe('WebP', () => {
     it('removes EXIF chunk and clears VP8X flag', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('with-exif.webp', 'image/webp');
       const result = await stripMetadata(file);
 
@@ -110,16 +90,12 @@ describe('stripMetadata', () => {
     });
 
     it('preserves VP8 image data', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('with-exif.webp', 'image/webp');
       const text = new TextDecoder('latin1').decode(new Uint8Array(await (await stripMetadata(file)).arrayBuffer()));
       expect(text).toContain('VP8');
     });
 
     it('is idempotent', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('with-exif.webp', 'image/webp');
       const once = await stripMetadata(file);
       const twice = await stripMetadata(new File([await once.arrayBuffer()], file.name, { type: file.type }));
@@ -129,8 +105,6 @@ describe('stripMetadata', () => {
 
   describe('all-metadata fixture', () => {
     it('strips all EXIF from all-metadata.jpg and produces a smaller JPEG', async () => {
-      vi.restoreAllMocks();
-      const { stripMetadata } = await importFresh();
       const file = fixtureFile('all-metadata.jpg', 'image/jpeg');
       const result = await stripMetadata(file);
 

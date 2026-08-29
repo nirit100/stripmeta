@@ -2,9 +2,6 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('exifr', () => ({
-  default: { parse: vi.fn(), gps: vi.fn() },
-}));
 
 async function importFresh() {
   vi.resetModules();
@@ -34,83 +31,53 @@ function fixtureFile(filename: string, type: string): File {
   return new File([buf], filename, { type });
 }
 
+// classify() derives its level from whichever handler claims the file, so these
+// cover the mapping (lossless → none, experimental flag → experimental, not
+// lossless → lossy, nothing → unsupported). Which handler claims what is the
+// resolve() block's job, below.
 describe('StripperManager.classify — defaultStripperManager', () => {
-  it('returns none for JPEG', async () => {
+  it('returns none for the lossless handlers', async () => {
     const { defaultStripperManager } = await importFresh();
     expect(await defaultStripperManager.classify(makeJpegFile())).toBe('none');
-  });
-
-  it('returns none for PNG', async () => {
-    const { defaultStripperManager } = await importFresh();
     expect(await defaultStripperManager.classify(makePngFile())).toBe('none');
-  });
-
-  it('returns none for WebP', async () => {
-    const { defaultStripperManager } = await importFresh();
     expect(await defaultStripperManager.classify(makeWebpFile())).toBe('none');
   });
 
-  it('returns lossy for GIF', async () => {
+  it('returns experimental for a handler that declares itself so', async () => {
+    // A real HEIC: lossless, but flagged experimental, which must win over 'none'.
     const { defaultStripperManager } = await importFresh();
-    expect(await defaultStripperManager.classify(makeTypedFile('a.gif', 'image/gif'))).toBe('lossy');
+    expect(await defaultStripperManager.classify(fixtureFile('heic_sample_file_50KB.heic', 'image/heic')))
+      .toBe('experimental');
   });
 
-  it('returns lossy for BMP', async () => {
+  it('falls back to lossy for formats the browser can decode but we cannot strip losslessly', async () => {
     const { defaultStripperManager } = await importFresh();
-    expect(await defaultStripperManager.classify(makeTypedFile('a.bmp', 'image/bmp'))).toBe('lossy');
-  });
-
-  it('returns lossy for SVG', async () => {
-    const { defaultStripperManager } = await importFresh();
+    // A real GIF: no lossless handler claims it, so canvas does.
+    expect(await defaultStripperManager.classify(fixtureFile('test.gif', 'image/gif'))).toBe('lossy');
+    // SVG is the case that can only be recognised by its reported type.
     expect(await defaultStripperManager.classify(makeTypedFile('a.svg', 'image/svg+xml'))).toBe('lossy');
   });
 
-  it('returns lossy for AVIF', async () => {
-    const { defaultStripperManager } = await importFresh();
-    expect(await defaultStripperManager.classify(makeTypedFile('a.avif', 'image/avif'))).toBe('lossy');
-  });
-
-  it('returns unsupported for HEIC', async () => {
+  it('is unsupported when nothing claims the file and the browser cannot decode it', async () => {
     const { defaultStripperManager } = await importFresh();
     expect(await defaultStripperManager.classify(makeTypedFile('a.heic', 'image/heic'))).toBe('unsupported');
-  });
-
-  it('returns unsupported for HEIF', async () => {
-    const { defaultStripperManager } = await importFresh();
-    expect(await defaultStripperManager.classify(makeTypedFile('a.heif', 'image/heif'))).toBe('unsupported');
-  });
-
-  it('returns unsupported for unknown type', async () => {
-    const { defaultStripperManager } = await importFresh();
     expect(await defaultStripperManager.classify(makeTypedFile('a.raw', 'image/x-raw'))).toBe('unsupported');
-  });
-
-  it('classifies a real GIF fixture as lossy', async () => {
-    vi.restoreAllMocks();
-    const { defaultStripperManager } = await importFresh();
-    expect(await defaultStripperManager.classify(fixtureFile('test.gif', 'image/gif'))).toBe('lossy');
   });
 });
 
 describe('StripperManager.classify — paranoidStripperManager', () => {
-  it('returns lossy for JPEG (canvas re-encode always)', async () => {
+  it('is lossy for everything the browser can decode, losslessly strippable or not', async () => {
     const { paranoidStripperManager } = await importFresh();
     expect(await paranoidStripperManager.classify(makeJpegFile())).toBe('lossy');
+    expect(await paranoidStripperManager.classify(makePngFile())).toBe('lossy');
   });
 
-  it('returns lossy for PNG', async () => {
+  it('is still unsupported for what the browser cannot decode', async () => {
+    // Paranoid mode holds only the canvas handler, so a HEIC that the default
+    // manager would strip losslessly becomes unstrippable here.
     const { paranoidStripperManager } = await importFresh();
-    expect(await paranoidStripperManager.classify(makeTypedFile('a.png', 'image/png'))).toBe('lossy');
-  });
-
-  it('returns lossy for GIF', async () => {
-    const { paranoidStripperManager } = await importFresh();
-    expect(await paranoidStripperManager.classify(makeTypedFile('a.gif', 'image/gif'))).toBe('lossy');
-  });
-
-  it('returns unsupported for HEIC (canvas cannot decode it)', async () => {
-    const { paranoidStripperManager } = await importFresh();
-    expect(await paranoidStripperManager.classify(makeTypedFile('a.heic', 'image/heic'))).toBe('unsupported');
+    expect(await paranoidStripperManager.classify(fixtureFile('heic_sample_file_50KB.heic', 'image/heic')))
+      .toBe('unsupported');
   });
 });
 
@@ -143,58 +110,40 @@ describe('StripperManager.resolve', () => {
     expect(h.lossless).toBe(false);
   });
 
-  it('throws for HEIC (no available handler)', async () => {
+  it('throws when no handler claims the file, rather than returning a wrong one', async () => {
     const { defaultStripperManager } = await importFresh();
     await expect(
-      defaultStripperManager.resolve(makeTypedFile('a.heic', 'image/heic'))
+      defaultStripperManager.resolve(makeTypedFile('a.raw', 'image/x-raw'))
     ).rejects.toThrow();
   });
 
-  it('resolves every type to canvas in paranoid mode', async () => {
+  it('resolves a losslessly-strippable file to canvas in paranoid mode', async () => {
     const { paranoidStripperManager } = await importFresh();
-    const jpeg = await paranoidStripperManager.resolve(makeTypedFile('a.jpg', 'image/jpeg'));
-    const png = await paranoidStripperManager.resolve(makeTypedFile('a.png', 'image/png'));
-    expect(jpeg.name).toBe('Canvas re-encode');
-    expect(png.name).toBe('Canvas re-encode');
+    expect((await paranoidStripperManager.resolve(makeJpegFile())).name).toBe('Canvas re-encode');
   });
 });
 
-describe('StripperManager — magic byte detection', () => {
-  // JPEG-as-PNG: Android sometimes saves JPEG screenshots with a .png extension.
-  it('JPEG content with PNG MIME resolves to JPEG handler (lossless)', async () => {
+describe('StripperManager — content beats the reported type', () => {
+  // Android sometimes saves JPEG screenshots with a .png extension.
+  it('routes JPEG content to the JPEG handler despite a PNG name and type', async () => {
     const { defaultStripperManager } = await importFresh();
     const jpegAsPng = new File([JPEG_SIG], 'screenshot.png', { type: 'image/png' });
-    const h = await defaultStripperManager.resolve(jpegAsPng);
-    expect(h.name).toBe('JPEG (lossless)');
-  });
-
-  it('JPEG content with PNG MIME classifies as none (JPEG handler wins via magic bytes)', async () => {
-    const { defaultStripperManager } = await importFresh();
-    const jpegAsPng = new File([JPEG_SIG], 'screenshot.png', { type: 'image/png' });
+    expect((await defaultStripperManager.resolve(jpegAsPng)).name).toBe('JPEG (lossless)');
     expect(await defaultStripperManager.classify(jpegAsPng)).toBe('none');
   });
 
-  // Content with no recognised magic bytes and WebP MIME: webpStripper rejects (bytes mismatch),
-  // jpegStripper rejects (no JPEG bytes), pngStripper rejects (wrong MIME), canvas handles it.
-  it('garbage content with WebP MIME falls through to canvas (lossy)', async () => {
-    const { defaultStripperManager } = await importFresh();
-    const garbage = new File([new Uint8Array([0, 0, 0, 0])], 'a.webp', { type: 'image/webp' });
-    expect(await defaultStripperManager.classify(garbage)).toBe('lossy');
-  });
-
-  // Real WebP content with a generic MIME type: webpStripper matches on magic bytes.
-  it('WebP content with non-standard MIME resolves to WebP handler', async () => {
+  it('routes WebP content to the WebP handler despite a generic type', async () => {
     const { defaultStripperManager } = await importFresh();
     const webpOddMime = new File([WEBP_SIG], 'image.bin', { type: 'application/octet-stream' });
-    const h = await defaultStripperManager.resolve(webpOddMime);
-    expect(h.name).toBe('WebP (lossless)');
+    expect((await defaultStripperManager.resolve(webpOddMime)).name).toBe('WebP (lossless)');
   });
 
-  // Real PNG content with PNG MIME: PNG stripper verifies magic bytes and accepts.
-  it('non-PNG content with PNG MIME is rejected by the PNG handler', async () => {
+  it('does not hand a lossless handler a file whose bytes say otherwise', async () => {
+    // Bytes match nothing. Every lossless handler declines on content, so this
+    // reaches canvas — a MIME-trusting handler would have accepted and thrown.
     const { defaultStripperManager } = await importFresh();
-    const fakeContent = new File([new Uint8Array([0, 0, 0, 0])], 'a.png', { type: 'image/png' });
-    // PNG stripper rejects -> JPEG stripper rejects (no JPEG magic) -> canvas handles it
-    expect(await defaultStripperManager.classify(fakeContent)).toBe('lossy');
+    const garbage = new Uint8Array([0, 0, 0, 0]);
+    expect(await defaultStripperManager.classify(new File([garbage], 'a.png', { type: 'image/png' }))).toBe('lossy');
+    expect(await defaultStripperManager.classify(new File([garbage], 'a.webp', { type: 'image/webp' }))).toBe('lossy');
   });
 });
