@@ -7,7 +7,7 @@ import type { DirNode } from '../lib/domain/fileTree.ts';
 import { FileStore } from '../lib/state/fileStore.ts';
 import type { WarningLevel, StripperManager } from '../lib/stripMeta.ts';
 import { formatBytes } from '../lib/util/format.ts';
-import { skipStatusLabel } from '../lib/domain/skip.ts';
+import { statusBadge } from '../lib/view/statusBadge.ts';
 import { openMetadataModal } from './modal.ts';
 import { openLightbox } from './lightbox.ts';
 import { settings, onSettingChange } from '../lib/state/settings.ts';
@@ -94,6 +94,10 @@ const store = new FileStore();
 let heroCollapsed = false;
 let renderGen = 0;
 let pendingBlobs: { path: string; blob: Blob }[] = [];
+// Switches skip badges from the reason ("Skipped — lossy only") to the outcome
+// ("Skipped"). Cleared whenever the run's results stop describing the list:
+// files added, list cleared, or strip results invalidated.
+let hasRunStrip = false;
 
 // DOM tracking
 const rowOf          = new Map<File, HTMLElement>();
@@ -322,17 +326,22 @@ function getSkipReason(file: File) {
   return store.skipReason(file, settings);
 }
 
-function applySkipStatus(file: File) {
-  if (store.strip.done.has(file) || store.strip.errored.has(file)) return;
+/** Repaints a file's status badge from store state. The only writer of `.status-badge`. */
+function paintStatus(file: File) {
   const row = rowOf.get(file);
-  if (!row) return;
-  const statusBadge = row.querySelector<HTMLElement>('.status-badge');
-  if (!statusBadge) return;
-  const reason = getSkipReason(file);
-  row.classList.toggle('opacity-40', reason !== null);
-  const { hidden, text } = skipStatusLabel(reason);
-  statusBadge.hidden = hidden;
-  if (!hidden) statusBadge.textContent = text;
+  const el = row?.querySelector<HTMLElement>('.status-badge');
+  if (!row || !el) return;
+  const { hidden, text, cls, dimmed } = statusBadge({
+    done:           store.strip.done.has(file),
+    errored:        store.strip.errored.has(file),
+    skipReason:     getSkipReason(file),
+    includeSkipped: settings.includeSkipped,
+    stripped:       hasRunStrip,
+  });
+  el.hidden = hidden;
+  el.textContent = text;
+  el.className = cls;
+  row.classList.toggle('opacity-40', dimmed);
 }
 
 // — File card handler constants —
@@ -453,7 +462,7 @@ async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detai
     }
     if (!preview.hasAnyMetadata && !preview.parseErrored) detailsBtn.textContent = 'no metadata';
 
-    applySkipStatus(file);
+    paintStatus(file);
     syncFlatList();
     updateAllDirCounts();
   } catch (err) {
@@ -557,18 +566,10 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
     topRow.appendChild(badge('badge-error badge-sm', '✕ Unsupported', 'Cannot be decoded in this browser — stripping will fail', 'left'));
   }
 
-  const statusBadge = document.createElement('span');
-  if (store.strip.done.has(file)) {
-    statusBadge.className = 'badge badge-success badge-sm status-badge';
-    statusBadge.textContent = 'Done';
-  } else if (store.strip.errored.has(file)) {
-    statusBadge.className = 'badge badge-error badge-sm status-badge';
-    statusBadge.textContent = 'Error';
-  } else {
-    statusBadge.className = 'badge badge-outline badge-sm status-badge';
-    statusBadge.textContent = 'Ready';
-  }
-  topRow.appendChild(statusBadge);
+  // Painted by paintStatus() at the end of this function, once the badge is in the row.
+  const statusBadgeEl = document.createElement('span');
+  statusBadgeEl.className = 'badge badge-outline badge-sm status-badge';
+  topRow.appendChild(statusBadgeEl);
 
   if (level !== 'unsupported' && store.canConvertPng(file) && !!navigator.clipboard && typeof ClipboardItem !== 'undefined') {
     const copyBtn = document.createElement('button');
@@ -625,7 +626,7 @@ function renderFileCard(entry: FileEntry, level: WarningLevel): HTMLElement {
     }
   }).catch(err => console.warn('[handler resolve]', err));
 
-  applySkipStatus(file);
+  paintStatus(file);
 
   if (level !== 'unsupported') {
     const sep = document.createElement('span');
@@ -853,7 +854,7 @@ function syncFlatList() {
   for (const entry of sorted) {
     const row = rowOf.get(entry.file);
     if (row) fileList.appendChild(row); // reorder in-place
-    applySkipStatus(entry.file);
+    paintStatus(entry.file);
   }
 }
 
@@ -948,6 +949,7 @@ async function* scanDirectoryEntry(entry: FileSystemEntry): AsyncGenerator<FileE
 
 async function addEntries(incoming: FileEntry[]) {
   const wasEmpty = store.isEmpty;
+  hasRunStrip = false;
   store.add(incoming.filter(e => e.file.type.startsWith('image/')));
   collapseSettings();
   await render();
@@ -986,7 +988,6 @@ async function stripAndDownload() {
 
     await pooled(toProcess, 3, async entry => {
       const { file, path } = entry;
-      const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
       try {
         stripProgressEl.textContent = `${++doneCount} / ${toProcess.length} — ${file.name}`;
         const blob = await activeManager().strip(file);
@@ -998,12 +999,12 @@ async function stripAndDownload() {
         store.strip.markDone(file, blob);
         const copyBtn = copyBtnOf.get(file);
         if (copyBtn) copyBtn.hidden = false;
-        if (statusBadge) { statusBadge.textContent = 'Done'; statusBadge.className = 'badge badge-success badge-sm status-badge'; }
+        paintStatus(file);
       } catch (err) {
         hadErrors = true;
         store.strip.markError(file);
         registerErroredFile(file, path);
-        if (statusBadge) { statusBadge.textContent = 'Error'; statusBadge.className = 'badge badge-error badge-sm status-badge'; }
+        paintStatus(file);
         logEntry({ level: 'error', fileName: file.name, filePath: path, message: humanizeError(err) });
       }
     });
@@ -1012,19 +1013,9 @@ async function stripAndDownload() {
   // Collect blobs: done files + optionally skipped.
   const blobs = collectBlobs(store.entries, getSkipReason, store.strip.done, store.strip.blobs, settings.includeSkipped);
 
-  // Update skip badges (done/error badges are already set above).
-  for (const { file } of store.entries) {
-    if (!store.strip.done.has(file) && getSkipReason(file) !== null) {
-      const statusBadge = rowOf.get(file)?.querySelector<HTMLElement>('.status-badge');
-      if (statusBadge) {
-        if (settings.includeSkipped) {
-          statusBadge.textContent = 'Copied'; statusBadge.className = 'badge badge-outline badge-sm status-badge';
-        } else {
-          statusBadge.textContent = 'Skipped'; statusBadge.className = 'badge badge-outline badge-sm status-badge';
-        }
-      }
-    }
-  }
+  // Skip badges now report the outcome rather than the reason.
+  hasRunStrip = true;
+  for (const { file } of store.entries) paintStatus(file);
 
   pendingBlobs = blobs;
   if (blobs.length >= 1) {
@@ -1149,6 +1140,7 @@ btnClear.addEventListener('click', () => {
   dirCounters.clear();
   copyBtnOf.clear();
   pendingBlobs = [];
+  hasRunStrip = false;
   hideDownloadUI();
   clearLog();
   render();
@@ -1217,6 +1209,7 @@ onSettingChange('paranoid', () => {
   // Strip algorithm changed — cached blobs are stale.
   store.strip.invalidate();
   pendingBlobs = [];
+  hasRunStrip = false;
   hideDownloadUI();
   for (const btn of copyBtnOf.values()) btn.hidden = true;
   render();
@@ -1231,9 +1224,9 @@ function maybeRestoreStripButton() {
   }
 }
 
-onSettingChange('skipClean',        () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
-onSettingChange('skipUnsupported',  () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
-onSettingChange('skipExperimental', () => { for (const e of store.entries) applySkipStatus(e.file); syncFlatList(); updateAllDirCounts(); renderBanner(); maybeRestoreStripButton(); });
+onSettingChange('skipClean',        () => { for (const e of store.entries) paintStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
+onSettingChange('skipUnsupported',  () => { for (const e of store.entries) paintStatus(e.file); syncFlatList(); updateAllDirCounts(); maybeRestoreStripButton(); });
+onSettingChange('skipExperimental', () => { for (const e of store.entries) paintStatus(e.file); syncFlatList(); updateAllDirCounts(); renderBanner(); maybeRestoreStripButton(); });
 
 onSettingChange('showPreviews', () => {
   // Swap thumbnails in place — no reclassification needed. Revoke any decoded
