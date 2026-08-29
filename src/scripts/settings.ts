@@ -1,77 +1,65 @@
 import {
   rawSettings, setSetting, notifyChange, persist,
   enablePersist, disablePersist, clearStoredKeys, hasSavedSettings, noPersist,
+  SETTINGS, starIdFor, toChecked, fromChecked, storedValue, checkedFromStored,
 } from '../lib/state/settings.ts';
+import type { SettingSpec, SettingGroup } from '../lib/state/settings.ts';
 import { clearStats } from '../lib/state/stats.ts';
 import { bindTooltip } from './tooltip.ts';
 
-// — DOM refs (only used inside initSettings) —
+// Every per-setting fact — default, storage key, inversion, reset group, the
+// paranoid lock — comes from the schema. Nothing below names an individual
+// setting except the two whose storage genuinely is special.
 
-const toggleAutoAbout          = document.getElementById('toggle-auto-about') as HTMLInputElement;
-const toggleShowPreviews       = document.getElementById('toggle-show-previews') as HTMLInputElement;
-const toggleParanoid           = document.getElementById('toggle-paranoid') as HTMLInputElement;
-const toggleSkipClean          = document.getElementById('toggle-skip-clean') as HTMLInputElement;
-const toggleSkipUnsupported    = document.getElementById('toggle-skip-unsupported') as HTMLInputElement;
-const toggleSkipExperimental   = document.getElementById('toggle-skip-experimental') as HTMLInputElement;
-const toggleIncludeSkipped     = document.getElementById('toggle-include-skipped') as HTMLInputElement;
-const toggleWarnUnload         = document.getElementById('toggle-warn-unload') as HTMLInputElement;
-const togglePersist            = document.getElementById('toggle-persist') as HTMLInputElement;
-const toggleGlass              = document.getElementById('toggle-glass') as HTMLInputElement;
-const clearStorageHint         = document.getElementById('clear-storage-hint')!;
-const btnClearStorage          = document.getElementById('btn-clear-storage') as HTMLButtonElement;
-const btnResetProcessing       = document.getElementById('btn-reset-processing') as HTMLButtonElement;
-const btnResetAppearance       = document.getElementById('btn-reset-appearance') as HTMLButtonElement;
-const btnResetTechnical        = document.getElementById('btn-reset-technical') as HTMLButtonElement;
+function toggleEl(spec: SettingSpec): HTMLInputElement | null {
+  return document.getElementById(spec.domId) as HTMLInputElement | null;
+}
+
+const LOCKED_LABEL_CLASSES = ['opacity-40', 'pointer-events-none'];
+
+function setLabelLocked(toggle: HTMLInputElement, locked: boolean): void {
+  const label = toggle.closest('label');
+  for (const cls of LOCKED_LABEL_CLASSES) label?.classList.toggle(cls, locked);
+}
 
 // — Glass appearance (stored in the DOM class + localStorage, not in settings state).
 //   The toggle is positive (on = effects enabled); the `no-glass` class/key invert it. —
 
+const GLASS = SETTINGS.find(s => s.domId === 'toggle-glass')!;
+
 function applyGlass(enabled: boolean): void {
   document.documentElement.classList.toggle('no-glass', !enabled);
-  persist('stripmeta-no-glass', !enabled);
+  persist(GLASS.storageKey!, storedValue(GLASS, enabled));
 }
 
 // — Changed-from-default stars —
 
-const DEFAULT_CHECKED: Record<string, boolean> = {
-  'toggle-paranoid':          false,
-  'toggle-skip-clean':        false,
-  'toggle-skip-unsupported':  false,
-  'toggle-skip-experimental': true,
-  'toggle-include-skipped':   false,
-  'toggle-auto-about':        true,
-  'toggle-warn-unload':       !import.meta.env.DEV,
-  'toggle-glass':             true,
-  'toggle-show-previews':     true,
-  'toggle-persist':           true,
-};
-
-function isDefaultChecked(toggle: HTMLInputElement, id: string): boolean {
-  return toggle.disabled || toggle.checked === DEFAULT_CHECKED[id];
+/** A disabled toggle is showing a forced value, not a chosen one. */
+function isDefaultChecked(spec: SettingSpec): boolean {
+  const toggle = toggleEl(spec);
+  return !toggle || toggle.disabled || toggle.checked === spec.defaultChecked;
 }
 
 function refreshStars(): void {
-  for (const [toggleId] of Object.entries(DEFAULT_CHECKED)) {
-    const toggle = document.getElementById(toggleId) as HTMLInputElement | null;
-    const star   = document.getElementById(toggleId.replace('toggle-', 'star-'));
-    if (!toggle || !star) continue;
-    star.classList.toggle('hidden', isDefaultChecked(toggle, toggleId));
+  for (const spec of SETTINGS) {
+    document.getElementById(starIdFor(spec))?.classList.toggle('hidden', isDefaultChecked(spec));
   }
 }
 
+const GROUPS: readonly { group: SettingGroup; btnId: string }[] = [
+  { group: 'processing', btnId: 'btn-reset-processing' },
+  { group: 'appearance', btnId: 'btn-reset-appearance' },
+  { group: 'technical',  btnId: 'btn-reset-technical'  },
+];
+
+function specsIn(group: SettingGroup): SettingSpec[] {
+  return SETTINGS.filter(s => s.group === group);
+}
+
 function refreshResetButtons(): void {
-  const groups: Array<[HTMLButtonElement | null, string[]]> = [
-    [btnResetProcessing, ['toggle-paranoid', 'toggle-skip-clean', 'toggle-skip-unsupported', 'toggle-skip-experimental', 'toggle-include-skipped']],
-    [btnResetAppearance, ['toggle-auto-about', 'toggle-warn-unload', 'toggle-glass', 'toggle-show-previews']],
-    [btnResetTechnical,  ['toggle-persist']],
-  ];
-  for (const [btn, ids] of groups) {
-    if (!btn) continue;
-    const allDefault = ids.every(id => {
-      const t = document.getElementById(id) as HTMLInputElement | null;
-      return !t || isDefaultChecked(t, id);
-    });
-    btn.classList.toggle('hidden', allDefault);
+  for (const { group, btnId } of GROUPS) {
+    const btn = document.getElementById(btnId);
+    btn?.classList.toggle('hidden', specsIn(group).every(isDefaultChecked));
   }
 }
 
@@ -151,6 +139,61 @@ function setupReset(
   });
 }
 
+/**
+ * Wires one group's reset button: preview the defaults, then either confirm
+ * (dispatch change on each toggle, so the ordinary handlers do the work) or
+ * abort back to the snapshot taken before the preview.
+ */
+function setupGroupReset(group: SettingGroup, btn: HTMLButtonElement, syncForced: () => void): void {
+  const specs = specsIn(group);
+  let saved = new Map<string, { checked: boolean; disabled: boolean }>();
+
+  setupReset(
+    btn,
+    () => {
+      saved = new Map(specs.flatMap(spec => {
+        const toggle = toggleEl(spec);
+        return toggle ? [[spec.domId, { checked: toggle.checked, disabled: toggle.disabled }] as const] : [];
+      }));
+      // Show the defaults, unlocking anything the paranoid lock had held.
+      for (const spec of specs) {
+        const toggle = toggleEl(spec);
+        if (!toggle) continue;
+        toggle.checked = spec.defaultChecked;
+        setLabelLocked(toggle, false);
+      }
+      // Lock everything while the confirmation is pending.
+      for (const spec of specs) {
+        const toggle = toggleEl(spec);
+        if (toggle) toggle.disabled = true;
+      }
+    },
+    () => {
+      for (const spec of specs) {
+        const toggle = toggleEl(spec);
+        if (toggle) toggle.disabled = false;
+      }
+      // Dispatch the forcing setting last, so its handler reads state the
+      // others have already updated.
+      const isForcer = (s: SettingSpec) => specs.some(o => o.forcedBy === s.key);
+      for (const spec of specs.filter(s => !isForcer(s))) toggleEl(spec)?.dispatchEvent(new Event('change'));
+      for (const spec of specs.filter(isForcer))            toggleEl(spec)?.dispatchEvent(new Event('change'));
+      syncForced();
+    },
+    () => {
+      for (const spec of specs) {
+        const toggle = toggleEl(spec);
+        const prev = saved.get(spec.domId);
+        if (!toggle || !prev) continue;
+        toggle.checked = prev.checked;
+        toggle.disabled = prev.disabled;
+        setLabelLocked(toggle, prev.disabled);
+      }
+    },
+    specs.map(starIdFor),
+  );
+}
+
 // — Settings panel animation —
 
 let _settingsDetails: HTMLDetailsElement | null = null;
@@ -169,240 +212,87 @@ export function collapseSettings(): void {
 export function initSettings(): void {
   const details = _settingsDetails = document.getElementById('settings-details') as HTMLDetailsElement;
   const body = _settingsBody = details.querySelector<HTMLElement>('.settings-body')!;
-  const labelSkipClean = toggleSkipClean.closest('label')!;
+  const clearStorageHint = document.getElementById('clear-storage-hint')!;
 
-  // Sync toggle DOM state from the stored (raw) settings
-  togglePersist.checked            = rawSettings.persist;
-  toggleParanoid.checked           = rawSettings.paranoid;
-  toggleSkipClean.checked          = !rawSettings.skipClean;
-  toggleSkipUnsupported.checked    = !rawSettings.skipUnsupported;
-  toggleSkipExperimental.checked   = !rawSettings.skipExperimental;
-  toggleIncludeSkipped.checked     = rawSettings.includeSkipped;
-  toggleWarnUnload.checked         = rawSettings.warnUnload;
-  toggleAutoAbout.checked          = rawSettings.autoAbout;
-  toggleShowPreviews.checked       = rawSettings.showPreviews;
-  toggleGlass.checked              = localStorage.getItem('stripmeta-no-glass') !== '1';
+  /**
+   * Applies the paranoid lock: settings it forces are shown checked and
+   * disabled while it is on, and restored from the store when it goes off.
+   * Their effective values follow in the store, so the panel and the app agree.
+   */
+  function syncForced(): void {
+    for (const spec of SETTINGS) {
+      if (spec.forcedBy === undefined) continue;
+      const toggle = toggleEl(spec);
+      if (!toggle) continue;
+      const forced = rawSettings[spec.forcedBy];
+      toggle.checked = forced ? true : toChecked(spec, rawSettings[spec.key!]);
+      toggle.disabled = forced;
+      setLabelLocked(toggle, forced);
+    }
+  }
+
+  // Sync every toggle from the stored (raw) settings.
+  for (const spec of SETTINGS) {
+    const toggle = toggleEl(spec);
+    if (!toggle) continue;
+    if (spec.key) {
+      toggle.checked = toChecked(spec, rawSettings[spec.key]);
+    } else {
+      // DOM-only (glass): read the stored value back directly.
+      toggle.checked = checkedFromStored(spec, localStorage.getItem(spec.storageKey!) === '1');
+    }
+  }
+  syncForced();
 
   // Show stale-data hint if persist was already disabled and old data exists
   if (noPersist && hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
 
-  const labelSkipExperimental = toggleSkipExperimental.closest('label')!;
+  for (const spec of SETTINGS) {
+    const toggle = toggleEl(spec);
+    if (!toggle) continue;
 
-  // Apply paranoid UI state on load (skipClean + skipExperimental forced; toggles locked checked)
-  if (rawSettings.paranoid) {
-    toggleSkipClean.checked          = true;
-    toggleSkipClean.disabled         = true;
-    labelSkipClean.classList.add('opacity-40', 'pointer-events-none');
-    toggleSkipExperimental.checked   = true;
-    toggleSkipExperimental.disabled  = true;
-    labelSkipExperimental.classList.add('opacity-40', 'pointer-events-none');
+    toggle.addEventListener('change', () => {
+      // Persistence is the opt-out flag itself, not an ordinary stored setting.
+      if (spec.key === 'persist') {
+        if (toggle.checked) {
+          enablePersist(document.documentElement.classList.contains('no-glass'));
+          clearStorageHint.classList.remove('hint-visible');
+        } else {
+          disablePersist();
+          if (hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
+        }
+        return;
+      }
+      // Glass lives in a document class rather than the store.
+      if (spec.key === undefined) {
+        applyGlass(toggle.checked);
+        return;
+      }
+
+      setSetting(spec.key, fromChecked(spec, toggle.checked));
+      persist(spec.storageKey!, storedValue(spec, toggle.checked));
+
+      // A setting that forces others changed: re-apply the lock, then tell the
+      // forced settings' listeners, whose effective values just flipped.
+      const forced = SETTINGS.filter(s => s.forcedBy === spec.key);
+      if (forced.length > 0) {
+        syncForced();
+        for (const f of forced) notifyChange(f.key!);
+      }
+    });
   }
 
-  // Event listeners — drive the settings store
-  toggleParanoid.addEventListener('change', () => {
-    setSetting('paranoid', toggleParanoid.checked);
-    persist('stripmeta-paranoid', toggleParanoid.checked);
-    if (toggleParanoid.checked) {
-      toggleSkipClean.checked          = true;
-      toggleSkipClean.disabled         = true;
-      labelSkipClean.classList.add('opacity-40', 'pointer-events-none');
-      toggleSkipExperimental.checked   = true;
-      toggleSkipExperimental.disabled  = true;
-      labelSkipExperimental.classList.add('opacity-40', 'pointer-events-none');
-    } else {
-      toggleSkipClean.checked          = !rawSettings.skipClean;
-      toggleSkipClean.disabled         = false;
-      labelSkipClean.classList.remove('opacity-40', 'pointer-events-none');
-      toggleSkipExperimental.checked   = !rawSettings.skipExperimental;
-      toggleSkipExperimental.disabled  = false;
-      labelSkipExperimental.classList.remove('opacity-40', 'pointer-events-none');
-    }
-    // Effective skipClean/skipExperimental flip with paranoid — notify their listeners too.
-    notifyChange('skipClean');
-    notifyChange('skipExperimental');
-  });
-
-  toggleSkipClean.addEventListener('change', () => {
-    setSetting('skipClean', !toggleSkipClean.checked);
-    persist('stripmeta-process-clean', toggleSkipClean.checked);
-  });
-
-  toggleSkipUnsupported.addEventListener('change', () => {
-    setSetting('skipUnsupported', !toggleSkipUnsupported.checked);
-    persist('stripmeta-process-unsupported', toggleSkipUnsupported.checked);
-  });
-
-  toggleSkipExperimental.addEventListener('change', () => {
-    setSetting('skipExperimental', !toggleSkipExperimental.checked);
-    persist('stripmeta-process-experimental', toggleSkipExperimental.checked);
-  });
-
-  toggleIncludeSkipped.addEventListener('change', () => {
-    setSetting('includeSkipped', toggleIncludeSkipped.checked);
-    persist('stripmeta-include-skipped', toggleIncludeSkipped.checked);
-  });
-
-  toggleWarnUnload.addEventListener('change', () => {
-    setSetting('warnUnload', toggleWarnUnload.checked);
-    persist('stripmeta-warn-unload', toggleWarnUnload.checked);
-  });
-
-  toggleAutoAbout.addEventListener('change', () => {
-    setSetting('autoAbout', toggleAutoAbout.checked);
-    persist('stripmeta-auto-about', toggleAutoAbout.checked);
-  });
-
-  toggleShowPreviews.addEventListener('change', () => {
-    setSetting('showPreviews', toggleShowPreviews.checked);
-    persist('stripmeta-show-previews', toggleShowPreviews.checked);
-  });
-
-  toggleGlass.addEventListener('change', () => applyGlass(toggleGlass.checked));
-
-  togglePersist.addEventListener('change', () => {
-    if (togglePersist.checked) {
-      enablePersist(document.documentElement.classList.contains('no-glass'));
-      clearStorageHint.classList.remove('hint-visible');
-    } else {
-      disablePersist();
-      if (hasSavedSettings()) clearStorageHint.classList.add('hint-visible');
-    }
-  });
-
-  btnClearStorage.addEventListener('click', () => {
+  document.getElementById('btn-clear-storage')!.addEventListener('click', () => {
     clearStoredKeys();
     clearStats();
     clearStorageHint.classList.remove('hint-visible');
     window.dispatchEvent(new CustomEvent('stripmeta:storageCleared'));
   });
 
-  // — Reset buttons —
-
-  // Saved visual state for abort (captured on first click)
-  let procSaved = { paranoid: false, skipClean: false, skipUnsupported: false, skipExperimental: true, includeSkipped: false, cleanDisabled: false, expDisabled: false };
-  let appSaved  = { autoAbout: true, warnUnload: true, glass: true, showPreviews: true };
-  let techSaved = { persist: true };
-
-  setupReset(
-    btnResetProcessing,
-    () => {
-      procSaved = {
-        paranoid:         toggleParanoid.checked,
-        skipClean:        toggleSkipClean.checked,
-        skipUnsupported:  toggleSkipUnsupported.checked,
-        skipExperimental: toggleSkipExperimental.checked,
-        includeSkipped:   toggleIncludeSkipped.checked,
-        cleanDisabled:    toggleSkipClean.disabled,
-        expDisabled:      toggleSkipExperimental.disabled,
-      };
-      // Show defaults visually; unlock any paranoid-locked toggles
-      toggleParanoid.checked          = false;
-      toggleSkipClean.checked         = false;
-      toggleSkipClean.disabled        = false;
-      labelSkipClean.classList.remove('opacity-40', 'pointer-events-none');
-      toggleSkipUnsupported.checked   = false;
-      toggleSkipExperimental.checked  = true;
-      toggleSkipExperimental.disabled = false;
-      labelSkipExperimental.classList.remove('opacity-40', 'pointer-events-none');
-      toggleIncludeSkipped.checked    = false;
-      // Lock all during pending
-      toggleParanoid.disabled         = true;
-      toggleSkipClean.disabled        = true;
-      toggleSkipUnsupported.disabled  = true;
-      toggleSkipExperimental.disabled = true;
-      toggleIncludeSkipped.disabled   = true;
-    },
-    () => {
-      // Re-enable before dispatching so paranoid handler can re-manage skip-clean/skip-experimental
-      toggleParanoid.disabled         = false;
-      toggleSkipClean.disabled        = false;
-      toggleSkipUnsupported.disabled  = false;
-      toggleSkipExperimental.disabled = false;
-      toggleIncludeSkipped.disabled   = false;
-      // Dispatch non-paranoid toggles first so paranoid's restore reads the updated _state
-      toggleSkipClean.dispatchEvent(new Event('change'));
-      toggleSkipUnsupported.dispatchEvent(new Event('change'));
-      toggleSkipExperimental.dispatchEvent(new Event('change'));
-      toggleIncludeSkipped.dispatchEvent(new Event('change'));
-      toggleParanoid.dispatchEvent(new Event('change'));
-    },
-    () => {
-      toggleParanoid.checked          = procSaved.paranoid;
-      toggleParanoid.disabled         = false;
-      toggleSkipClean.checked         = procSaved.skipClean;
-      toggleSkipClean.disabled        = procSaved.cleanDisabled;
-      if (procSaved.cleanDisabled) labelSkipClean.classList.add('opacity-40', 'pointer-events-none');
-      else labelSkipClean.classList.remove('opacity-40', 'pointer-events-none');
-      toggleSkipUnsupported.checked   = procSaved.skipUnsupported;
-      toggleSkipUnsupported.disabled  = false;
-      toggleSkipExperimental.checked  = procSaved.skipExperimental;
-      toggleSkipExperimental.disabled = procSaved.expDisabled;
-      if (procSaved.expDisabled) labelSkipExperimental.classList.add('opacity-40', 'pointer-events-none');
-      else labelSkipExperimental.classList.remove('opacity-40', 'pointer-events-none');
-      toggleIncludeSkipped.checked    = procSaved.includeSkipped;
-      toggleIncludeSkipped.disabled   = false;
-    },
-    ['star-paranoid', 'star-skip-clean', 'star-skip-unsupported', 'star-skip-experimental', 'star-include-skipped'],
-  );
-
-  setupReset(
-    btnResetAppearance,
-    () => {
-      appSaved = {
-        autoAbout: toggleAutoAbout.checked,
-        warnUnload: toggleWarnUnload.checked,
-        glass: toggleGlass.checked,
-        showPreviews: toggleShowPreviews.checked,
-      };
-      toggleAutoAbout.checked     = true;
-      toggleWarnUnload.checked    = !import.meta.env.DEV;
-      toggleGlass.checked         = true;
-      toggleShowPreviews.checked  = true;
-      toggleAutoAbout.disabled    = true;
-      toggleWarnUnload.disabled   = true;
-      toggleGlass.disabled        = true;
-      toggleShowPreviews.disabled = true;
-    },
-    () => {
-      toggleAutoAbout.disabled    = false;
-      toggleWarnUnload.disabled   = false;
-      toggleGlass.disabled        = false;
-      toggleShowPreviews.disabled = false;
-      toggleAutoAbout.dispatchEvent(new Event('change'));
-      toggleWarnUnload.dispatchEvent(new Event('change'));
-      toggleGlass.dispatchEvent(new Event('change'));
-      toggleShowPreviews.dispatchEvent(new Event('change'));
-    },
-    () => {
-      toggleAutoAbout.checked     = appSaved.autoAbout;
-      toggleAutoAbout.disabled    = false;
-      toggleWarnUnload.checked    = appSaved.warnUnload;
-      toggleWarnUnload.disabled   = false;
-      toggleGlass.checked         = appSaved.glass;
-      toggleGlass.disabled        = false;
-      toggleShowPreviews.checked  = appSaved.showPreviews;
-      toggleShowPreviews.disabled = false;
-    },
-    ['star-auto-about', 'star-warn-unload', 'star-glass', 'star-show-previews'],
-  );
-
-  setupReset(
-    btnResetTechnical,
-    () => {
-      techSaved = { persist: togglePersist.checked };
-      togglePersist.checked  = true;
-      togglePersist.disabled = true;
-    },
-    () => {
-      togglePersist.disabled = false;
-      togglePersist.dispatchEvent(new Event('change'));
-    },
-    () => {
-      togglePersist.checked  = techSaved.persist;
-      togglePersist.disabled = false;
-    },
-    ['star-persist'],
-  );
+  for (const { group, btnId } of GROUPS) {
+    const btn = document.getElementById(btnId) as HTMLButtonElement | null;
+    if (btn) setupGroupReset(group, btn, syncForced);
+  }
 
   const btnClearInfo = document.getElementById('btn-clear-info');
   if (btnClearInfo) bindTooltip(btnClearInfo);
