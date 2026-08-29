@@ -6,7 +6,7 @@ import { buildTree, collectEntries, entriesUnder } from '../lib/domain/fileTree.
 import type { DirNode } from '../lib/domain/fileTree.ts';
 import { FileStore } from '../lib/state/fileStore.ts';
 import { ThumbUrls } from '../lib/state/thumbUrls.ts';
-import type { WarningLevel, StripperManager } from '../lib/stripMeta.ts';
+import type { WarningLevel, StripperManager, MetadataPreview } from '../lib/stripMeta.ts';
 import { formatBytes } from '../lib/util/format.ts';
 import { statusBadge } from '../lib/view/statusBadge.ts';
 import { openMetadataModal } from './modal.ts';
@@ -428,47 +428,62 @@ function attachRemoveHandler(
   });
 }
 
+function renderPreviewBadges(preview: MetadataPreview, badgesSlot: HTMLElement): void {
+  for (const b of buildPreviewBadges(preview)) {
+    if (b.kind === 'gps') {
+      const gpsBadge = document.createElement('button');
+      gpsBadge.type = 'button';
+      gpsBadge.className = 'badge badge-xs badge-error [--size:1.25rem] cursor-pointer tooltip tooltip-top';
+      gpsBadge.dataset.tip = b.coord;
+      const gpsInner = document.createElement('span');
+      gpsInner.className = 'truncate min-w-0';
+      gpsInner.textContent = '📍 GPS';
+      gpsBadge.appendChild(gpsInner);
+      gpsBadge.addEventListener('click', e => {
+        e.stopPropagation();
+        showGpsPopover(gpsBadge, b.lat, b.lon, b.coord);
+      });
+      badgesSlot.appendChild(gpsBadge);
+    } else {
+      badgesSlot.appendChild(badge(b.cls, b.text, b.tip));
+    }
+  }
+}
+
 async function loadFileMetadata(entry: FileEntry, badgesSlot: HTMLElement, detailsBtn: HTMLButtonElement): Promise<void> {
   const { file } = entry;
-  await metaSem.acquire();
-  try {
-    const preview = await readMetadata(file);
+  const gen = renderGen;
 
-    for (const b of buildPreviewBadges(preview)) {
-      if (b.kind === 'gps') {
-        const gpsBadge = document.createElement('button');
-        gpsBadge.type = 'button';
-        gpsBadge.className = 'badge badge-xs badge-error [--size:1.25rem] cursor-pointer tooltip tooltip-top';
-        gpsBadge.dataset.tip = b.coord;
-        const gpsInner = document.createElement('span');
-        gpsInner.className = 'truncate min-w-0';
-        gpsInner.textContent = '📍 GPS';
-        gpsBadge.appendChild(gpsInner);
-        gpsBadge.addEventListener('click', e => {
-          e.stopPropagation();
-          showGpsPopover(gpsBadge, b.lat, b.lon, b.coord);
-        });
-        badgesSlot.appendChild(gpsBadge);
-      } else {
-        badgesSlot.appendChild(badge(b.cls, b.text, b.tip));
+  // The store keeps previews across re-classification, so a re-rendered card
+  // reuses the read instead of parsing the file again.
+  let preview = store.preview(file);
+  if (!preview) {
+    try {
+      await metaSem.acquire();
+      try {
+        preview = await readMetadata(file);
+      } finally {
+        metaSem.release();
       }
+    } catch (err) {
+      logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
+      return;
     }
-
     store.setPreview(file, preview);
-
     if (preview.parseErrored && getSkipReason(file) === null) {
       logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata' });
     }
-    if (!preview.hasAnyMetadata && !preview.parseErrored) detailsBtn.textContent = 'no metadata';
-
-    paintStatus(file);
-    syncFlatList();
-    updateAllDirCounts();
-  } catch (err) {
-    logEntry({ level: 'warning', fileName: file.name, filePath: entry.path, message: 'Could not read metadata: ' + humanizeError(err) });
-  } finally {
-    metaSem.release();
   }
+
+  // A newer render owns the list now; it will pick the preview up from the store.
+  if (gen !== renderGen) return;
+
+  renderPreviewBadges(preview, badgesSlot);
+  if (!preview.hasAnyMetadata && !preview.parseErrored) detailsBtn.textContent = 'no metadata';
+
+  paintStatus(file);
+  syncFlatList();
+  updateAllDirCounts();
 }
 
 // — File card —
