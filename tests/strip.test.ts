@@ -8,7 +8,7 @@ vi.mock('exifr', () => ({
 
 async function importFresh() {
   vi.resetModules();
-  return import('../src/lib/stripMeta');
+  return import('../src/lib/strippers/registry');
 }
 
 function fixtureFile(filename: string, type: string): File {

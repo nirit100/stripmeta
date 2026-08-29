@@ -1,40 +1,11 @@
 import exifr from 'exifr';
 import extract from 'png-chunks-extract';
-import { StripperManager } from './strippers/manager.ts';
-import { jpegStripper } from './strippers/jpeg.ts';
-import { pngStripper } from './strippers/png.ts';
-import { webpStripper } from './strippers/webp.ts';
-import { heicStripper } from './strippers/heic.ts';
-import { avifStripper } from './strippers/avif.ts';
-import { canvasStripper } from './strippers/canvas.ts';
-import { browserCapabilities } from './platform/platform.ts';
-import { readExifBytes } from './strippers/isobmff.ts';
+import { readExifBytes } from '../strippers/isobmff.ts';
+import type { MetadataPreview, MetadataSection } from './types.ts';
 
-export type { StripperHandler, WarningLevel } from './strippers/types.ts';
-export { StripperManager };
-export { browserCapabilities } from './platform/platform.ts';
-
-// Handlers are tried in registration order; first match wins.
-// canvasStripper must be last — it defers to capabilities to decide support.
-export const defaultStripperManager = new StripperManager(browserCapabilities)
-  .register(jpegStripper)
-  .register(pngStripper)
-  .register(webpStripper)
-  .register(heicStripper)
-  .register(avifStripper)
-  .register(canvasStripper);
-
-// Paranoid mode: skip all native handlers and always re-encode through canvas.
-// Output is always JPEG at 0.95 quality, stripping every form of embedded metadata.
-export const paranoidStripperManager = new StripperManager(browserCapabilities)
-  .register(canvasStripper);
+export type { MetadataPreview, MetadataSection } from './types.ts';
 
 // — PNG text chunk parsing —
-
-export interface MetadataSection {
-  name: string;
-  entries: { key: string; value: string }[];
-}
 
 function decodePngTextChunks(data: Uint8Array): MetadataSection | null {
   const chunks = extract(data);
@@ -81,19 +52,6 @@ function formatExifrValue(v: unknown): string | null {
 }
 
 // — Public API —
-
-export interface MetadataPreview {
-  gps: { latitude: number; longitude: number } | null;
-  make: string | null;
-  model: string | null;
-  serialNumber: string | null;
-  software: string | null;
-  dateTime: Date | string | null;
-  artist: string | null;
-  userComment: string | null;
-  hasAnyMetadata: boolean;
-  parseErrored?: true;  // exifr threw during parsing! treat as not clean
-}
 
 const ISOBMFF_TYPES = new Set(['image/heic', 'image/heif', 'image/avif']);
 
@@ -270,8 +228,4 @@ export async function readRichMetadata(file: File): Promise<{ sections: Metadata
   }
 
   return { sections, parseError, hasUnreadableData };
-}
-
-export function stripMetadata(file: File): Promise<Blob> {
-  return defaultStripperManager.strip(file);
 }

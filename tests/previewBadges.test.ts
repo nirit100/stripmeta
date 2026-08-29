@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildPreviewBadges, formatPreviewDate, type PreviewBadge } from '../src/lib/view/previewBadges';
-import type { MetadataPreview } from '../src/lib/stripMeta';
+import type { MetadataPreview } from '../src/lib/metadata/types';
 
 function preview(over: Partial<MetadataPreview> = {}): MetadataPreview {
   return {

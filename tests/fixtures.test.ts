@@ -2,7 +2,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, it, expect } from 'vitest';
-import { readMetadata, readRichMetadata } from '../src/lib/stripMeta';
+import { readMetadata, readRichMetadata } from '../src/lib/metadata/read';
 
 function fixtureFile(filename: string, type: string): File {
   const buf = readFileSync(join(import.meta.dirname, 'fixtures', filename));

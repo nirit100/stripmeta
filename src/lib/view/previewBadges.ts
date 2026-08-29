@@ -1,4 +1,4 @@
-import type { MetadataPreview } from '../stripMeta.ts';
+import type { MetadataPreview } from '../metadata/types.ts';
 import { formatGps } from '../util/format.ts';
 
 // A presentation-neutral description of one preview badge. The DOM layer turns

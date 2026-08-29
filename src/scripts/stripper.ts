@@ -1,4 +1,6 @@
-import { readMetadata, defaultStripperManager, paranoidStripperManager, browserCapabilities } from '../lib/stripMeta.ts';
+import { readMetadata } from '../lib/metadata/read.ts';
+import { defaultStripperManager, paranoidStripperManager } from '../lib/strippers/registry.ts';
+import { browserCapabilities } from '../lib/platform/platform.ts';
 import { iconSvg } from '../lib/view/icons.ts';
 import { computeToProcess, collectBlobs } from '../lib/domain/stripPlan.ts';
 import type { FileEntry } from '../lib/domain/stripPlan.ts';
@@ -6,7 +8,9 @@ import { buildTree, collectEntries, entriesUnder, findNode } from '../lib/domain
 import type { DirNode } from '../lib/domain/fileTree.ts';
 import { FileStore } from '../lib/state/fileStore.ts';
 import { ThumbUrls } from '../lib/state/thumbUrls.ts';
-import type { WarningLevel, StripperManager, MetadataPreview } from '../lib/stripMeta.ts';
+import type { WarningLevel } from '../lib/strippers/types.ts';
+import type { StripperManager } from '../lib/strippers/manager.ts';
+import type { MetadataPreview } from '../lib/metadata/types.ts';
 import { formatBytes } from '../lib/util/format.ts';
 import { statusBadge } from '../lib/view/statusBadge.ts';
 import { openMetadataModal } from './modal.ts';
