@@ -1,6 +1,6 @@
 import { sendBugReport } from '../lib/email.ts';
-import { verifyTurnstile } from '../lib/turnstile.ts';
-import { REPORT_LIMITS, isPlausibleEmail, clampField } from '../../shared/bugReport.ts';
+import { verifyTurnstile, parseHostnames } from '../lib/turnstile.ts';
+import { REPORT_LIMITS, TURNSTILE_ACTION, isPlausibleEmail, clampField } from '../../shared/bugReport.ts';
 import type { BugReportPayload } from '../../shared/bugReport.ts';
 
 function sanitizeFilename(name: string): string {
@@ -91,11 +91,13 @@ export async function onRequestPost(ctx: { request: Request; env: Env }): Promis
   // Enforced only once a secret is configured, so an unconfigured deployment
   // and local dev keep working without a widget.
   if (env.TURNSTILE_SECRET) {
-    const verdict = await verifyTurnstile(
-      payload.turnstileToken,
-      env.TURNSTILE_SECRET,
-      request.headers.get('CF-Connecting-IP'),
-    );
+    const verdict = await verifyTurnstile({
+      token: payload.turnstileToken,
+      secret: env.TURNSTILE_SECRET,
+      expectedAction: TURNSTILE_ACTION,
+      expectedHostnames: parseHostnames(env.TURNSTILE_HOSTNAMES),
+      remoteIp: request.headers.get('CF-Connecting-IP'),
+    });
     if (!verdict.ok) {
       console.warn('[turnstile]', verdict.reason);
       return new Response('Verification failed', { status: 403 });

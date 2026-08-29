@@ -1,4 +1,6 @@
 ---
+import { TURNSTILE_ACTION } from '../../shared/bugReport.ts';
+
 const privacyUrl = import.meta.env.PUBLIC_PRIVACY_URL as string;
 const turnstileSitekey = import.meta.env.PUBLIC_TURNSTILE_SITEKEY as string | undefined;
 
@@ -102,7 +104,7 @@ const devMissing = import.meta.env.DEV ? [
           <p class="text-[0.65rem] font-semibold uppercase tracking-widest text-base-content/35">Bot check</p>
           {/* Empty until Send is pressed — the script is fetched at that moment
               and never before, so opening this screen contacts nobody. */}
-          <div id="bug-turnstile" data-sitekey={turnstileSitekey}></div>
+          <div id="bug-turnstile" data-sitekey={turnstileSitekey} data-action={TURNSTILE_ACTION}></div>
           <p class="text-xs text-base-content/45">
             When you press Send, a Cloudflare check runs here to stop automated submissions. Nothing is loaded from Cloudflare until then, and never while you are stripping photos.
           </p>

@@ -3,7 +3,7 @@ import { getErroredFiles } from '../lib/state/erroredFiles.ts';
 import { buildAnonMap } from '../lib/domain/anonMap.ts';
 import { settings } from '../lib/state/settings.ts';
 import { formatBytes } from '../lib/util/format.ts';
-import { REPORT_LIMITS, clampField } from '../../shared/bugReport.ts';
+import { REPORT_LIMITS, TURNSTILE_ACTION, clampField } from '../../shared/bugReport.ts';
 import type { BugReportPayload } from '../../shared/bugReport.ts';
 
 const modal = document.getElementById('bug-report-modal') as HTMLDialogElement | null;
@@ -35,6 +35,8 @@ function escHtml(str: string): string {
 interface TurnstileApi {
   render(el: HTMLElement, opts: {
     sitekey: string;
+    /** Stamped into the token so the server can refuse one minted elsewhere. */
+    action: string;
     callback: (token: string) => void;
     'expired-callback': () => void;
     'error-callback': () => void;
@@ -95,6 +97,7 @@ async function getTurnstileToken(): Promise<string> {
   if (turnstileWidgetId === null) {
     turnstileWidgetId = turnstile.render(turnstileHost, {
       sitekey,
+      action: turnstileHost.dataset.action ?? TURNSTILE_ACTION,
       callback: token => settleToken(token),
       'expired-callback': () => settleToken(null),
       'error-callback': () => settleToken(null),
